@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaFlow - New Upload</title>
+<style>
+  :root{
+    --indigo:#5b5bf0;
+    --indigo-dark:#4a4ae0;
+    --sidebar-bg:#151530;
+    --sidebar-active:#5b5bf0;
+    --page-bg:#f5f6fa;
+    --card-bg:#ffffff;
+    --border:#e6e8f0;
+    --text-dark:#1a1a2e;
+    --text-mid:#6b7080;
+    --text-light:#9a9ea8;
+    --green:#16a34a;
+    --green-bg:#e8f8ee;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--page-bg);
+    color:var(--text-dark);
+    display:flex;
+    min-height:100vh;
+  }
+
+  /* SIDEBAR */
+  .sidebar{
+    width:230px;
+    background:var(--sidebar-bg);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    padding:20px 14px;
+    flex-shrink:0;
+  }
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px 24px;
+    font-size:19px;
+    font-weight:700;
+  }
+  .logo svg{flex-shrink:0;}
+  .nav{list-style:none;display:flex;flex-direction:column;gap:4px;flex:1;}
+  .nav li{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:8px;
+    font-size:14px;color:#b8bacb;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .nav li:hover{background:#22224a;color:#fff;}
+  .nav li.active{background:var(--sidebar-active);color:#fff;font-weight:600;}
+  .nav li svg{flex-shrink:0;opacity:.9;}
+
+  .darkmode-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 12px;font-size:14px;color:#b8bacb;margin-top:8px;
+  }
+  .toggle{
+    width:36px;height:20px;background:#33335c;border-radius:20px;position:relative;cursor:pointer;
+  }
+  .toggle::after{
+    content:"";position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;
+    top:2px;left:2px;transition:transform .15s;
+  }
+
+  .user-card{
+    display:flex;align-items:center;gap:10px;
+    background:#1e1e42;padding:10px 12px;border-radius:10px;margin-top:12px;
+  }
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(135deg,#7b7bf5,#5b5bf0);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;
+  }
+  .user-card .name{font-size:13px;font-weight:600;}
+  .user-card .email{font-size:11px;color:#9a9ecb;}
+
+  /* MAIN */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;background:#fff;border-bottom:1px solid var(--border);
+  }
+  .topbar h1{font-size:22px;font-weight:700;}
+  .topbar-right{display:flex;align-items:center;gap:18px;}
+  .bell{position:relative;color:#4a4a5a;}
+  .badge{
+    position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;
+    font-size:10px;font-weight:700;width:16px;height:16px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);}
+  .admin-pill .avatar{width:30px;height:30px;font-size:12px;}
+
+  .content{
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:24px;
+    padding:28px 32px;
+    align-items:start;
+  }
+
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+  }
+  .card + .card{margin-top:24px;}
+  .card h2{font-size:16px;font-weight:700;margin-bottom:4px;}
+  .card .sub{font-size:13px;color:var(--text-mid);margin-bottom:18px;}
+
+  /* Upload dropzone */
+  .dropzone{
+    border:2px dashed #c9cbe0;
+    border-radius:12px;
+    background:#fafaff;
+    padding:44px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s,background .15s;
+  }
+  .dropzone.dragover{border-color:var(--indigo);background:#f0f0ff;}
+  .dropzone svg{color:var(--indigo);margin-bottom:14px;}
+  .dropzone p{font-size:15px;color:var(--text-dark);margin-bottom:4px;font-weight:500;}
+  .dropzone .or{font-size:12px;color:var(--text-light);margin:10px 0;}
+  .choose-btn{
+    background:var(--indigo);color:#fff;border:none;padding:9px 20px;
+    border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  .choose-btn:hover{background:var(--indigo-dark);}
+
+  .file-row{
+    display:none;
+    margin-top:16px;
+    align-items:center;gap:14px;
+    border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  }
+  .file-row.show{display:flex;}
+  .thumb{
+    width:64px;height:44px;border-radius:8px;flex-shrink:0;
+    background:linear-gradient(135deg,#4facfe,#00c2a8);
+    display:flex;align-items:center;justify-content:center;color:#fff;position:relative;overflow:hidden;
+  }
+  .thumb svg{position:relative;z-index:1;}
+  .file-info{flex:1;min-width:0;}
+  .file-info .fname{font-size:14px;font-weight:600;}
+  .file-info .fmeta{font-size:12px;color:var(--text-mid);margin-top:2px;}
+  .file-status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--green);font-weight:600;white-space:nowrap;}
+  .file-status svg{flex-shrink:0;}
+  .remove-x{cursor:pointer;color:var(--text-light);font-size:18px;line-height:1;padding:2px;}
+  .remove-x:hover{color:#ef4444;}
+
+  /* Platforms */
+  .platform-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .platform-card{
+    border:1.5px solid var(--border);border-radius:12px;padding:18px 14px;
+    text-align:center;position:relative;cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .platform-card.selected{border-color:var(--indigo);background:#f6f6ff;}
+  .platform-check{
+    position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:5px;
+    background:var(--indigo);display:flex;align-items:center;justify-content:center;
+  }
+  .platform-icon{
+    width:48px;height:48px;border-radius:12px;margin:4px auto 10px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pi-youtube{background:#fff;} .pi-facebook{background:#fff;}
+  .pi-instagram{background:#fff;} .pi-tiktok{background:#fff;}
+  .platform-name{font-size:14px;font-weight:600;margin-bottom:6px;}
+  .platform-status{display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;color:var(--green);font-weight:500;}
+
+  /* Video details */
+  .details-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .customize-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-mid);}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-dark);}
+  .field input[type=text], .field textarea{
+    width:100%;border:1px solid var(--border);border-radius:9px;
+    padding:11px 13px;font-size:14px;font-family:inherit;color:var(--text-dark);
+    background:#fcfcfe;
+  }
+  .field input[type=text]:focus, .field textarea:focus{outline:2px solid var(--indigo);outline-offset:1px;border-color:var(--indigo);}
+  .field textarea{resize:vertical;min-height:78px;}
+  .char-count{text-align:right;font-size:12px;color:var(--text-light);margin-top:4px;}
+
+  .schedule-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .schedule-opts{display:flex;gap:22px;}
+  .radio-opt{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;}
+  .radio-opt input{accent-color:var(--indigo);width:16px;height:16px;}
+  .schedule-datetime{display:none;align-items:center;gap:10px;margin-top:14px;}
+  .schedule-datetime.show{display:flex;}
+  .schedule-datetime input[type=datetime-local]{
+    border:1px solid #e3e5ee;border-radius:9px;padding:9px 11px;font-size:14px;
+    font-family:inherit;color:var(--text-dark);background:#fcfcfe;
+  }
+  .schedule-datetime input[type=datetime-local]:focus{outline:2px solid var(--indigo);outline-offset:1px;border-color:var(--indigo);}
+  .schedule-hint{font-size:12px;color:var(--text-mid);}
+  .publish-btn{
+    display:flex;align-items:center;gap:8px;
+    background:var(--indigo);color:#fff;border:none;
+    padding:12px 26px;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer;
+    box-shadow:0 4px 14px rgba(91,91,240,.3);
+  }
+  .publish-btn:hover{background:var(--indigo-dark);}
+  .publish-btn:disabled{opacity:.6;cursor:not-allowed;}
+
+  /* Right column */
+  .accounts-list{display:flex;flex-direction:column;gap:14px;margin-bottom:16px;}
+  .account-row{display:flex;align-items:center;gap:12px;}
+  .acc-icon{width:38px;height:38px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .acc-info{flex:1;min-width:0;}
+  .acc-info .n{font-size:14px;font-weight:600;}
+  .acc-info .h{font-size:12px;color:var(--text-mid);}
+  .connected-pill{
+    background:var(--green-bg);color:var(--green);font-size:11px;font-weight:700;
+    padding:4px 10px;border-radius:20px;white-space:nowrap;
+  }
+  .manage-btn{
+    width:100%;border:1px solid var(--indigo);color:var(--indigo);background:#fff;
+    padding:10px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .manage-btn:hover{background:#f6f6ff;}
+
+  .tip-row{display:flex;gap:12px;margin-bottom:16px;}
+  .tip-row:last-child{margin-bottom:0;}
+  .tip-icon{
+    width:38px;height:38px;border-radius:9px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+  }
+  .tip-icon.blue{background:#e9edff;}
+  .tip-icon.green{background:#e6f8ef;}
+  .tip-icon.yellow{background:#fff6e0;}
+  .tip-icon.purple{background:#f1e9ff;}
+  .tip-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+  .tip-desc{font-size:12px;color:var(--text-mid);line-height:1.4;}
+
+  .recent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .recent-header h2{margin-bottom:0;}
+  .see-all{font-size:13px;color:var(--indigo);font-weight:600;cursor:pointer;}
+  .recent-item{display:flex;align-items:center;gap:12px;}
+  .recent-thumb{
+    width:52px;height:40px;border-radius:8px;flex-shrink:0;
+    background:linear-gradient(135deg,#3a3a5c,#5b5b8a);
+  }
+  .recent-info{flex:1;min-width:0;}
+  .recent-info .n{font-size:13px;font-weight:600;}
+  .recent-info .d{font-size:11px;color:var(--text-mid);margin-top:2px;}
+  .pub-pill{background:var(--green-bg);color:var(--green);font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap;}
+
+  /* Toast */
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#1a1a2e;color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;font-weight:500;
+    display:flex;align-items:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+    z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* Page routing */
+  .page{display:none;}
+  .page.active{display:block;}
+  .content-single{padding:28px 32px;}
+  .content-single.narrow{max-width:680px;}
+
+  /* Dashboard stat cards */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px;}
+  .stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:22px;}
+  .stat-label{font-size:13px;color:var(--text-mid);margin-bottom:8px;font-weight:600;}
+  .stat-value{font-size:28px;font-weight:800;color:var(--text-dark);}
+  .stat-value.warn{color:#dc2626;}
+  @media (max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+
+  /* Library rows (Scheduled / Published) */
+  .empty-state{color:var(--text-mid);font-size:14px;padding:30px 0;text-align:center;}
+  .lib-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .lib-row:last-child{border-bottom:none;}
+  .lib-info{flex:1;min-width:0;}
+  .lib-info .n{font-size:14px;font-weight:600;}
+  .lib-info .d{font-size:12px;color:var(--text-mid);margin-top:3px;}
+  .lib-info .d a{color:var(--indigo);text-decoration:none;}
+  .lib-info .d a:hover{text-decoration:underline;}
+  .pub-pill.sched{background:#fff6e0;color:#b45309;}
+  .pub-pill.fail{background:#fde8e8;color:#dc2626;}
+  .refresh-link{font-size:13px;color:var(--indigo);font-weight:600;cursor:pointer;}
+
+  /* Accounts page action buttons */
+  .acc-btn{
+    border:1px solid var(--indigo);color:var(--indigo);background:#fff;
+    padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+    white-space:nowrap;text-decoration:none;display:inline-block;
+  }
+  .acc-btn:hover{background:#f6f6ff;}
+  .acc-btn.danger{border-color:#ef4444;color:#ef4444;}
+  .acc-btn.danger:hover{background:#fef2f2;}
+  .acc-btn.disabled{border-color:var(--border);color:var(--text-light);cursor:not-allowed;background:#fafafa;}
+  .acc-btn.disabled:hover{background:#fafafa;}
+
+  /* Analytics page */
+  .analytics-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+  .day-toggle{display:flex;gap:6px;background:#f1f2f6;border-radius:9px;padding:4px;}
+  .pill-btn{
+    border:none;background:transparent;color:var(--text-mid);font-size:13px;font-weight:600;
+    padding:6px 14px;border-radius:7px;cursor:pointer;
+  }
+  .pill-btn.active{background:#fff;color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+  .bar-chart{display:flex;align-items:flex-end;gap:4px;height:140px;padding-top:10px;}
+  .bar-wrap{flex:1;display:flex;align-items:flex-end;height:100%;min-width:2px;}
+  .bar-wrap .bar{width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;min-height:2px;}
+  .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:#f1f2f6;flex-shrink:0;}
+
+  /* Video/post list filter bar */
+  .video-filters{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:12px 0 14px;}
+  .sort-select{
+    border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;
+    font-family:inherit;color:var(--text-dark);background:#fff;cursor:pointer;
+  }
+  .lib-row{cursor:default;}
+  .metrics-btn{
+    border:1px solid var(--indigo);color:var(--indigo);background:#fff;
+    padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+    white-space:nowrap;flex-shrink:0;
+  }
+  .metrics-btn:hover{background:#f6f6ff;}
+
+  /* Video metrics modal */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(20,20,35,.55);
+    align-items:center;justify-content:center;z-index:1000;padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-card{
+    background:#fff;border-radius:16px;padding:28px;max-width:600px;width:100%;
+    max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal-close{
+    position:absolute;top:16px;right:16px;border:none;background:#f1f2f6;color:var(--text-mid);
+    width:30px;height:30px;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;
+  }
+  .modal-close:hover{background:#e3e5ee;}
+  .modal-note{font-size:12px;color:var(--text-mid);background:#f6f6fb;border-radius:8px;padding:10px 12px;margin-top:14px;}
+
+  /* Video modal auto-refresh bar */
+  .modal-refresh-bar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);
+  }
+  .modal-refresh-status{display:flex;align-items:center;font-size:12px;color:var(--text-mid);margin-left:auto;}
+  .mini-spinner{
+    display:inline-block;width:12px;height:12px;margin-right:6px;
+    border:2px solid #e3e5ee;border-top-color:var(--indigo);border-radius:50%;
+    animation:mf-spin .7s linear infinite;vertical-align:middle;
+  }
+  @keyframes mf-spin{to{transform:rotate(360deg);}}
+  #videoModalContent{transition:opacity .15s ease;}
+  #videoModalContent.modal-content-loading{opacity:.45;pointer-events:none;}
+  .retention-chart-wrap svg{width:100%;height:150px;display:block;}
+  .retention-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-mid);margin-top:4px;}
+
+  @media (max-width:1080px){
+    .content{grid-template-columns:1fr;}
+    .platform-grid{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:720px){
+    .sidebar{display:none;}
+    .topbar{padding:16px;}
+    .content{padding:16px;}
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="7" fill="#5b5bf0"/><path d="M9 7l8 5-8 5V7z" fill="#fff"/></svg>
+    MediaFlow
+  </div>
+  <ul class="nav" id="navList">
+    <li data-page="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z"/></svg>Dashboard</li>
+    <li data-page="accounts"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Accounts</li>
+    <li data-page="upload"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New Upload</li>
+    <li data-page="scheduled"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Scheduled</li>
+    <li data-page="published"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Published</li>
+    <li data-page="analytics"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Analytics</li>
+    <li data-page="settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</li>
+    <li data-page="help"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>Help &amp; Support</li>
+  </ul>
+  <div class="darkmode-row">
+    <span>🌙 Dark Mode</span>
+    <div class="toggle" id="darkToggle"></div>
+  </div>
+  <div class="user-card">
+    <div class="avatar">A</div>
+    <div>
+      <div class="name">Admin</div>
+      <div class="email">admin@example.com</div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1 id="pageTitle">Dashboard</h1>
+    <div class="topbar-right">
+      <div class="bell">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge">3</span>
+      </div>
+      <div class="admin-pill">
+        <div class="avatar">A</div>
+        Admin ▾
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page" data-page="dashboard">
+    <div class="content-single">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Scheduled</div>
+          <div class="stat-value" id="statScheduled">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Published</div>
+          <div class="stat-value" id="statPublished">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Connected Accounts</div>
+          <div class="stat-value" id="statConnected">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Needs Attention</div>
+          <div class="stat-value warn" id="statFailed">–</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="recent-header">
+          <h2>Recent Activity</h2>
+          <span class="see-all" data-goto="upload">+ New Upload</span>
+        </div>
+        <div id="dashRecentList"><div class="empty-state">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNTS -->
+  <div class="page" data-page="accounts">
+    <div class="content-single narrow">
+      <div class="card">
+        <h2>Connected Accounts</h2>
+        <div class="sub">Connect or disconnect the platforms MediaFlow publishes to.</div>
+        <div class="accounts-list" id="accountsPageList">
+          <div class="account-row" id="page-acc-youtube">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">YouTube</div><div class="h" data-handle>Checking...</div></div>
+            <a class="acc-btn" data-action="connect-youtube" href="/api/connect/youtube">Connect</a>
+          </div>
+          <div class="account-row" id="page-acc-facebook" style="flex-direction:column;align-items:stretch;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
+              <div class="acc-info"><div class="n">Facebook</div><div class="h" data-handle>Checking...</div></div>
+              <button class="acc-btn" data-action="toggle-facebook-form">Connect</button>
+            </div>
+            <div id="facebookForm" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+              <div class="field"><label for="fbAppId">App ID</label><input type="text" id="fbAppId"></div>
+              <div class="field"><label for="fbAppSecret">App Secret</label><input type="password" id="fbAppSecret" autocomplete="off"></div>
+              <div class="field"><label for="fbPageId">Page ID</label><input type="text" id="fbPageId"></div>
+              <div class="field"><label for="fbPageToken">Page Access Token</label><input type="password" id="fbPageToken" autocomplete="off"></div>
+              <button class="choose-btn" id="fbSaveBtn" type="button">Save &amp; Connect</button>
+              <div style="font-size:12px;color:var(--text-mid);margin-top:10px;">If this Page has an Instagram Business account linked, it'll connect automatically too. See README.md for how to generate a Page Access Token.</div>
+            </div>
+          </div>
+          <div class="account-row" id="page-acc-instagram">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><defs><linearGradient id="ig3" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig3)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.2" cy="7.8" r="1" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">Instagram</div><div class="h" data-handle>Connect Facebook first</div></div>
+            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not linked</div>
+          </div>
+          <div class="account-row">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">TikTok</div><div class="h">Not set up yet — see README.md</div></div>
+            <button class="acc-btn disabled" disabled>Connect</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULED -->
+  <div class="page" data-page="scheduled">
+    <div class="content-single">
+      <div class="card">
+        <div class="recent-header">
+          <h2>Scheduled</h2>
+          <span class="refresh-link" data-refresh="scheduled">↻ Refresh</span>
+        </div>
+        <div class="sub">Uploaded as private, goes live automatically at the scheduled time.</div>
+        <div id="scheduledList"><div class="empty-state">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PUBLISHED -->
+  <div class="page" data-page="published">
+    <div class="content-single">
+      <div class="card">
+        <div class="recent-header">
+          <h2>Published</h2>
+          <span class="refresh-link" data-refresh="published">↻ Refresh</span>
+        </div>
+        <div class="sub">Videos that have gone live.</div>
+        <div id="publishedList"><div class="empty-state">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS / SETTINGS / HELP — placeholders for now -->
+  <div class="page" data-page="analytics">
+    <div class="content-single">
+      <div class="analytics-platform-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px;">
+        <h1 style="margin:0;font-size:22px;">Analytics</h1>
+        <div id="analyticsPlatformRadios" style="display:flex;gap:18px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 16px;">
+          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="youtube" checked> YouTube</label>
+          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="facebook"> Facebook</label>
+          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="instagram"> Instagram</label>
+        </div>
+      </div>
+      <div id="analyticsBody"><div class="empty-state">Loading…</div></div>
+    </div>
+  </div>
+  <div class="page" data-page="settings">
+    <div class="content-single narrow">
+      <div class="card" style="text-align:center;padding:56px 24px;">
+        <div style="font-size:40px;margin-bottom:12px;">⚙️</div>
+        <h2>Settings</h2>
+        <div class="sub" style="margin-top:8px;">Coming soon.</div>
+      </div>
+    </div>
+  </div>
+  <div class="page" data-page="help">
+    <div class="content-single narrow">
+      <div class="card" style="text-align:center;padding:56px 24px;">
+        <div style="font-size:40px;margin-bottom:12px;">❓</div>
+        <h2>Help &amp; Support</h2>
+        <div class="sub" style="margin-top:8px;">Check README.md and DEPLOYMENT_GUIDE.md in the project folder for setup and troubleshooting.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW UPLOAD (existing, fully wired) -->
+  <div class="page" data-page="upload">
+  <div class="content">
+    <div class="col-main">
+
+      <div class="card">
+        <h2>Upload Video</h2>
+        <div class="sub">Upload your video and publish it across multiple platforms</div>
+
+        <div class="dropzone" id="dropzone">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 14.9A5 5 0 0 1 7 6a6.5 6.5 0 0 1 12.4 2.6A4.5 4.5 0 0 1 18 17"/><path d="M12 12v9"/><path d="M9 15l3-3 3 3"/></svg>
+          <p>Drag &amp; drop your video here</p>
+          <div class="or">or</div>
+          <button class="choose-btn" id="chooseBtn" type="button">Choose File</button>
+          <input type="file" id="fileInput" accept="video/*" style="display:none">
+        </div>
+
+        <div class="file-row" id="fileRow">
+          <div class="thumb">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div class="file-info">
+            <div class="fname" id="fname">Nature - Beautiful Landscape.mp4</div>
+            <div class="fmeta" id="fmeta">1920 x 1080 &nbsp;•&nbsp; 82.4 MB &nbsp;•&nbsp; 00:45</div>
+          </div>
+          <div class="file-status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            Upload complete
+          </div>
+          <div class="remove-x" id="removeFile">✕</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Select Platforms</h2>
+        <div class="sub">Choose the platforms you want to publish to</div>
+        <div class="platform-grid" id="platformGrid">
+          <div class="platform-card" data-platform="youtube">
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="platform-icon pi-youtube"><svg width="34" height="34" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
+            <div class="platform-name">YouTube</div>
+            <div class="platform-status" data-status>Checking...</div>
+          </div>
+          <div class="platform-card" data-platform="facebook">
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="platform-icon pi-facebook"><svg width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
+            <div class="platform-name">Facebook</div>
+            <div class="platform-status" data-status>Checking...</div>
+          </div>
+          <div class="platform-card" data-platform="instagram">
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="platform-icon pi-instagram"><svg width="34" height="34" viewBox="0 0 24 24"><defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.2" cy="7.8" r="1" fill="#fff"/></svg></div>
+            <div class="platform-name">Instagram</div>
+            <div class="platform-status" data-status>Checking...</div>
+          </div>
+          <div class="platform-card" data-platform="tiktok">
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="platform-icon pi-tiktok"><svg width="34" height="34" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg></div>
+            <div class="platform-name">TikTok</div>
+            <div class="platform-status" data-status>Checking...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="details-header">
+          <h2 style="margin-bottom:0">Video Details</h2>
+          <div class="customize-row">
+            Customize for each platform
+            <div class="toggle" id="customizeToggle" style="transform:scale(.9)"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="titleInput">Title</label>
+          <input type="text" id="titleInput" value="Nature - Beautiful Landscape">
+        </div>
+
+        <div class="field">
+          <label for="captionInput">Caption</label>
+          <textarea id="captionInput" maxlength="2200">Enjoy the beauty of nature! 🌿✨</textarea>
+          <div class="char-count"><span id="charCount">29</span>/2200</div>
+        </div>
+
+        <div class="field">
+          <label for="tagsInput">Tags <span style="font-weight:400;color:var(--text-mid)">(comma-separated)</span></label>
+          <input type="text" id="tagsInput" placeholder="nature, travel, 4k">
+        </div>
+
+        <div class="field">
+          <label for="privacySelect">Privacy (YouTube)</label>
+          <select id="privacySelect" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:14px;font-family:inherit;color:var(--text-dark);background:#fcfcfe;">
+            <option value="private" selected>Private — only you can view</option>
+            <option value="unlisted">Unlisted — anyone with the link</option>
+            <option value="public">Public — visible to everyone</option>
+          </select>
+        </div>
+
+        <div class="field" style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;gap:10px;font-weight:500;cursor:pointer;">
+            <input type="checkbox" id="madeForKidsInput" style="width:16px;height:16px;accent-color:var(--indigo);">
+            This video is made for kids
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-weight:500;cursor:pointer;">
+            <input type="checkbox" id="syntheticMediaInput" style="width:16px;height:16px;accent-color:var(--indigo);">
+            Contains altered or AI-generated (synthetic) media
+          </label>
+          <div style="font-size:12px;color:var(--text-mid);margin-left:26px;">Required by YouTube for realistic content that's been generated or altered with AI.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-bottom:14px">Schedule <span style="font-weight:400;color:var(--text-mid);font-size:13px">(Optional)</span></h2>
+        <div class="schedule-row">
+          <div class="schedule-opts">
+            <label class="radio-opt"><input type="radio" name="schedule" value="now" checked> Publish Now</label>
+            <label class="radio-opt"><input type="radio" name="schedule" value="later"> Schedule for Later</label>
+          </div>
+          <button class="publish-btn" id="publishBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+            Publish Now
+          </button>
+        </div>
+        <div class="schedule-datetime" id="scheduleDatetime">
+          <input type="datetime-local" id="scheduleDatetimeInput">
+          <span class="schedule-hint">Video is uploaded now as private and goes live automatically at this time (YouTube only).</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-side">
+
+      <div class="card">
+        <h2>Connected Accounts</h2>
+        <div class="sub">Manage your connected social media accounts</div>
+        <div class="accounts-list">
+          <div class="account-row" id="acc-youtube">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">YouTube</div><div class="h" data-handle>Checking...</div></div>
+            <div class="connected-pill" data-pill>...</div>
+          </div>
+          <div class="account-row" id="acc-facebook">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">Facebook</div><div class="h" data-handle>Not connected</div></div>
+            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
+          </div>
+          <div class="account-row" id="acc-instagram">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><defs><linearGradient id="ig2" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig2)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.2" cy="7.8" r="1" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">Instagram</div><div class="h" data-handle>Not connected</div></div>
+            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
+          </div>
+          <div class="account-row" id="acc-tiktok">
+            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg></div>
+            <div class="acc-info"><div class="n">TikTok</div><div class="h" data-handle>Not connected</div></div>
+            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
+          </div>
+        </div>
+        <button class="manage-btn" data-goto="accounts">⚙ Manage Accounts</button>
+      </div>
+
+      <div class="card">
+        <h2>Publishing Tips</h2>
+        <div class="tip-row">
+          <div class="tip-icon blue">📐</div>
+          <div><div class="tip-title">Optimal Video Size</div><div class="tip-desc">Use 1080x1920 for best results on all platforms.</div></div>
+        </div>
+        <div class="tip-row">
+          <div class="tip-icon green">⏱️</div>
+          <div><div class="tip-title">Shorter Videos</div><div class="tip-desc">Keep videos under 60 seconds for better engagement.</div></div>
+        </div>
+        <div class="tip-row">
+          <div class="tip-icon yellow">💬</div>
+          <div><div class="tip-title">Captions Matter</div><div class="tip-desc">Add captions to increase reach and engagement.</div></div>
+        </div>
+        <div class="tip-row">
+          <div class="tip-icon purple">📱</div>
+          <div><div class="tip-title">Vertical Videos</div><div class="tip-desc">Perfect for Reels, Shorts and TikTok.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="recent-header">
+          <h2>Recent Uploads</h2>
+          <span class="see-all" data-goto="dashboard">See all</span>
+        </div>
+        <div id="sidebarRecentUpload"><div class="empty-state">No uploads yet.</div></div>
+      </div>
+
+    </div>
+  </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Video published successfully!</div>
+
+<div class="modal-overlay" id="videoModalOverlay">
+  <div class="modal-card">
+    <button class="modal-close" id="videoModalClose" aria-label="Close">&times;</button>
+    <div id="videoModalBody"><div class="empty-state">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+  // File selection / drag & drop
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const chooseBtn = document.getElementById('chooseBtn');
+  const fileRow = document.getElementById('fileRow');
+  const fname = document.getElementById('fname');
+  const fmeta = document.getElementById('fmeta');
+  const removeFile = document.getElementById('removeFile');
+  const titleInput = document.getElementById('titleInput');
+
+  chooseBtn.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('click', (e) => { if(e.target === chooseBtn) return; fileInput.click(); });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('dragover'); });
+  });
+  dropzone.addEventListener('drop', e=>{
+    const file = e.dataTransfer.files[0];
+    if(file) handleFile(file);
+  });
+  fileInput.addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(file) handleFile(file);
+  });
+
+  function handleFile(file){
+    const sizeMB = (file.size / (1024*1024)).toFixed(1);
+    fname.textContent = file.name;
+    fmeta.textContent = `${sizeMB} MB`;
+    fileRow.classList.add('show');
+    const niceName = file.name.replace(/\.[^/.]+$/,'').replace(/[-_]/g,' ');
+    titleInput.value = niceName;
+  }
+
+  removeFile.addEventListener('click', ()=>{
+    fileRow.classList.remove('show');
+    fileInput.value = '';
+  });
+
+  // Platform selection — only lets you select platforms that are actually connected
+  document.querySelectorAll('.platform-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      if(card.dataset.connected !== 'true'){
+        showToast(`${card.querySelector('.platform-name').textContent} isn't connected yet.`);
+        return;
+      }
+      card.classList.toggle('selected');
+    });
+  });
+
+  // ---- Real connection status from the backend ----
+  const API = ''; // same origin, since the backend also serves this page
+
+  async function loadStatus(){
+    try{
+      const res = await fetch(`${API}/api/status`);
+      const data = await res.json();
+      Object.entries(data).forEach(([platform, info])=>{
+        const card = document.querySelector(`.platform-card[data-platform="${platform}"]`);
+        const accRow = document.getElementById(`acc-${platform}`);
+        if(card){
+          const statusEl = card.querySelector('[data-status]');
+          card.dataset.connected = info.connected ? 'true' : 'false';
+          if(info.connected){
+            statusEl.textContent = '✓ ' + (info.channel || 'Connected');
+            statusEl.style.color = 'var(--green)';
+            card.classList.add('selected');
+          } else {
+            statusEl.textContent = 'Not connected';
+            statusEl.style.color = 'var(--text-light)';
+            card.classList.remove('selected');
+          }
+        }
+        if(accRow){
+          const handleEl = accRow.querySelector('[data-handle]');
+          const pillEl = accRow.querySelector('[data-pill]');
+          if(info.connected){
+            handleEl.textContent = info.channel || 'Connected';
+            pillEl.textContent = 'Connected';
+            pillEl.style.background = '';
+            pillEl.style.color = '';
+          } else {
+            handleEl.textContent = 'Not connected';
+            pillEl.textContent = 'Not set up';
+            pillEl.style.background = '#f1f2f6';
+            pillEl.style.color = 'var(--text-mid)';
+          }
+        }
+      });
+    }catch(err){
+      showToast('Could not reach the local server — is it running?');
+    }
+  }
+  loadStatus();
+
+  // Toggles
+  document.querySelectorAll('.toggle').forEach(t=>{
+    let on = t.id === 'customizeToggle';
+    const paint = ()=>{
+      t.style.background = on ? 'var(--indigo)' : (t.id==='darkToggle' ? '#33335c' : '#c9cbe0');
+      t.style.setProperty('--pos', on ? '18px':'2px');
+      t.querySelector ? null : null;
+    };
+    t.style.position='relative';
+    const setDot = ()=>{
+      t.style.setProperty('transition','background .15s');
+      t.style.background = on ? 'var(--indigo)' : (t.id==='darkToggle' ? '#33335c':'#c9cbe0');
+      t.querySelectorAll('span.dot').forEach(d=>d.remove());
+      const dot = document.createElement('span');
+      dot.className='dot';
+      dot.style.cssText = `content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;left:${on?'18px':'2px'};transition:left .15s;`;
+      t.appendChild(dot);
+    };
+    setDot();
+    t.addEventListener('click', ()=>{ on = !on; setDot(); });
+  });
+
+  // Char count
+  const captionInput = document.getElementById('captionInput');
+  const charCount = document.getElementById('charCount');
+  captionInput.addEventListener('input', ()=>{
+    charCount.textContent = captionInput.value.length;
+  });
+
+  // Publish — real upload to the backend
+  const publishBtn = document.getElementById('publishBtn');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg, ms=3500){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.classList.remove('show'), ms);
+  }
+
+  publishBtn.addEventListener('click', async ()=>{
+    const file = fileInput.files[0];
+    if(!file){
+      showToast('Choose a video file first.');
+      return;
+    }
+    const selectedCards = [...document.querySelectorAll('.platform-card.selected')];
+    if(selectedCards.length === 0){
+      showToast('Select at least one connected platform.');
+      return;
+    }
+    const platforms = selectedCards.map(c => c.dataset.platform);
+
+    const isLater = document.querySelector('input[name=schedule]:checked').value === 'later';
+    let scheduledIso = null;
+    if(isLater){
+      const raw = document.getElementById('scheduleDatetimeInput').value; // "YYYY-MM-DDTHH:MM" in local time
+      if(!raw){
+        showToast('Pick a date and time to schedule for later.');
+        return;
+      }
+      const picked = new Date(raw);
+      if(isNaN(picked.getTime()) || picked.getTime() <= Date.now()){
+        showToast('Scheduled time must be in the future.');
+        return;
+      }
+      scheduledIso = picked.toISOString(); // converts local time -> UTC ISO (e.g. 2026-09-10T14:30:00.000Z)
+    }
+
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('title', titleInput.value || file.name);
+    formData.append('caption', captionInput.value || '');
+    formData.append('platforms', platforms.join(','));
+    formData.append('tags', document.getElementById('tagsInput').value || '');
+    formData.append('privacy', document.getElementById('privacySelect').value);
+    formData.append('made_for_kids', document.getElementById('madeForKidsInput').checked);
+    formData.append('contains_synthetic_media', document.getElementById('syntheticMediaInput').checked);
+    if(scheduledIso){ formData.append('scheduled_time', scheduledIso); }
+
+    publishBtn.disabled = true;
+    publishBtn.textContent = isLater ? 'Scheduling...' : 'Uploading...';
+
+    try{
+      const res = await fetch(`${API}/api/publish`, { method: 'POST', body: formData });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail: res.statusText}));
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const results = await res.json();
+
+      const lines = Object.entries(results).map(([platform, r])=>{
+        if(r.ok){
+          if(r.queued){
+            const when = new Date(r.scheduled_for).toLocaleString();
+            return `${platform}: queued — will publish at ${when}`;
+          }
+          return `${platform}: published${r.url ? ' — ' + r.url : ''}`;
+        }
+        return `${platform}: failed — ${r.error}`;
+      });
+      showToast(lines.join('  |  '), 6000);
+      loadDashboard();
+    }catch(err){
+      showToast('Upload failed: ' + err.message, 5000);
+    }finally{
+      publishBtn.disabled = false;
+      publishBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>Publish Now';
+    }
+  });
+
+  // Radio label + datetime picker toggle
+  const scheduleDatetimeWrap = document.getElementById('scheduleDatetime');
+  const scheduleDatetimeInput = document.getElementById('scheduleDatetimeInput');
+
+  // Prevent picking a time in the past.
+  function updateMinScheduleTime(){
+    const now = new Date(Date.now() - Date.now() % 60000); // round down to the minute
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    scheduleDatetimeInput.min = local.toISOString().slice(0,16);
+  }
+  updateMinScheduleTime();
+
+  document.querySelectorAll('input[name=schedule]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      const isLater = document.querySelector('input[name=schedule]:checked').value === 'later';
+      const textNode = publishBtn.childNodes[publishBtn.childNodes.length-1];
+      if(isLater){
+        textNode.textContent = 'Schedule';
+        updateMinScheduleTime();
+        scheduleDatetimeWrap.classList.add('show');
+      } else {
+        textNode.textContent = 'Publish Now';
+        scheduleDatetimeWrap.classList.remove('show');
+      }
+    });
+  });
+
+  // ================= Page routing =================
+  const PAGE_TITLES = {
+    dashboard: 'Dashboard', accounts: 'Accounts', upload: 'New Upload',
+    scheduled: 'Scheduled', published: 'Published',
+    analytics: 'Analytics', settings: 'Settings', help: 'Help & Support',
+  };
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showPage(name){
+    if(!PAGE_TITLES[name]) name = 'dashboard';
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const target = document.querySelector(`.page[data-page="${name}"]`);
+    if(target) target.classList.add('active');
+    document.querySelectorAll('#navList li').forEach(li => li.classList.toggle('active', li.dataset.page === name));
+    document.getElementById('pageTitle').textContent = PAGE_TITLES[name];
+    document.title = 'MediaFlow - ' + PAGE_TITLES[name];
+    history.replaceState(null, '', '?page=' + name);
+
+    if(name === 'dashboard') loadDashboard();
+    if(name === 'accounts') loadAccountsPage();
+    if(name === 'scheduled') loadLibrary('scheduled');
+    if(name === 'published') loadLibrary('published');
+    if(name === 'analytics') loadAnalytics();
+  }
+
+  document.querySelectorAll('#navList li[data-page]').forEach(li=>{
+    li.addEventListener('click', () => showPage(li.dataset.page));
+  });
+  document.querySelectorAll('[data-goto]').forEach(el=>{
+    el.addEventListener('click', () => showPage(el.dataset.goto));
+  });
+
+  // ================= Dashboard =================
+  function libraryRowHtml(rec){
+    const platforms = rec.platforms.split(',').map(p=>p.trim()).join(', ');
+    const yt = rec.results && rec.results.youtube;
+    const when = rec.status === 'scheduled' && rec.scheduled_time
+      ? 'Goes live ' + new Date(rec.scheduled_time).toLocaleString()
+      : new Date(rec.created_at).toLocaleString();
+    const link = yt && yt.ok && yt.url ? ` • <a href="${yt.url}" target="_blank" rel="noopener">View</a>` : '';
+    const pillClass = rec.status === 'published' ? '' : rec.status === 'scheduled' ? 'sched' : 'fail';
+    const pillLabel = rec.status.charAt(0).toUpperCase() + rec.status.slice(1);
+    return `
+      <div class="lib-row">
+        <div class="recent-thumb"></div>
+        <div class="lib-info">
+          <div class="n">${escapeHtml(rec.title)}</div>
+          <div class="d">${escapeHtml(platforms)} • ${when}${link}</div>
+        </div>
+        <div class="pub-pill ${pillClass}">${pillLabel}</div>
+      </div>`;
+  }
+
+  async function loadDashboard(){
+    try{
+      const res = await fetch(`${API}/api/dashboard/summary`);
+      if(!res.ok) throw new Error();
+      const data = await res.json();
+      document.getElementById('statScheduled').textContent = data.scheduled_count;
+      document.getElementById('statPublished').textContent = data.published_count;
+      document.getElementById('statConnected').textContent = data.connected_accounts;
+      document.getElementById('statFailed').textContent = data.failed_count;
+
+      const list = document.getElementById('dashRecentList');
+      list.innerHTML = data.recent.length
+        ? data.recent.map(libraryRowHtml).join('')
+        : '<div class="empty-state">No uploads yet — head to New Upload to publish your first video.</div>';
+
+      const sidebarBox = document.getElementById('sidebarRecentUpload');
+      if(sidebarBox){
+        sidebarBox.innerHTML = data.recent.length
+          ? libraryRowHtml(data.recent[0])
+          : '<div class="empty-state">No uploads yet.</div>';
+      }
+    }catch(err){
+      document.getElementById('dashRecentList').innerHTML = '<div class="empty-state">Could not load dashboard data.</div>';
+    }
+  }
+
+  // ================= Accounts page =================
+  async function loadAccountsPage(){
+    const ytRow = document.getElementById('page-acc-youtube');
+    const ytHandle = ytRow.querySelector('[data-handle]');
+    const ytBtn = ytRow.querySelector('.acc-btn');
+
+    const fbRow = document.getElementById('page-acc-facebook');
+    const fbHandle = fbRow.querySelector('[data-handle]');
+    const fbBtn = fbRow.querySelector('.acc-btn');
+    const fbForm = document.getElementById('facebookForm');
+
+    const igRow = document.getElementById('page-acc-instagram');
+    const igHandle = igRow.querySelector('[data-handle]');
+    const igPill = igRow.querySelector('[data-pill]');
+
+    try{
+      const res = await fetch(`${API}/api/status`);
+      const data = await res.json();
+
+      const yt = data.youtube;
+      if(yt && yt.connected){
+        ytHandle.textContent = yt.channel || 'Connected';
+        ytBtn.textContent = 'Disconnect';
+        ytBtn.removeAttribute('href');
+        ytBtn.classList.add('danger');
+        ytBtn.dataset.action = 'disconnect-youtube';
+      } else {
+        ytHandle.textContent = 'Not connected';
+        ytBtn.textContent = 'Connect';
+        ytBtn.setAttribute('href', '/api/connect/youtube');
+        ytBtn.classList.remove('danger');
+        ytBtn.dataset.action = 'connect-youtube';
+      }
+
+      const fb = data.facebook;
+      if(fb && fb.connected){
+        fbHandle.textContent = fb.channel || 'Connected';
+        fbBtn.textContent = 'Disconnect';
+        fbBtn.classList.add('danger');
+        fbBtn.dataset.action = 'disconnect-facebook';
+        fbForm.style.display = 'none';
+      } else {
+        fbHandle.textContent = (fb && fb.error) ? fb.error : 'Not connected';
+        fbBtn.textContent = 'Connect';
+        fbBtn.classList.remove('danger');
+        fbBtn.dataset.action = 'toggle-facebook-form';
+      }
+
+      const ig = data.instagram;
+      if(ig && ig.connected){
+        igHandle.textContent = '@' + ig.channel;
+        igPill.textContent = 'Connected';
+        igPill.style.background = '';
+        igPill.style.color = '';
+      } else {
+        igHandle.textContent = (fb && fb.connected)
+          ? ((ig && ig.error) || 'No Instagram Business account linked to this Page.')
+          : 'Connect Facebook first';
+        igPill.textContent = 'Not linked';
+        igPill.style.background = '#f1f2f6';
+        igPill.style.color = 'var(--text-mid)';
+      }
+    }catch(err){
+      ytHandle.textContent = 'Could not reach the server';
+      fbHandle.textContent = 'Could not reach the server';
+    }
+  }
+
+  document.getElementById('page-acc-youtube').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    if(btn.dataset.action === 'disconnect-youtube'){
+      e.preventDefault();
+      btn.textContent = 'Disconnecting...';
+      try{
+        await fetch(`${API}/api/disconnect/youtube`, { method: 'POST' });
+        showToast('YouTube disconnected.');
+      }catch(err){
+        showToast('Could not disconnect — is the server running?');
+      }
+      loadAccountsPage();
+      loadStatus();
+    }
+    // connect-youtube: let the <a href> navigate normally to start the OAuth flow
+  });
+
+  document.getElementById('page-acc-facebook').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    if(btn.dataset.action === 'toggle-facebook-form'){
+      const form = document.getElementById('facebookForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    } else if(btn.dataset.action === 'disconnect-facebook'){
+      btn.textContent = 'Disconnecting...';
+      try{
+        await fetch(`${API}/api/disconnect/facebook`, { method: 'POST' });
+        showToast('Facebook disconnected.');
+      }catch(err){
+        showToast('Could not disconnect — is the server running?');
+      }
+      loadAccountsPage();
+      loadStatus();
+    }
+  });
+
+  document.getElementById('fbSaveBtn').addEventListener('click', async ()=>{
+    const appId = document.getElementById('fbAppId').value.trim();
+    const appSecret = document.getElementById('fbAppSecret').value.trim();
+    const pageId = document.getElementById('fbPageId').value.trim();
+    const pageToken = document.getElementById('fbPageToken').value.trim();
+    if(!appId || !appSecret || !pageId || !pageToken){
+      showToast('Fill in all four Facebook fields.');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('app_id', appId);
+    fd.append('app_secret', appSecret);
+    fd.append('page_id', pageId);
+    fd.append('page_access_token', pageToken);
+
+    const btn = document.getElementById('fbSaveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+    try{
+      const res = await fetch(`${API}/api/connect/facebook`, { method: 'POST', body: fd });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail: 'Connection failed.'}));
+        throw new Error(err.detail);
+      }
+      const data = await res.json();
+      showToast(data.instagram_linked
+        ? `Facebook connected — Instagram @${data.instagram_username} linked too.`
+        : 'Facebook connected. (No Instagram Business account found on this Page.)', 5000);
+      loadAccountsPage();
+      loadStatus();
+    }catch(err){
+      showToast('Facebook connect failed: ' + err.message, 6000);
+    }finally{
+      btn.disabled = false;
+      btn.textContent = 'Save & Connect';
+    }
+  });
+
+  // ================= Scheduled / Published =================
+  async function loadLibrary(status){
+    const containerId = status === 'scheduled' ? 'scheduledList' : 'publishedList';
+    const container = document.getElementById(containerId);
+    container.innerHTML = '<div class="empty-state">Loading…</div>';
+    try{
+      const res = await fetch(`${API}/api/library?status=${status}`);
+      if(!res.ok) throw new Error();
+      const records = await res.json();
+      container.innerHTML = records.length
+        ? records.map(libraryRowHtml).join('')
+        : `<div class="empty-state">Nothing ${status} yet.</div>`;
+    }catch(err){
+      container.innerHTML = '<div class="empty-state">Could not load — is the server running?</div>';
+    }
+  }
+
+  document.querySelectorAll('[data-refresh]').forEach(el=>{
+    el.addEventListener('click', () => loadLibrary(el.dataset.refresh));
+  });
+
+  // ================= Analytics =================
+  let currentAnalyticsDays = 28;
+  let currentAnalyticsPlatform = 'youtube';
+
+  function fmtNum(n){ return Number(n || 0).toLocaleString(); }
+  function fmtHours(minutes){ return (Number(minutes || 0) / 60).toFixed(1) + 'h'; }
+  function fmtDuration(seconds){
+    seconds = Number(seconds || 0);
+    const m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
+    return `${m}m ${s}s`;
+  }
+
+  function analyticsMessageHtml(message, showConnectButton){
+    return `
+      <div class="card" style="text-align:center;padding:56px 24px;">
+        <div style="font-size:40px;margin-bottom:12px;">📊</div>
+        <h2>Analytics</h2>
+        <div class="sub" style="margin-top:8px;">${escapeHtml(message)}</div>
+        ${showConnectButton ? '<button class="choose-btn" style="margin-top:18px;" data-goto="accounts">Go to Accounts</button>' : ''}
+      </div>`;
+  }
+
+  function renderYouTubeAnalytics(data, days){
+    const p = data.period_totals;
+    const maxViews = Math.max(1, ...data.daily.map(d => d.views));
+    const barsHtml = data.daily.map(d => {
+      const h = Math.max(Math.round((d.views / maxViews) * 100), 2);
+      const dateLabel = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric'});
+      return `<div class="bar-wrap" title="${dateLabel}: ${fmtNum(d.views)} views"><div class="bar" style="height:${h}%"></div></div>`;
+    }).join('');
+
+    const dayOptions = [7, 28, 90].map(n =>
+      `<button class="pill-btn ${n === days ? 'active' : ''}" data-days="${n}">${n}d</button>`
+    ).join('');
+
+    return `
+      <div class="analytics-header">
+        <div>
+          <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
+          <div class="sub">${fmtNum(data.lifetime.subscribers)} subscribers • ${fmtNum(data.lifetime.total_views)} lifetime views • ${fmtNum(data.lifetime.video_count)} videos</div>
+        </div>
+        <div class="day-toggle">${dayOptions}</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Watch Time</div><div class="stat-value">${fmtHours(p.watch_time_minutes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg. View Duration</div><div class="stat-value">${fmtDuration(p.avg_view_duration_seconds)}</div></div>
+        <div class="stat-card"><div class="stat-label">Net Subscribers</div><div class="stat-value ${p.subscribers_net < 0 ? 'warn' : ''}">${p.subscribers_net > 0 ? '+' : ''}${fmtNum(p.subscribers_net)}</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(p.likes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(p.comments)}</div></div>
+        <div class="stat-card"><div class="stat-label">Shares</div><div class="stat-value">${fmtNum(p.shares)}</div></div>
+      </div>
+
+      <div class="card">
+        <h2>Daily Views</h2>
+        <div class="sub">Last ${days} days.</div>
+        <div class="bar-chart">${barsHtml || '<div class="empty-state">No data for this period.</div>'}</div>
+      </div>
+
+      <div class="card">
+        <h2>Videos</h2>
+        <div class="sub">Ranked by whichever metric you pick below.</div>
+        <div id="videoFilterBarContainer"></div>
+        <div id="videoListContainer"><div class="empty-state">Loading…</div></div>
+      </div>
+    `;
+  }
+
+  function renderDailyBarChart(daily, days){
+    const maxViews = Math.max(1, ...daily.map(d => d.views));
+    return daily.map(d => {
+      const h = Math.max(Math.round((d.views / maxViews) * 100), 2);
+      const dateLabel = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric'});
+      return `<div class="bar-wrap" title="${dateLabel}: ${fmtNum(d.views)}"><div class="bar" style="height:${h}%"></div></div>`;
+    }).join('') || '<div class="empty-state">No data for this period.</div>';
+  }
+
+  function dayToggleHtml(days){
+    return [7, 28, 90].map(n =>
+      `<button class="pill-btn ${n === days ? 'active' : ''}" data-days="${n}">${n}d</button>`
+    ).join('');
+  }
+
+  function renderFacebookAnalytics(data, days){
+    const p = data.period_totals;
+    return `
+      <div class="analytics-header">
+        <div>
+          <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
+          <div class="sub">${fmtNum(data.lifetime.followers)} followers</div>
+        </div>
+        <div class="day-toggle">${dayToggleHtml(days)}</div>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Page Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Video Views</div><div class="stat-value">${fmtNum(p.video_views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Post Engagements</div><div class="stat-value">${fmtNum(p.engagements)}</div></div>
+      </div>
+
+      <div class="card">
+        <h2>Daily Page Views</h2>
+        <div class="sub">Last ${days} days.</div>
+        <div class="bar-chart">${renderDailyBarChart(data.daily, days)}</div>
+      </div>
+
+      <div class="card">
+        <h2>Videos</h2>
+        <div class="sub">Ranked by whichever metric you pick below.</div>
+        <div id="videoFilterBarContainer"></div>
+        <div id="videoListContainer"><div class="empty-state">Loading…</div></div>
+      </div>
+    `;
+  }
+
+  function renderInstagramAnalytics(data, days){
+    const p = data.period_totals;
+    return `
+      <div class="analytics-header">
+        <div>
+          <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
+          <div class="sub">${fmtNum(data.lifetime.followers)} followers • ${fmtNum(data.lifetime.media_count)} posts</div>
+        </div>
+        <div class="day-toggle">${dayToggleHtml(days)}</div>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Reach</div><div class="stat-value">${fmtNum(p.reach)}</div></div>
+        <div class="stat-card"><div class="stat-label">Profile Views</div><div class="stat-value">${fmtNum(p.profile_views)}</div></div>
+      </div>
+
+      <div class="card">
+        <h2>Daily Views</h2>
+        <div class="sub">Last ${days} days.</div>
+        <div class="bar-chart">${renderDailyBarChart(data.daily, days)}</div>
+      </div>
+
+      <div class="card">
+        <h2>Posts</h2>
+        <div class="sub">Ranked by whichever metric you pick below.</div>
+        <div id="videoFilterBarContainer"></div>
+        <div id="videoListContainer"><div class="empty-state">Loading…</div></div>
+      </div>
+    `;
+  }
+
+  const analyticsConfig = {
+    youtube: {
+      endpoint: '/api/analytics/summary',
+      render: renderYouTubeAnalytics,
+      connectMsg: "YouTube isn't connected yet — connect it from Accounts to see analytics.",
+    },
+    facebook: {
+      endpoint: '/api/analytics/facebook',
+      render: renderFacebookAnalytics,
+      connectMsg: "Facebook isn't connected yet — connect it from Accounts to see analytics.",
+    },
+    instagram: {
+      endpoint: '/api/analytics/instagram',
+      render: renderInstagramAnalytics,
+      connectMsg: "Instagram isn't connected yet — connect a Facebook Page with a linked Instagram Business account from Accounts.",
+    },
+  };
+
+  // ---- Video/post list filters (client-side sort+limit over an already-fetched pool) ----
+  const VIDEO_SORT_OPTIONS = {
+    youtube: [
+      {value: 'views', label: 'Views'},
+      {value: 'watch_time_minutes', label: 'Watch Time'},
+      {value: 'likes', label: 'Likes'},
+      {value: 'comments', label: 'Comments'},
+      {value: 'avg_view_percentage', label: 'Retention %'},
+    ],
+    facebook: [
+      {value: 'views', label: 'Views'},
+      {value: 'likes', label: 'Likes'},
+      {value: 'comments', label: 'Comments'},
+    ],
+    instagram: [
+      {value: 'views', label: 'Engagement'},  // this field = likes+comments for IG, set server-side
+      {value: 'likes', label: 'Likes'},
+      {value: 'comments', label: 'Comments'},
+    ],
+  };
+  const VIDEO_LIMIT_OPTIONS = [5, 10, 25, 999];  // 999 renders as "All"
+
+  const VIDEO_ROW_RENDERERS = {
+    youtube: v => `
+      <div class="lib-row">
+        <img class="vid-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="lib-info">
+          <div class="n">${escapeHtml(v.title)}</div>
+          <div class="d">${fmtNum(v.views)} views • ${fmtHours(v.watch_time_minutes)} watched • ${v.avg_view_percentage}% retention • ${fmtNum(v.likes)} likes</div>
+        </div>
+        <button class="metrics-btn" data-platform="youtube" data-video-id="${v.video_id}">Metrics</button>
+      </div>`,
+    facebook: v => `
+      <div class="lib-row">
+        <img class="vid-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="lib-info">
+          <div class="n">${escapeHtml(v.title)}</div>
+          <div class="d">${fmtNum(v.views)} views • ${fmtNum(v.likes)} likes • ${fmtNum(v.comments)} comments</div>
+        </div>
+        <button class="metrics-btn" data-platform="facebook" data-video-id="${v.video_id}">Metrics</button>
+      </div>`,
+    instagram: v => `
+      <div class="lib-row">
+        <img class="vid-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="lib-info">
+          <div class="n">${escapeHtml(v.title)}</div>
+          <div class="d">${fmtNum(v.likes)} likes • ${fmtNum(v.comments)} comments</div>
+        </div>
+        <button class="metrics-btn" data-platform="instagram" data-video-id="${v.media_id}">Metrics</button>
+      </div>`,
+  };
+
+  let currentVideoList = [];
+  let videoFilterState = { sortBy: 'views', limit: 5 };
+
+  function videoFilterBarHtml(platformKey, state){
+    const limitPills = VIDEO_LIMIT_OPTIONS.map(n => {
+      const label = n === 999 ? 'All' : `Top ${n}`;
+      return `<button class="pill-btn ${state.limit === n ? 'active' : ''}" data-video-limit="${n}">${label}</button>`;
+    }).join('');
+    const opts = VIDEO_SORT_OPTIONS[platformKey];
+    const sortSelect = `<select class="sort-select" id="videoSortSelect">
+      ${opts.map(o => `<option value="${o.value}" ${o.value === state.sortBy ? 'selected' : ''}>Sort: ${o.label}</option>`).join('')}
+    </select>`;
+    return `<div class="video-filters"><div class="day-toggle">${limitPills}</div>${sortSelect}</div>`;
+  }
+
+  function sortAndLimitVideos(videos, sortBy, limit){
+    const sorted = [...videos].sort((a, b) => (Number(b[sortBy]) || 0) - (Number(a[sortBy]) || 0));
+    return limit >= 999 ? sorted : sorted.slice(0, limit);
+  }
+
+  function renderVideoSection(){
+    const barContainer = document.getElementById('videoFilterBarContainer');
+    const listContainer = document.getElementById('videoListContainer');
+    if(!barContainer || !listContainer) return;
+
+    barContainer.innerHTML = videoFilterBarHtml(currentAnalyticsPlatform, videoFilterState);
+    barContainer.querySelectorAll('[data-video-limit]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        videoFilterState.limit = parseInt(btn.dataset.videoLimit, 10);
+        renderVideoSection();
+      });
+    });
+    document.getElementById('videoSortSelect').addEventListener('change', (e) => {
+      videoFilterState.sortBy = e.target.value;
+      renderVideoSection();
+    });
+
+    const filtered = sortAndLimitVideos(currentVideoList, videoFilterState.sortBy, videoFilterState.limit);
+    const renderRow = VIDEO_ROW_RENDERERS[currentAnalyticsPlatform];
+    listContainer.innerHTML = filtered.length
+      ? filtered.map(renderRow).join('')
+      : '<div class="empty-state">Nothing to show for this period.</div>';
+    listContainer.querySelectorAll('[data-video-id]').forEach(btn=>{
+      btn.addEventListener('click', () => openVideoMetrics(btn.dataset.platform, btn.dataset.videoId));
+    });
+  }
+
+  // ---- Per-video/post metrics modal ----
+  const VIDEO_DETAIL_ENDPOINTS = {
+    youtube: (id) => `/api/analytics/video/${id}?days=${currentAnalyticsDays}`,
+    facebook: (id) => `/api/analytics/facebook/video/${id}`,
+    instagram: (id) => `/api/analytics/instagram/video/${id}`,
+  };
+
+  function renderRetentionSvg(retention){
+    if(!retention || !retention.length){
+      return '<div class="empty-state">Not enough views yet for retention data.</div>';
+    }
+    const w = 480, h = 150, pad = 6;
+    const maxY = Math.max(1, ...retention.map(r => r.audience_watch_ratio));
+    const points = retention.map(r => {
+      const x = pad + r.elapsed_ratio * (w - pad * 2);
+      const y = h - pad - (r.audience_watch_ratio / maxY) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    return `
+      <div class="retention-chart-wrap">
+        <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+          <polyline points="${points}" fill="none" stroke="#5b5bf0" stroke-width="2.5"/>
+        </svg>
+        <div class="retention-axis"><span>Start</span><span>50%</span><span>End</span></div>
+      </div>`;
+  }
+
+  function renderYoutubeVideoModal(v){
+    const p = v.period;
+    return `
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+        <img src="${v.thumbnail || ''}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;background:#f1f2f6;" onerror="this.style.visibility='hidden'">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:17px;">${escapeHtml(v.title)}</h2>
+          <div class="sub">Published ${new Date(v.published_at).toLocaleDateString()} • <a href="${v.url}" target="_blank" rel="noopener">Open on YouTube</a></div>
+        </div>
+      </div>
+      <div class="sub" style="margin-bottom:6px;">Lifetime</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(v.lifetime.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(v.lifetime.likes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(v.lifetime.comments)}</div></div>
+      </div>
+      <div class="sub" style="margin-bottom:6px;">Last ${v.period_days} days</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Watch Time</div><div class="stat-value">${fmtHours(p.watch_time_minutes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg. Retention</div><div class="stat-value">${p.avg_view_percentage}%</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(p.likes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(p.comments)}</div></div>
+        <div class="stat-card"><div class="stat-label">Net Subs</div><div class="stat-value ${p.subscribers_net < 0 ? 'warn' : ''}">${p.subscribers_net > 0 ? '+' : ''}${fmtNum(p.subscribers_net)}</div></div>
+      </div>
+      <div class="card" style="margin-top:16px;box-shadow:none;border:1px solid var(--border);">
+        <h2 style="font-size:15px;margin:0 0 4px;">Audience Retention</h2>
+        <div class="sub">% of viewers still watching at each point in the video.</div>
+        ${renderRetentionSvg(v.retention)}
+      </div>
+    `;
+  }
+
+  function renderFacebookVideoModal(v){
+    const m = v.metrics;
+    return `
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+        <img src="${v.thumbnail || ''}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;background:#f1f2f6;" onerror="this.style.visibility='hidden'">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:17px;">${escapeHtml(v.title)}</h2>
+          <div class="sub">${v.published_at ? new Date(v.published_at).toLocaleDateString() : ''} • <a href="${v.url}" target="_blank" rel="noopener">Open on Facebook</a></div>
+        </div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(m.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Unique Views</div><div class="stat-value">${fmtNum(m.unique_views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Impressions</div><div class="stat-value">${fmtNum(m.impressions)}</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Avg. Watch Time</div><div class="stat-value">${m.avg_watch_time_seconds}s</div></div>
+        <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(v.likes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(v.comments)}</div></div>
+      </div>
+      <div class="sub" style="margin:12px 0 6px;">Drop-off checkpoints</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Views at 10s</div><div class="stat-value">${fmtNum(m.views_at_10s)}</div></div>
+        <div class="stat-card"><div class="stat-label">Views at 30s</div><div class="stat-value">${fmtNum(m.views_at_30s)}</div></div>
+        <div class="stat-card"><div class="stat-label">Watched to End</div><div class="stat-value">${fmtNum(m.complete_views)}</div></div>
+      </div>
+      <div class="modal-note">${escapeHtml(v.note)}</div>
+    `;
+  }
+
+  function renderInstagramVideoModal(v){
+    const m = v.metrics;
+    return `
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+        <img src="${v.thumbnail || ''}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;background:#f1f2f6;" onerror="this.style.visibility='hidden'">
+        <div>
+          <h2 style="margin:0 0 4px;font-size:17px;">${escapeHtml(v.title)}</h2>
+          <div class="sub">${v.media_type || ''} • ${v.published_at ? new Date(v.published_at).toLocaleDateString() : ''}${v.url ? ` • <a href="${v.url}" target="_blank" rel="noopener">Open on Instagram</a>` : ''}</div>
+        </div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(m.views)}</div></div>
+        <div class="stat-card"><div class="stat-label">Reach</div><div class="stat-value">${fmtNum(m.reach)}</div></div>
+        <div class="stat-card"><div class="stat-label">Saved</div><div class="stat-value">${fmtNum(m.saved)}</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(v.likes)}</div></div>
+        <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(v.comments)}</div></div>
+        <div class="stat-card"><div class="stat-label">Shares</div><div class="stat-value">${fmtNum(m.shares)}</div></div>
+      </div>
+      <div class="modal-note">${escapeHtml(v.note)}</div>
+    `;
+  }
+
+  const VIDEO_MODAL_RENDERERS = {
+    youtube: renderYoutubeVideoModal,
+    facebook: renderFacebookVideoModal,
+    instagram: renderInstagramVideoModal,
+  };
+
+  const REFRESH_INTERVALS = [
+    {value: 0, label: 'Auto-refresh: Off'},
+    {value: 10000, label: 'Every 10s'},
+    {value: 30000, label: 'Every 30s'},
+    {value: 60000, label: 'Every 1m'},
+    {value: 300000, label: 'Every 5m'},
+  ];
+
+  let videoModalState = {
+    platform: null, id: null, intervalMs: 0, lastUpdated: null,
+    nextRefreshAt: null, refreshTimeoutId: null, countdownTickId: null,
+  };
+
+  function refreshBarHtml(){
+    const opts = REFRESH_INTERVALS.map(o =>
+      `<option value="${o.value}" ${o.value === videoModalState.intervalMs ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+    return `
+      <div class="modal-refresh-bar">
+        <select class="sort-select" id="modalRefreshSelect">${opts}</select>
+        <button class="acc-btn" id="modalRefreshNow" type="button">↻ Refresh now</button>
+        <span class="modal-refresh-status" id="modalRefreshStatus">
+          <span class="mini-spinner" id="modalMiniSpinner" style="display:none;"></span>
+          <span id="modalRefreshText"></span><span id="modalCountdownText"></span>
+        </span>
+      </div>`;
+  }
+
+  function updateCountdownDisplay(){
+    const el = document.getElementById('modalCountdownText');
+    if(!el) return;
+    if(!videoModalState.nextRefreshAt){
+      el.textContent = '';
+      return;
+    }
+    const remaining = Math.max(0, Math.round((videoModalState.nextRefreshAt - Date.now()) / 1000));
+    el.textContent = remaining > 0 ? ` · Next refresh in ${remaining}s` : ' · Refreshing…';
+  }
+
+  // Self-scheduling: each auto-refresh, once it finishes, schedules the next
+  // one — so the visible countdown and the actual fetch can never drift
+  // apart, and a manual "Refresh now" naturally restarts the countdown too
+  // (since it clears+reschedules the pending timeout).
+  function scheduleNextAutoRefresh(){
+    if(videoModalState.refreshTimeoutId){
+      clearTimeout(videoModalState.refreshTimeoutId);
+      videoModalState.refreshTimeoutId = null;
+    }
+    if(videoModalState.intervalMs > 0){
+      videoModalState.nextRefreshAt = Date.now() + videoModalState.intervalMs;
+      videoModalState.refreshTimeoutId = setTimeout(() => fetchVideoMetrics(), videoModalState.intervalMs);
+      if(!videoModalState.countdownTickId){
+        videoModalState.countdownTickId = setInterval(updateCountdownDisplay, 1000);
+      }
+    } else {
+      videoModalState.nextRefreshAt = null;
+      if(videoModalState.countdownTickId){
+        clearInterval(videoModalState.countdownTickId);
+        videoModalState.countdownTickId = null;
+      }
+    }
+    updateCountdownDisplay();
+  }
+
+  function wireModalRefreshControls(){
+    document.getElementById('modalRefreshSelect').addEventListener('change', (e) => {
+      videoModalState.intervalMs = parseInt(e.target.value, 10);
+      scheduleNextAutoRefresh();
+    });
+    document.getElementById('modalRefreshNow').addEventListener('click', () => fetchVideoMetrics());
+  }
+
+  async function fetchVideoMetrics(){
+    const { platform, id } = videoModalState;
+    if(!platform || !id) return;
+    const contentEl = document.getElementById('videoModalContent');
+    const spinner = document.getElementById('modalMiniSpinner');
+    const textEl = document.getElementById('modalRefreshText');
+    if(!contentEl) return;  // modal got closed while this was in flight
+
+    const isFirstLoad = !videoModalState.lastUpdated;
+    if(!isFirstLoad){
+      contentEl.classList.add('modal-content-loading');
+      if(spinner) spinner.style.display = 'inline-block';
+      if(textEl) textEl.textContent = 'Refreshing…';
+    }
+
+    try{
+      const res = await fetch(`${API}${VIDEO_DETAIL_ENDPOINTS[platform](id)}`, {cache: 'no-store'});
+      // If the modal was closed or switched to a different video mid-flight, drop this response.
+      if(videoModalState.platform !== platform || videoModalState.id !== id) return;
+
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail: 'Could not load metrics.'}));
+        contentEl.innerHTML = `<div class="empty-state">${escapeHtml(err.detail)}</div>`;
+        if(textEl) textEl.textContent = '';
+        videoModalState.intervalMs = 0;  // hard stop — a broken connection won't fix itself on a timer
+        const selectEl = document.getElementById('modalRefreshSelect');
+        if(selectEl) selectEl.value = '0';
+        return;
+      }
+      const data = await res.json();
+      contentEl.innerHTML = VIDEO_MODAL_RENDERERS[platform](data);
+      videoModalState.lastUpdated = new Date();
+      if(textEl) textEl.textContent = `Updated ${videoModalState.lastUpdated.toLocaleTimeString()}`;
+    }catch(err){
+      if(videoModalState.platform !== platform || videoModalState.id !== id) return;
+      if(textEl) textEl.textContent = 'Refresh failed — will retry';
+    }finally{
+      if(spinner) spinner.style.display = 'none';
+      if(contentEl) contentEl.classList.remove('modal-content-loading');
+      scheduleNextAutoRefresh();  // reschedules if intervalMs > 0, or clears the countdown if it was just set to 0
+    }
+  }
+
+  async function openVideoMetrics(platform, videoId){
+    if(videoModalState.refreshTimeoutId) clearTimeout(videoModalState.refreshTimeoutId);
+    if(videoModalState.countdownTickId) clearInterval(videoModalState.countdownTickId);
+    videoModalState = {
+      platform, id: videoId, intervalMs: 0, lastUpdated: null,
+      nextRefreshAt: null, refreshTimeoutId: null, countdownTickId: null,
+    };
+
+    const overlay = document.getElementById('videoModalOverlay');
+    const body = document.getElementById('videoModalBody');
+    overlay.classList.add('show');
+    body.innerHTML = refreshBarHtml() + '<div id="videoModalContent"><div class="empty-state">Loading…</div></div>';
+    wireModalRefreshControls();
+    await fetchVideoMetrics();
+  }
+
+  function closeVideoModal(){
+    if(videoModalState.refreshTimeoutId) clearTimeout(videoModalState.refreshTimeoutId);
+    if(videoModalState.countdownTickId) clearInterval(videoModalState.countdownTickId);
+    videoModalState = {
+      platform: null, id: null, intervalMs: 0, lastUpdated: null,
+      nextRefreshAt: null, refreshTimeoutId: null, countdownTickId: null,
+    };
+    document.getElementById('videoModalOverlay').classList.remove('show');
+  }
+  document.getElementById('videoModalClose').addEventListener('click', closeVideoModal);
+  document.getElementById('videoModalOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'videoModalOverlay') closeVideoModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeVideoModal();
+  });
+
+  async function loadAnalytics(days){
+    currentAnalyticsDays = days || currentAnalyticsDays;
+    const cfg = analyticsConfig[currentAnalyticsPlatform];
+    const body = document.getElementById('analyticsBody');
+    body.innerHTML = '<div class="empty-state">Loading…</div>';
+    try{
+      const res = await fetch(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`);
+      if(res.status === 401){
+        body.innerHTML = analyticsMessageHtml(cfg.connectMsg, true);
+        wireGotoButtons(body);
+        return;
+      }
+      if(!res.ok){
+        const errData = await res.json().catch(()=>({detail:'Could not load analytics.'}));
+        body.innerHTML = analyticsMessageHtml(errData.detail, res.status === 403);
+        wireGotoButtons(body);
+        return;
+      }
+      const data = await res.json();
+      body.innerHTML = cfg.render(data, currentAnalyticsDays);
+      body.querySelectorAll('[data-days]').forEach(btn=>{
+        btn.addEventListener('click', () => loadAnalytics(parseInt(btn.dataset.days, 10)));
+      });
+
+      currentVideoList = data.top_videos || [];
+      videoFilterState = { sortBy: VIDEO_SORT_OPTIONS[currentAnalyticsPlatform][0].value, limit: 5 };
+      renderVideoSection();
+    }catch(err){
+      body.innerHTML = '<div class="card"><div class="empty-state">Could not reach the server.</div></div>';
+    }
+  }
+
+  document.querySelectorAll('input[name=analyticsPlatform]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      currentAnalyticsPlatform = r.value;
+      loadAnalytics(currentAnalyticsDays);
+    });
+  });
+
+  function wireGotoButtons(scope){
+    scope.querySelectorAll('[data-goto]').forEach(el=>{
+      el.addEventListener('click', () => showPage(el.dataset.goto));
+    });
+  }
+
+  // ================= Initial route =================
+  const initialPage = new URLSearchParams(location.search).get('page') || 'dashboard';
+  showPage(initialPage);
+</script>
+
+</body>
+</html>

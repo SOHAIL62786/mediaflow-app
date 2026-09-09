@@ -1,0 +1,19 @@
+[Unit]
+Description=MediaFlow local dashboard
+After=network.target
+
+[Service]
+Type=simple
+# EDIT these to match where you put the app on the VM and which user runs it
+WorkingDirectory=/home/YOUR_USER/mediaflow-app
+User=YOUR_USER
+
+# Secrets live in this file, not here — see mediaflow.env.example
+EnvironmentFile=/home/YOUR_USER/mediaflow-app/mediaflow.env
+
+ExecStart=/home/YOUR_USER/mediaflow-app/venv/bin/python /home/YOUR_USER/mediaflow-app/server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
