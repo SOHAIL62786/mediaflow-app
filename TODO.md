@@ -1,6 +1,10 @@
 # TODO
 
 ## High Priority
+- [ ] Add UI to rename/delete an account (currently create + list only)
+- [ ] Decide how the background scheduler should scale once there are many
+      accounts with due posts — currently iterates every due row across all
+      accounts each poll; untested at scale
 - [ ] Decide whether TikTok support is still a near-term goal; if so, scaffold
       OAuth connect route + DB fields now so UI/schema don't need retrofitting
 - [ ] Harden default-password behavior: currently prints a warning if
@@ -30,3 +34,5 @@
 - [x] HTTP Basic Auth for app access
 - [x] nginx config + systemd service file for deployment
 - [x] Documentation/handoff system set up (2026-09-10)
+- [x] Multi-account support: independent platform connections, posts, and
+      analytics per account, switched via top-right dropdown (2026-09-10)

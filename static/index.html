@@ -96,8 +96,18 @@
     font-size:10px;font-weight:700;width:16px;height:16px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
   }
-  .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);}
+  .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);cursor:pointer;user-select:none;}
   .admin-pill .avatar{width:30px;height:30px;font-size:12px;}
+  .account-dd-wrap{position:relative;}
+  .account-dd-panel{display:none;position:absolute;top:calc(100% + 10px);right:0;min-width:200px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;z-index:50;}
+  .account-dd-wrap.open .account-dd-panel{display:block;}
+  .account-dd-list{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto;}
+  .account-dd-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-dark);}
+  .account-dd-item:hover{background:#f5f6fa;}
+  .account-dd-item.active{background:#eef1ff;font-weight:600;}
+  .account-dd-item .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--primary,#5b5fef);color:#fff;font-weight:700;flex-shrink:0;}
+  .account-dd-add{margin-top:8px;width:100%;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:none;cursor:pointer;font-size:13px;color:var(--text-mid);text-align:left;}
+  .account-dd-add:hover{background:#f5f6fa;color:var(--text-dark);}
 
   .content{
     display:grid;
@@ -415,9 +425,15 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="badge">3</span>
       </div>
-      <div class="admin-pill">
-        <div class="avatar">M</div>
-        Moiz ▾
+      <div class="account-dd-wrap" id="accountDropdown">
+        <div class="admin-pill" id="accountPill">
+          <div class="avatar" id="accountPillAvatar">M</div>
+          <span id="accountPillName">Moiz</span> ▾
+        </div>
+        <div class="account-dd-panel">
+          <div class="account-dd-list" id="accountDropdownList"></div>
+          <button class="account-dd-add" id="addAccountBtn">+ Add account</button>
+        </div>
       </div>
     </div>
   </div>
@@ -458,8 +474,8 @@
   <div class="page" data-page="accounts">
     <div class="content-single narrow">
       <div class="card">
-        <h2>Connected Accounts</h2>
-        <div class="sub">Connect or disconnect the platforms MediaFlow publishes to.</div>
+        <h2>Connected Platforms</h2>
+        <div class="sub">Connect or disconnect the platforms MediaFlow publishes to for <strong id="accountsPageAccountName">this account</strong>. Switch accounts using the picker in the top right.</div>
         <div class="accounts-list" id="accountsPageList">
           <div class="account-row" id="page-acc-youtube">
             <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
@@ -817,9 +833,105 @@
   // ---- Real connection status from the backend ----
   const API = ''; // same origin, since the backend also serves this page
 
+  // ---- Multi-account switcher ----
+  // One shared login, but every request is scoped to whichever account is
+  // currently selected (platform connections, posts, and analytics are all
+  // independent per account). The chosen account persists across reloads.
+  let currentAccountId = parseInt(localStorage.getItem('mf_account_id') || '1', 10);
+  let accountsCache = [];
+
+  function withAccount(url){
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}account_id=${currentAccountId}`;
+  }
+
+  function currentAccountName(){
+    const acc = accountsCache.find(a => a.id === currentAccountId);
+    return acc ? acc.name : '...';
+  }
+
+  function renderAccountPill(){
+    const name = currentAccountName();
+    document.getElementById('accountPillName').textContent = name;
+    document.getElementById('accountPillAvatar').textContent = (name[0] || '?').toUpperCase();
+  }
+
+  async function loadAccounts(){
+    try{
+      const res = await fetch(`${API}/api/accounts`);
+      accountsCache = await res.json();
+      if(!accountsCache.find(a => a.id === currentAccountId)){
+        currentAccountId = accountsCache[0] ? accountsCache[0].id : 1;
+        localStorage.setItem('mf_account_id', String(currentAccountId));
+      }
+      renderAccountPill();
+      renderAccountDropdownList();
+    }catch(err){
+      // leave whatever was cached/defaulted
+    }
+  }
+
+  function renderAccountDropdownList(){
+    const list = document.getElementById('accountDropdownList');
+    list.innerHTML = accountsCache.map(a => `
+      <div class="account-dd-item${a.id === currentAccountId ? ' active' : ''}" data-account-id="${a.id}">
+        <div class="avatar" style="width:24px;height:24px;font-size:11px;">${(a.name[0]||'?').toUpperCase()}</div>
+        <span>${a.name}</span>
+      </div>
+    `).join('');
+  }
+
+  function switchAccount(id){
+    currentAccountId = id;
+    localStorage.setItem('mf_account_id', String(id));
+    document.getElementById('accountDropdown').classList.remove('open');
+    renderAccountPill();
+    renderAccountDropdownList();
+    // Re-run whatever the current page needs so it reflects the new account
+    loadStatus();
+    const activePage = document.querySelector('.page.active')?.dataset.page || 'dashboard';
+    if(activePage === 'dashboard') loadDashboard();
+    if(activePage === 'accounts') loadAccountsPage();
+    if(activePage === 'scheduled') loadLibrary('scheduled');
+    if(activePage === 'published') loadLibrary('published');
+    if(activePage === 'analytics') loadAnalytics();
+    showToast(`Switched to ${currentAccountName()}`);
+  }
+
+  document.getElementById('accountPill').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('accountDropdown').classList.toggle('open');
+  });
+  document.addEventListener('click', ()=>{
+    document.getElementById('accountDropdown').classList.remove('open');
+  });
+  document.getElementById('accountDropdown').addEventListener('click', (e)=> e.stopPropagation());
+  document.getElementById('accountDropdownList').addEventListener('click', (e)=>{
+    const item = e.target.closest('[data-account-id]');
+    if(item) switchAccount(parseInt(item.dataset.accountId, 10));
+  });
+  document.getElementById('addAccountBtn').addEventListener('click', async ()=>{
+    const name = prompt('Name for the new account (e.g. a client or brand name):');
+    if(!name || !name.trim()) return;
+    const fd = new FormData();
+    fd.append('name', name.trim());
+    try{
+      const res = await fetch(`${API}/api/accounts`, { method: 'POST', body: fd });
+      if(!res.ok) throw new Error();
+      const acc = await res.json();
+      await loadAccounts();
+      switchAccount(acc.id);
+      showToast(`Created account "${acc.name}" — connect its platforms from Accounts.`, 5000);
+    }catch(err){
+      showToast('Could not create the account — is the server running?');
+    }
+  });
+
+  loadAccounts();
+
   async function loadStatus(){
     try{
-      const res = await fetch(`${API}/api/status`);
+      const res = await fetch(withAccount(`${API}/api/status`));
       const data = await res.json();
       Object.entries(data).forEach(([platform, info])=>{
         const card = document.querySelector(`.platform-card[data-platform="${platform}"]`);
@@ -943,7 +1055,7 @@
     publishBtn.textContent = isLater ? 'Scheduling...' : 'Uploading...';
 
     try{
-      const res = await fetch(`${API}/api/publish`, { method: 'POST', body: formData });
+      const res = await fetch(withAccount(`${API}/api/publish`), { method: 'POST', body: formData });
       if(!res.ok){
         const err = await res.json().catch(()=>({detail: res.statusText}));
         throw new Error(err.detail || 'Upload failed');
@@ -1055,7 +1167,7 @@
 
   async function loadDashboard(){
     try{
-      const res = await fetch(`${API}/api/dashboard/summary`);
+      const res = await fetch(withAccount(`${API}/api/dashboard/summary`));
       if(!res.ok) throw new Error();
       const data = await res.json();
       document.getElementById('statScheduled').textContent = data.scheduled_count;
@@ -1081,6 +1193,8 @@
 
   // ================= Accounts page =================
   async function loadAccountsPage(){
+    const nameEl = document.getElementById('accountsPageAccountName');
+    if(nameEl) nameEl.textContent = currentAccountName();
     const ytRow = document.getElementById('page-acc-youtube');
     const ytHandle = ytRow.querySelector('[data-handle]');
     const ytBtn = ytRow.querySelector('.acc-btn');
@@ -1095,7 +1209,7 @@
     const igPill = igRow.querySelector('[data-pill]');
 
     try{
-      const res = await fetch(`${API}/api/status`);
+      const res = await fetch(withAccount(`${API}/api/status`));
       const data = await res.json();
 
       const yt = data.youtube;
@@ -1108,7 +1222,7 @@
       } else {
         ytHandle.textContent = 'Not connected';
         ytBtn.textContent = 'Connect';
-        ytBtn.setAttribute('href', '/api/connect/youtube');
+        ytBtn.setAttribute('href', withAccount('/api/connect/youtube'));
         ytBtn.classList.remove('danger');
         ytBtn.dataset.action = 'connect-youtube';
       }
@@ -1154,7 +1268,7 @@
       e.preventDefault();
       btn.textContent = 'Disconnecting...';
       try{
-        await fetch(`${API}/api/disconnect/youtube`, { method: 'POST' });
+        await fetch(withAccount(`${API}/api/disconnect/youtube`), { method: 'POST' });
         showToast('YouTube disconnected.');
       }catch(err){
         showToast('Could not disconnect — is the server running?');
@@ -1174,7 +1288,7 @@
     } else if(btn.dataset.action === 'disconnect-facebook'){
       btn.textContent = 'Disconnecting...';
       try{
-        await fetch(`${API}/api/disconnect/facebook`, { method: 'POST' });
+        await fetch(withAccount(`${API}/api/disconnect/facebook`), { method: 'POST' });
         showToast('Facebook disconnected.');
       }catch(err){
         showToast('Could not disconnect — is the server running?');
@@ -1203,7 +1317,7 @@
     btn.disabled = true;
     btn.textContent = 'Connecting...';
     try{
-      const res = await fetch(`${API}/api/connect/facebook`, { method: 'POST', body: fd });
+      const res = await fetch(withAccount(`${API}/api/connect/facebook`), { method: 'POST', body: fd });
       if(!res.ok){
         const err = await res.json().catch(()=>({detail: 'Connection failed.'}));
         throw new Error(err.detail);
@@ -1228,7 +1342,7 @@
     const container = document.getElementById(containerId);
     container.innerHTML = '<div class="empty-state">Loading…</div>';
     try{
-      const res = await fetch(`${API}/api/library?status=${status}`);
+      const res = await fetch(withAccount(`${API}/api/library?status=${status}`));
       if(!res.ok) throw new Error();
       const records = await res.json();
       container.innerHTML = records.length
@@ -1720,7 +1834,7 @@
     }
 
     try{
-      const res = await fetch(`${API}${VIDEO_DETAIL_ENDPOINTS[platform](id)}`, {cache: 'no-store'});
+      const res = await fetch(withAccount(`${API}${VIDEO_DETAIL_ENDPOINTS[platform](id)}`), {cache: 'no-store'});
       // If the modal was closed or switched to a different video mid-flight, drop this response.
       if(videoModalState.platform !== platform || videoModalState.id !== id) return;
 
@@ -1786,7 +1900,7 @@
     const body = document.getElementById('analyticsBody');
     body.innerHTML = '<div class="empty-state">Loading…</div>';
     try{
-      const res = await fetch(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`);
+      const res = await fetch(withAccount(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`));
       if(res.status === 401){
         body.innerHTML = analyticsMessageHtml(cfg.connectMsg, true);
         wireGotoButtons(body);

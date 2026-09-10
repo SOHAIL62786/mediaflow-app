@@ -42,9 +42,53 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 STATIC_DIR = BASE_DIR / "static"
 DB_PATH = BASE_DIR / "mediaflow.db"
 
-TOKEN_PATH = CRED_DIR / "token.json"
-CLIENT_SECRET_PATH = CRED_DIR / "client_secret.json"
-FACEBOOK_CREDS_PATH = CRED_DIR / "facebook.json"
+# Legacy single-tenant credential paths (pre-multi-account). Used only to
+# migrate an existing install's credentials into Account 1 on first boot.
+LEGACY_TOKEN_PATH = CRED_DIR / "token.json"
+LEGACY_CLIENT_SECRET_PATH = CRED_DIR / "client_secret.json"
+LEGACY_FACEBOOK_CREDS_PATH = CRED_DIR / "facebook.json"
+
+ACCOUNTS_CRED_DIR = CRED_DIR / "accounts"
+
+
+def account_cred_dir(account_id: int) -> Path:
+    d = ACCOUNTS_CRED_DIR / str(account_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def token_path(account_id: int) -> Path:
+    return account_cred_dir(account_id) / "token.json"
+
+
+def client_secret_path(account_id: int) -> Path:
+    """The Google OAuth *app* client (Client ID/secret for the whole Google
+    Cloud project) is allowed to be shared across accounts so you don't have
+    to re-upload it per account — but an account can also have its own if
+    you want fully separate Google Cloud projects per account."""
+    per_account = account_cred_dir(account_id) / "client_secret.json"
+    if per_account.exists():
+        return per_account
+    return LEGACY_CLIENT_SECRET_PATH
+
+
+def facebook_creds_path(account_id: int) -> Path:
+    return account_cred_dir(account_id) / "facebook.json"
+
+
+def _migrate_legacy_credentials_to_account_1():
+    """One-time migration: if this install has old single-tenant credential
+    files (from before multi-account support) and Account 1 doesn't have its
+    own copies yet, move them in. This is what keeps the *first* account
+    working exactly as before after upgrading."""
+    acc1_dir = account_cred_dir(1)
+    for legacy_path, name in (
+        (LEGACY_TOKEN_PATH, "token.json"),
+        (LEGACY_FACEBOOK_CREDS_PATH, "facebook.json"),
+    ):
+        dest = acc1_dir / name
+        if legacy_path.exists() and not dest.exists():
+            shutil.copy2(legacy_path, dest)
 
 GRAPH_API_VERSION = "v23.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
@@ -111,12 +155,39 @@ def init_db():
         if "video_path" not in existing_cols:
             conn.execute("ALTER TABLE uploads ADD COLUMN video_path TEXT")
 
+        # ---- Multi-account support ----
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        if "account_id" not in existing_cols:
+            # Every existing row belongs to whatever was previously the one
+            # and only account — becomes Account 1 below, unaffected.
+            conn.execute("ALTER TABLE uploads ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1")
+
+        has_account_1 = conn.execute("SELECT 1 FROM accounts WHERE id = 1").fetchone()
+        if not has_account_1:
+            # Preserves the original single-tenant install as "Account 1" —
+            # same name shown before multi-account existed, so nothing about
+            # the first account changes from the user's point of view.
+            conn.execute(
+                "INSERT INTO accounts (id, name, created_at) VALUES (1, ?, ?)",
+                ("Moiz", datetime.now(timezone.utc).isoformat()),
+            )
+
 
 init_db()
+_migrate_legacy_credentials_to_account_1()
 
 
 def record_upload(title, caption, platforms, privacy, tags, made_for_kids,
-                   contains_synthetic_media, scheduled_time, results: dict) -> int:
+                   contains_synthetic_media, scheduled_time, results: dict,
+                   account_id: int = 1) -> int:
     """For an immediate publish (no scheduling) — the platform APIs have
     already been called by the time this is written, so `results` is final."""
     oks = [r for r in results.values() if r.get("ok")]
@@ -127,21 +198,22 @@ def record_upload(title, caption, platforms, privacy, tags, made_for_kids,
             """
             INSERT INTO uploads
                 (created_at, title, caption, platforms, privacy, tags,
-                 made_for_kids, contains_synthetic_media, scheduled_time, status, results, video_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                 made_for_kids, contains_synthetic_media, scheduled_time, status, results, video_path, account_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
             """,
             (
                 datetime.now(timezone.utc).isoformat(),
                 title, caption, platforms, privacy, tags,
                 int(made_for_kids), int(contains_synthetic_media),
-                scheduled_time, overall_status, json.dumps(results),
+                scheduled_time, overall_status, json.dumps(results), account_id,
             ),
         )
         return cur.lastrowid
 
 
 def record_queued_upload(title, caption, platforms, privacy, tags, made_for_kids,
-                          contains_synthetic_media, scheduled_time, video_path: str) -> int:
+                          contains_synthetic_media, scheduled_time, video_path: str,
+                          account_id: int = 1) -> int:
     """For a scheduled publish — we haven't called any platform API yet.
     The background scheduler does that later, at `scheduled_time`, using
     the file at `video_path`. `results` starts empty since nothing has
@@ -151,14 +223,14 @@ def record_queued_upload(title, caption, platforms, privacy, tags, made_for_kids
             """
             INSERT INTO uploads
                 (created_at, title, caption, platforms, privacy, tags,
-                 made_for_kids, contains_synthetic_media, scheduled_time, status, results, video_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '{}', ?)
+                 made_for_kids, contains_synthetic_media, scheduled_time, status, results, video_path, account_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '{}', ?, ?)
             """,
             (
                 datetime.now(timezone.utc).isoformat(),
                 title, caption, platforms, privacy, tags,
                 int(made_for_kids), int(contains_synthetic_media),
-                scheduled_time, video_path,
+                scheduled_time, video_path, account_id,
             ),
         )
         return cur.lastrowid
@@ -216,13 +288,15 @@ def require_login(credentials: HTTPBasicCredentials = Depends(security)):
 
 # ---------- YouTube auth helpers ----------
 
-def get_youtube_credentials() -> Optional[Credentials]:
-    """Load stored token, refreshing it if it's expired. Persists any refresh
-    back to token.json so you don't have to log in again next run."""
-    if not TOKEN_PATH.exists():
+def get_youtube_credentials(account_id: int = 1) -> Optional[Credentials]:
+    """Load stored token for this account, refreshing it if it's expired.
+    Persists any refresh back to that account's token.json so you don't have
+    to log in again next run."""
+    path = token_path(account_id)
+    if not path.exists():
         return None
 
-    with open(TOKEN_PATH, "r") as f:
+    with open(path, "r") as f:
         data = json.load(f)
 
     creds = Credentials(
@@ -240,14 +314,14 @@ def get_youtube_credentials() -> Optional[Credentials]:
         data["token"] = creds.token
         if creds.expiry:
             data["expiry"] = creds.expiry.isoformat() + "Z"
-        with open(TOKEN_PATH, "w") as f:
+        with open(path, "w") as f:
             json.dump(data, f, indent=2)
 
     return creds
 
 
-def get_youtube_client():
-    creds = get_youtube_credentials()
+def get_youtube_client(account_id: int = 1):
+    creds = get_youtube_credentials(account_id)
     if creds is None:
         raise HTTPException(status_code=401, detail="YouTube is not connected. See README to run the OAuth flow.")
     return build("youtube", "v3", credentials=creds)
@@ -258,17 +332,26 @@ def get_youtube_client():
 # separate Instagram login. See README for how to get a Page ID + Page
 # Access Token, and what Instagram Business account linking requires.
 
-def get_facebook_credentials() -> Optional[dict]:
-    if not FACEBOOK_CREDS_PATH.exists():
+def get_facebook_credentials(account_id: int = 1) -> Optional[dict]:
+    path = facebook_creds_path(account_id)
+    if not path.exists():
         return None
-    with open(FACEBOOK_CREDS_PATH, "r") as f:
+    with open(path, "r") as f:
         return json.load(f)
+
+
+def get_account_or_404(account_id: int) -> dict:
+    with get_db() as conn:
+        row = conn.execute("SELECT id, name, created_at FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Account {account_id} does not exist.")
+    return dict(row)
 
 
 # ---------- Status ----------
 
 @app.get("/api/status")
-def status(user: str = Depends(require_login)):
+def status(account_id: int = 1, user: str = Depends(require_login)):
     platforms = {
         "youtube": {"connected": False, "channel": None},
         "facebook": {"connected": False, "channel": None},
@@ -277,7 +360,7 @@ def status(user: str = Depends(require_login)):
     }
 
     try:
-        creds = get_youtube_credentials()
+        creds = get_youtube_credentials(account_id)
         if creds:
             yt = build("youtube", "v3", credentials=creds)
             try:
@@ -303,7 +386,7 @@ def status(user: str = Depends(require_login)):
     except Exception as e:
         platforms["youtube"] = {"connected": False, "channel": None, "error": str(e)}
 
-    fb_creds = get_facebook_credentials()
+    fb_creds = get_facebook_credentials(account_id)
     if fb_creds:
         try:
             resp = requests.get(
@@ -349,6 +432,7 @@ async def publish(
     made_for_kids: bool = Form(False),
     contains_synthetic_media: bool = Form(False),  # YouTube's AI/altered-content disclosure
     scheduled_time: Optional[str] = Form(None),  # RFC3339 UTC timestamp, e.g. "2026-09-10T14:30:00.000Z"
+    account_id: int = 1,
     user: str = Depends(require_login),
 ):
     selected = [p.strip().lower() for p in platforms.split(",") if p.strip()]
@@ -398,6 +482,7 @@ async def publish(
             contains_synthetic_media=contains_synthetic_media,
             scheduled_time=publish_at,
             video_path=str(dest_path),
+            account_id=account_id,
         )
 
         return JSONResponse({
@@ -418,7 +503,7 @@ async def publish(
         tmp_path = Path(tmp.name)
 
     results = {}
-    fb_creds = get_facebook_credentials()
+    fb_creds = get_facebook_credentials(account_id)
 
     try:
         for platform in selected:
@@ -428,6 +513,7 @@ async def publish(
                     privacy=privacy, tags=tag_list,
                     made_for_kids=made_for_kids,
                     contains_synthetic_media=contains_synthetic_media,
+                    account_id=account_id,
                 )
             elif platform == "facebook":
                 if not fb_creds:
@@ -468,6 +554,7 @@ async def publish(
         contains_synthetic_media=contains_synthetic_media,
         scheduled_time=None,
         results=results,
+        account_id=account_id,
     )
 
     return JSONResponse(results)
@@ -481,13 +568,14 @@ def _upload_to_youtube(
     tags: Optional[list] = None,
     made_for_kids: bool = False,
     contains_synthetic_media: bool = False,
+    account_id: int = 1,
 ) -> dict:
     """Always publishes immediately at the requested privacy level. Scheduling
     is handled entirely by our own local queue (see _scheduler_loop) rather
     than YouTube's native publishAt — this function is only ever called once
     it's actually time to go live."""
     try:
-        youtube = get_youtube_client()
+        youtube = get_youtube_client(account_id)
 
         status = {
             "privacyStatus": privacy,
@@ -647,7 +735,8 @@ def _execute_scheduled_upload(row: dict):
     video_path = Path(row["video_path"]) if row["video_path"] else None
     platforms = [p.strip() for p in row["platforms"].split(",") if p.strip()]
     tag_list = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
-    fb_creds = get_facebook_credentials()
+    account_id = row["account_id"] if "account_id" in row.keys() else 1
+    fb_creds = get_facebook_credentials(account_id)
 
     results = {}
     if not video_path or not video_path.exists():
@@ -665,6 +754,7 @@ def _execute_scheduled_upload(row: dict):
                     privacy=row["privacy"], tags=tag_list,
                     made_for_kids=bool(row["made_for_kids"]),
                     contains_synthetic_media=bool(row["contains_synthetic_media"]),
+                    account_id=account_id,
                 )
             elif platform == "facebook":
                 if not fb_creds:
@@ -736,7 +826,7 @@ async def _start_scheduler():
 # ---------- Library (Scheduled / Published pages) ----------
 
 @app.get("/api/library")
-def library(status: Optional[str] = None, user: str = Depends(require_login)):
+def library(status: Optional[str] = None, account_id: int = 1, user: str = Depends(require_login)):
     valid = {"scheduled", "published", "failed", "partial"}
     if status and status not in valid:
         raise HTTPException(status_code=400, detail=f"status must be one of {sorted(valid)}")
@@ -749,29 +839,35 @@ def library(status: Optional[str] = None, user: str = Depends(require_login)):
     with get_db() as conn:
         if status:
             rows = conn.execute(
-                "SELECT * FROM uploads WHERE status = ? ORDER BY id DESC", (status,)
+                "SELECT * FROM uploads WHERE status = ? AND account_id = ? ORDER BY id DESC", (status, account_id)
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM uploads ORDER BY id DESC").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM uploads WHERE account_id = ? ORDER BY id DESC", (account_id,)
+            ).fetchall()
         return [row_to_dict(r) for r in rows]
 
 
 @app.get("/api/dashboard/summary")
-def dashboard_summary(user: str = Depends(require_login)):
+def dashboard_summary(account_id: int = 1, user: str = Depends(require_login)):
     _process_due_scheduled_uploads()
     with get_db() as conn:
         counts = {"scheduled": 0, "published": 0, "failed": 0, "partial": 0}
-        for r in conn.execute("SELECT status, COUNT(*) as n FROM uploads GROUP BY status"):
+        for r in conn.execute(
+            "SELECT status, COUNT(*) as n FROM uploads WHERE account_id = ? GROUP BY status", (account_id,)
+        ):
             counts[r["status"]] = r["n"]
-        recent = [row_to_dict(r) for r in conn.execute("SELECT * FROM uploads ORDER BY id DESC LIMIT 5")]
+        recent = [row_to_dict(r) for r in conn.execute(
+            "SELECT * FROM uploads WHERE account_id = ? ORDER BY id DESC LIMIT 5", (account_id,)
+        )]
 
     connected_count = 0
     try:
-        if get_youtube_credentials():
+        if get_youtube_credentials(account_id):
             connected_count += 1
     except Exception:
         pass
-    if get_facebook_credentials():
+    if get_facebook_credentials(account_id):
         connected_count += 1
 
     return {
@@ -783,11 +879,42 @@ def dashboard_summary(user: str = Depends(require_login)):
     }
 
 
+# ---------- Accounts (multi-account switcher) ----------
+# Each "account" is a fully independent set of platform connections,
+# scheduled/published posts, and analytics. There's still just one shared
+# login (APP_USERNAME/APP_PASSWORD) — accounts are workspaces you switch
+# between after logging in, not separate user logins.
+
+@app.get("/api/accounts")
+def list_accounts(user: str = Depends(require_login)):
+    with get_db() as conn:
+        rows = conn.execute("SELECT id, name, created_at FROM accounts ORDER BY id").fetchall()
+        return [dict(r) for r in rows]
+
+
+@app.post("/api/accounts")
+def create_account(name: str = Form(...), user: str = Depends(require_login)):
+    clean_name = name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Account name is required.")
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO accounts (name, created_at) VALUES (?, ?)",
+            (clean_name, datetime.now(timezone.utc).isoformat()),
+        )
+        new_id = cur.lastrowid
+    # Give the new account its own empty credentials directory right away so
+    # the Accounts page has somewhere to write to as soon as it connects a
+    # platform — doesn't affect any other account's files.
+    account_cred_dir(new_id)
+    return {"id": new_id, "name": clean_name}
+
+
 # ---------- Analytics (real YouTube Analytics data) ----------
 
 @app.get("/api/analytics/summary")
-def analytics_summary(days: int = 28, user: str = Depends(require_login)):
-    creds = get_youtube_credentials()
+def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+    creds = get_youtube_credentials(account_id)
     if not creds:
         raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Accounts first.")
 
@@ -932,12 +1059,12 @@ def analytics_summary(days: int = 28, user: str = Depends(require_login)):
 
 
 @app.get("/api/analytics/video/{video_id}")
-def analytics_video_detail(video_id: str, days: int = 28, user: str = Depends(require_login)):
+def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
     """Per-video detail for the metrics modal — the numbers YouTube Studio
     shows on a single video's Analytics tab, including the audience
     retention curve (the actual per-second retention data, same source
     Studio's graph uses)."""
-    creds = get_youtube_credentials()
+    creds = get_youtube_credentials(account_id)
     if not creds:
         raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Accounts first.")
 
@@ -1069,8 +1196,8 @@ def _insights_total(insight_payload: dict, metric: str) -> int:
 
 
 @app.get("/api/analytics/facebook")
-def analytics_facebook(days: int = 28, user: str = Depends(require_login)):
-    fb_creds = get_facebook_credentials()
+def analytics_facebook(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+    fb_creds = get_facebook_credentials(account_id)
     if not fb_creds:
         raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Accounts first.")
 
@@ -1147,14 +1274,14 @@ def analytics_facebook(days: int = 28, user: str = Depends(require_login)):
 
 
 @app.get("/api/analytics/facebook/video/{video_id}")
-def analytics_facebook_video_detail(video_id: str, user: str = Depends(require_login)):
+def analytics_facebook_video_detail(video_id: str, account_id: int = 1, user: str = Depends(require_login)):
     """Per-video detail for the metrics modal. Facebook's public API doesn't
     expose a second-by-second retention curve like YouTube's — this shows
     the real metrics it does expose: views, watch time, average watch time,
     and (where available) drop-off checkpoints at 10s/30s/60s and a full
     completion rate, which is the closest Facebook equivalent to a
     retention shape."""
-    fb_creds = get_facebook_credentials()
+    fb_creds = get_facebook_credentials(account_id)
     if not fb_creds:
         raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Accounts first.")
     token = fb_creds["page_access_token"]
@@ -1203,8 +1330,8 @@ def analytics_facebook_video_detail(video_id: str, user: str = Depends(require_l
 
 
 @app.get("/api/analytics/instagram")
-def analytics_instagram(days: int = 28, user: str = Depends(require_login)):
-    fb_creds = get_facebook_credentials()
+def analytics_instagram(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+    fb_creds = get_facebook_credentials(account_id)
     ig_id = fb_creds.get("instagram_business_account_id") if fb_creds else None
     if not fb_creds or not ig_id:
         raise HTTPException(
@@ -1309,13 +1436,13 @@ def analytics_instagram(days: int = 28, user: str = Depends(require_login)):
 
 
 @app.get("/api/analytics/instagram/video/{media_id}")
-def analytics_instagram_video_detail(media_id: str, user: str = Depends(require_login)):
+def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: str = Depends(require_login)):
     """Per-post detail for the metrics modal. Instagram's public API doesn't
     expose a retention curve either — this shows the closest real metrics
     it does provide, which vary by media type (Reels get 'plays'/'saved',
     regular posts don't), so we fetch defensively and show whatever comes
     back rather than failing the whole request over one unsupported metric."""
-    fb_creds = get_facebook_credentials()
+    fb_creds = get_facebook_credentials(account_id)
     if not fb_creds or not fb_creds.get("instagram_business_account_id"):
         raise HTTPException(status_code=401, detail="Instagram is not connected. Connect a Facebook Page with a linked Instagram Business account first.")
     token = fb_creds["page_access_token"]
@@ -1370,24 +1497,27 @@ def analytics_instagram_video_detail(media_id: str, user: str = Depends(require_
 
 # ---------- YouTube connect / disconnect (OAuth) ----------
 
-_pending_oauth_flows: dict = {}  # state -> Flow, cleared once the callback completes
+_pending_oauth_flows: dict = {}  # state -> (Flow, account_id), cleared once the callback completes
 
 
 @app.get("/api/connect/youtube")
-def connect_youtube(request: Request, user: str = Depends(require_login)):
-    if not CLIENT_SECRET_PATH.exists():
+def connect_youtube(request: Request, account_id: int = 1, user: str = Depends(require_login)):
+    get_account_or_404(account_id)
+    secret_path = client_secret_path(account_id)
+    if not secret_path.exists():
         raise HTTPException(
             status_code=400,
-            detail="credentials/client_secret.json is missing — add your Google OAuth client first.",
+            detail="credentials/client_secret.json is missing — add your Google OAuth client first "
+                   "(shared across accounts, or drop one in this account's own credentials folder).",
         )
     redirect_uri = str(request.base_url) + "api/oauth2callback/youtube"
     flow = Flow.from_client_secrets_file(
-        str(CLIENT_SECRET_PATH), scopes=YOUTUBE_SCOPES, redirect_uri=redirect_uri
+        str(secret_path), scopes=YOUTUBE_SCOPES, redirect_uri=redirect_uri
     )
     auth_url, state = flow.authorization_url(
         access_type="offline", include_granted_scopes="true", prompt="consent"
     )
-    _pending_oauth_flows[state] = flow
+    _pending_oauth_flows[state] = (flow, account_id)
     return RedirectResponse(auth_url)
 
 
@@ -1398,16 +1528,18 @@ def oauth2callback_youtube(request: Request):
     # HTTP Basic Auth cannot be attached to a server-initiated redirect
     # anyway, so this endpoint verifies the `state` value instead, which
     # only exists because /api/connect/youtube (which IS login-gated) issued
-    # it moments earlier.
+    # it moments earlier. The account_id it was issued for travels along
+    # with the flow object in _pending_oauth_flows so the token lands in the
+    # right account's credentials folder, not always Account 1.
     state = request.query_params.get("state")
-    flow = _pending_oauth_flows.pop(state, None)
-    if flow is None:
+    pending = _pending_oauth_flows.pop(state, None)
+    if pending is None:
         raise HTTPException(status_code=400, detail="OAuth session expired or invalid — try connecting again.")
+    flow, account_id = pending
 
     flow.fetch_token(authorization_response=str(request.url))
     creds = flow.credentials
 
-    CRED_DIR.mkdir(exist_ok=True)
     token_data = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
@@ -1418,16 +1550,17 @@ def oauth2callback_youtube(request: Request):
     }
     if creds.expiry:
         token_data["expiry"] = creds.expiry.isoformat() + "Z"
-    with open(TOKEN_PATH, "w") as f:
+    with open(token_path(account_id), "w") as f:
         json.dump(token_data, f, indent=2)
 
-    return RedirectResponse("/?page=accounts")
+    return RedirectResponse(f"/?page=accounts&account_id={account_id}")
 
 
 @app.post("/api/disconnect/youtube")
-def disconnect_youtube(user: str = Depends(require_login)):
-    if TOKEN_PATH.exists():
-        TOKEN_PATH.unlink()
+def disconnect_youtube(account_id: int = 1, user: str = Depends(require_login)):
+    path = token_path(account_id)
+    if path.exists():
+        path.unlink()
     return {"ok": True}
 
 
@@ -1442,8 +1575,10 @@ def connect_facebook(
     app_secret: str = Form(...),
     page_id: str = Form(...),
     page_access_token: str = Form(...),
+    account_id: int = 1,
     user: str = Depends(require_login),
 ):
+    get_account_or_404(account_id)
     try:
         resp = requests.get(
             f"{GRAPH_BASE}/{page_id}",
@@ -1471,8 +1606,7 @@ def connect_facebook(
         "instagram_business_account_id": ig.get("id") if ig else None,
         "instagram_username": ig.get("username") if ig else None,
     }
-    CRED_DIR.mkdir(exist_ok=True)
-    with open(FACEBOOK_CREDS_PATH, "w") as f:
+    with open(facebook_creds_path(account_id), "w") as f:
         json.dump(creds, f, indent=2)
 
     return {
@@ -1484,9 +1618,10 @@ def connect_facebook(
 
 
 @app.post("/api/disconnect/facebook")
-def disconnect_facebook(user: str = Depends(require_login)):
-    if FACEBOOK_CREDS_PATH.exists():
-        FACEBOOK_CREDS_PATH.unlink()
+def disconnect_facebook(account_id: int = 1, user: str = Depends(require_login)):
+    path = facebook_creds_path(account_id)
+    if path.exists():
+        path.unlink()
     return {"ok": True}
 
 
