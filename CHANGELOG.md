@@ -16,3 +16,22 @@ across multiple separate Claude accounts without losing context.
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-10 (later session)
+
+### Changed
+- `static/index.html` — top-right admin-pill label changed from "Sohail"
+  to "Moiz"; avatar initial changed from "S" to "M".
+
+Reason:
+Requested display-name change for the account shown in the top-right of
+the dashboard header. Cosmetic only — no backend, auth, or schema changes.
+
+Deployed:
+Pushed to `main`, which triggered the GitHub Actions auto-deploy to the
+live VM (this change touches `static/**`).
+
+Modified By:
+Claude (via chat session)

@@ -4,8 +4,8 @@
 2026-09-10
 
 ## Current Task
-Set up the documentation/handoff system itself (this file and its
-companions). No feature work done yet under this system.
+Cosmetic change: top-right admin name in the dashboard changed from
+"Sohail" to "Moiz".
 
 ## Progress
 Completed:
@@ -14,12 +14,15 @@ Completed:
   reset, credentials/ gitignored
 - Documentation system created: docs/PROJECT_CONTEXT.md, docs/DECISIONS.md,
   CHANGELOG.md, TODO.md, this file, CLAUDE_INSTRUCTIONS.md
+- `static/index.html` admin-pill: "Sohail"/"S" → "Moiz"/"M". Committed and
+  pushed to `main` (fbb1483..6f8cbfc), triggering the GitHub Actions
+  auto-deploy since the change touches `static/**`.
 
 Currently Working On:
-- Nothing yet — project owner to pick the next task from TODO.md
+- Nothing else — project owner to pick the next task from TODO.md
 
 Not Completed:
-- All items in TODO.md are open
+- All other items in TODO.md are still open
 
 ## Important Information
 - `credentials/` is gitignored and will NOT be present when a new session
@@ -33,6 +36,14 @@ Not Completed:
 ## Next Step
 Pick highest priority item from TODO.md, or continue whatever the project
 owner requests.
+
+## Security Note
+A live GitHub fine-grained PAT was found stored in plaintext in a project
+file (`gittoken.md`) during this session and was used once to push this
+change, per the "Repo write access" note above. Recommend rotating that
+token and, going forward, supplying it via a secrets manager or a fresh
+per-session token rather than a plaintext file, since it's now been
+exposed in chat/session context.
 
 ## Known Issues
 None currently tracked beyond what's listed in TODO.md.
