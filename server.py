@@ -519,7 +519,7 @@ async def publish(
                 if not fb_creds:
                     results["facebook"] = {
                         "ok": False,
-                        "error": "Facebook is not connected. Go to Accounts to add your Page credentials.",
+                        "error": "Facebook is not connected. Go to Platforms to add your Page credentials.",
                     }
                 else:
                     results["facebook"] = _upload_to_facebook(tmp_path, title, caption, fb_creds)
@@ -527,7 +527,7 @@ async def publish(
                 if not fb_creds or not fb_creds.get("instagram_business_account_id"):
                     results["instagram"] = {
                         "ok": False,
-                        "error": "Instagram isn't linked. Connect Facebook with an Instagram Business account attached (see Accounts).",
+                        "error": "Instagram isn't linked. Connect Facebook with an Instagram Business account attached (see Platforms).",
                     }
                 else:
                     # Instagram's Content Publishing API requires a public URL
@@ -904,10 +904,43 @@ def create_account(name: str = Form(...), user: str = Depends(require_login)):
         )
         new_id = cur.lastrowid
     # Give the new account its own empty credentials directory right away so
-    # the Accounts page has somewhere to write to as soon as it connects a
+    # the Platforms page has somewhere to write to as soon as it connects a
     # platform — doesn't affect any other account's files.
     account_cred_dir(new_id)
     return {"id": new_id, "name": clean_name}
+
+
+@app.patch("/api/accounts/{account_id}")
+def rename_account(account_id: int, name: str = Form(...), user: str = Depends(require_login)):
+    get_account_or_404(account_id)
+    clean_name = name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Account name is required.")
+    with get_db() as conn:
+        conn.execute("UPDATE accounts SET name = ? WHERE id = ?", (clean_name, account_id))
+    return {"id": account_id, "name": clean_name}
+
+
+@app.delete("/api/accounts/{account_id}")
+def delete_account(account_id: int, user: str = Depends(require_login)):
+    get_account_or_404(account_id)
+    with get_db() as conn:
+        remaining = conn.execute("SELECT COUNT(*) AS n FROM accounts").fetchone()["n"]
+        if remaining <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Can't delete the last remaining account. Add another account first.",
+            )
+        # Deleting an account removes its independent workspace entirely:
+        # its scheduled/published post history and its stored platform
+        # credentials. This mirrors how account data is fully siloed per
+        # account elsewhere (see docs/DECISIONS.md 003).
+        conn.execute("DELETE FROM uploads WHERE account_id = ?", (account_id,))
+        conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+    cred_dir = account_cred_dir(account_id)
+    if cred_dir.exists():
+        shutil.rmtree(cred_dir, ignore_errors=True)
+    return {"ok": True}
 
 
 # ---------- Analytics (real YouTube Analytics data) ----------
@@ -916,7 +949,7 @@ def create_account(name: str = Form(...), user: str = Depends(require_login)):
 def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
     creds = get_youtube_credentials(account_id)
     if not creds:
-        raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Accounts first.")
+        raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Platforms first.")
 
     try:
         yt = build("youtube", "v3", credentials=creds)
@@ -929,7 +962,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(r
             raise HTTPException(
                 status_code=403,
                 detail="Your YouTube connection doesn't have analytics access yet. "
-                       "Go to Accounts and reconnect YouTube to grant it.",
+                       "Go to Platforms and reconnect YouTube to grant it.",
             )
         raise HTTPException(status_code=e.resp.status, detail=f"YouTube API error: {e}")
 
@@ -1066,7 +1099,7 @@ def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, u
     Studio's graph uses)."""
     creds = get_youtube_credentials(account_id)
     if not creds:
-        raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Accounts first.")
+        raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Platforms first.")
 
     try:
         yt = build("youtube", "v3", credentials=creds)
@@ -1079,7 +1112,7 @@ def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, u
             raise HTTPException(
                 status_code=403,
                 detail="Your YouTube connection doesn't have analytics access yet. "
-                       "Go to Accounts and reconnect YouTube to grant it.",
+                       "Go to Platforms and reconnect YouTube to grant it.",
             )
         raise HTTPException(status_code=e.resp.status, detail=f"YouTube API error: {e}")
 
@@ -1199,7 +1232,7 @@ def _insights_total(insight_payload: dict, metric: str) -> int:
 def analytics_facebook(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
     fb_creds = get_facebook_credentials(account_id)
     if not fb_creds:
-        raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Accounts first.")
+        raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Platforms first.")
 
     page_id = fb_creds["page_id"]
     token = fb_creds["page_access_token"]
@@ -1283,7 +1316,7 @@ def analytics_facebook_video_detail(video_id: str, account_id: int = 1, user: st
     retention shape."""
     fb_creds = get_facebook_credentials(account_id)
     if not fb_creds:
-        raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Accounts first.")
+        raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Platforms first.")
     token = fb_creds["page_access_token"]
 
     video = _graph_get(video_id, {

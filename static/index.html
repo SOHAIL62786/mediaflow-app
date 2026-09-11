@@ -424,6 +424,7 @@
   <ul class="nav" id="navList">
     <li data-page="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z"/></svg>Dashboard</li>
     <li data-page="accounts"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Accounts</li>
+    <li data-page="platforms"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7a5 5 0 0 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>Platforms</li>
     <li data-page="upload"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New Upload</li>
     <li data-page="scheduled"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Scheduled</li>
     <li data-page="published"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Published</li>
@@ -518,13 +519,25 @@
     </div>
   </div>
 
-  <!-- ACCOUNTS -->
+  <!-- ACCOUNTS (manage the accounts themselves — rename/delete/add) -->
   <div class="page" data-page="accounts">
     <div class="content-single narrow">
       <div class="card">
+        <h2>Accounts</h2>
+        <div class="sub">Each account is an independent workspace — its own platform connections, scheduled/published posts, and analytics. Rename or remove one below, or add a new one for another brand or client.</div>
+        <div class="accounts-list" id="acctMgmtList"></div>
+        <button class="manage-btn" id="acctMgmtAddBtn">+ Add account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLATFORMS -->
+  <div class="page" data-page="platforms">
+    <div class="content-single narrow">
+      <div class="card">
         <h2>Connected Platforms</h2>
-        <div class="sub">Connect or disconnect the platforms MediaFlow publishes to for <strong id="accountsPageAccountName">this account</strong>. Switch accounts using the picker in the top right.</div>
-        <div class="accounts-list" id="accountsPageList">
+        <div class="sub">Connect or disconnect the platforms MediaFlow publishes to for <strong id="platformsPageAccountName">this account</strong>. Switch accounts using the picker in the top right.</div>
+        <div class="accounts-list" id="platformsPageList">
           <div class="account-row" id="page-acc-youtube">
             <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
             <div class="acc-info"><div class="n">YouTube</div><div class="h" data-handle>Checking...</div></div>
@@ -779,7 +792,7 @@
             <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
           </div>
         </div>
-        <button class="manage-btn" data-goto="accounts">⚙ Manage Accounts</button>
+        <button class="manage-btn" data-goto="platforms">⚙ Manage Platforms</button>
       </div>
 
       <div class="card">
@@ -939,7 +952,8 @@
     loadStatus();
     const activePage = document.querySelector('.page.active')?.dataset.page || 'dashboard';
     if(activePage === 'dashboard') loadDashboard();
-    if(activePage === 'accounts') loadAccountsPage();
+    if(activePage === 'accounts') renderAcctMgmtPage();
+    if(activePage === 'platforms') loadPlatformsPage();
     if(activePage === 'scheduled') loadLibrary('scheduled');
     if(activePage === 'published') loadLibrary('published');
     if(activePage === 'analytics') loadAnalytics();
@@ -958,7 +972,7 @@
     const item = e.target.closest('[data-account-id]');
     if(item) switchAccount(parseInt(item.dataset.accountId, 10));
   });
-  document.getElementById('addAccountBtn').addEventListener('click', async ()=>{
+  async function promptCreateAccount(){
     const name = prompt('Name for the new account (e.g. a client or brand name):');
     if(!name || !name.trim()) return;
     const fd = new FormData();
@@ -969,11 +983,12 @@
       const acc = await res.json();
       await loadAccounts();
       switchAccount(acc.id);
-      showToast(`Created account "${acc.name}" — connect its platforms from Accounts.`, 5000);
+      showToast(`Created account "${acc.name}" — connect its platforms from Platforms.`, 5000);
     }catch(err){
       showToast('Could not create the account — is the server running?');
     }
-  });
+  }
+  document.getElementById('addAccountBtn').addEventListener('click', promptCreateAccount);
 
   loadAccounts();
 
@@ -1159,7 +1174,7 @@
 
   // ================= Page routing =================
   const PAGE_TITLES = {
-    dashboard: 'Dashboard', accounts: 'Accounts', upload: 'New Upload',
+    dashboard: 'Dashboard', accounts: 'Accounts', platforms: 'Platforms', upload: 'New Upload',
     scheduled: 'Scheduled', published: 'Published',
     analytics: 'Analytics', settings: 'Settings', help: 'Help & Support',
   };
@@ -1179,7 +1194,8 @@
     history.replaceState(null, '', '?page=' + name);
 
     if(name === 'dashboard') loadDashboard();
-    if(name === 'accounts') loadAccountsPage();
+    if(name === 'accounts') renderAcctMgmtPage();
+    if(name === 'platforms') loadPlatformsPage();
     if(name === 'scheduled') loadLibrary('scheduled');
     if(name === 'published') loadLibrary('published');
     if(name === 'analytics') loadAnalytics();
@@ -1279,9 +1295,87 @@
     }
   }
 
-  // ================= Accounts page =================
-  async function loadAccountsPage(){
-    const nameEl = document.getElementById('accountsPageAccountName');
+  // ================= Accounts (management) page =================
+  function renderAcctMgmtPage(){
+    const list = document.getElementById('acctMgmtList');
+    if(!list) return;
+    list.innerHTML = accountsCache.map(a => `
+      <div class="account-row" data-account-id="${a.id}" style="${a.id === currentAccountId ? '' : 'cursor:pointer;'}">
+        <div class="acc-icon" style="background:var(--indigo);color:#fff;font-weight:700;font-size:15px;border-radius:50%;">${escapeHtml((a.name[0]||'?').toUpperCase())}</div>
+        <div class="acc-info">
+          <div class="n">${escapeHtml(a.name)}</div>
+          <div class="h">${a.id === currentAccountId ? 'Current account' : 'Tap to switch to this account'}</div>
+        </div>
+        ${a.id === currentAccountId ? '<div class="connected-pill">Active</div>' : ''}
+        <button class="acc-btn" data-action="rename-account">Rename</button>
+        <button class="acc-btn danger" data-action="delete-account" ${accountsCache.length <= 1 ? 'disabled' : ''}>Delete</button>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('acctMgmtList').addEventListener('click', async (e)=>{
+    const row = e.target.closest('[data-account-id]');
+    if(!row) return;
+    const id = parseInt(row.dataset.accountId, 10);
+    const acc = accountsCache.find(a => a.id === id);
+    const btn = e.target.closest('[data-action]');
+
+    if(btn && btn.dataset.action === 'rename-account'){
+      const newName = prompt('New name for this account:', acc ? acc.name : '');
+      if(!newName || !newName.trim() || (acc && newName.trim() === acc.name)) return;
+      const fd = new FormData();
+      fd.append('name', newName.trim());
+      try{
+        const res = await fetch(`${API}/api/accounts/${id}`, { method: 'PATCH', body: fd });
+        if(!res.ok){
+          const err = await res.json().catch(()=>({detail:'Rename failed.'}));
+          throw new Error(err.detail);
+        }
+        await loadAccounts();
+        renderAcctMgmtPage();
+        showToast('Account renamed.');
+      }catch(err){
+        showToast('Could not rename account: ' + err.message, 5000);
+      }
+      return;
+    }
+
+    if(btn && btn.dataset.action === 'delete-account'){
+      if(accountsCache.length <= 1) return;
+      const ok = confirm(`Delete "${acc ? acc.name : 'this account'}"? This permanently removes its scheduled/published post history and platform connections. This can't be undone.`);
+      if(!ok) return;
+      try{
+        const res = await fetch(`${API}/api/accounts/${id}`, { method: 'DELETE' });
+        if(!res.ok){
+          const err = await res.json().catch(()=>({detail:'Delete failed.'}));
+          throw new Error(err.detail);
+        }
+        const wasCurrent = id === currentAccountId;
+        await loadAccounts();
+        if(wasCurrent) switchAccount(accountsCache[0].id);
+        renderAcctMgmtPage();
+        showToast('Account deleted.');
+      }catch(err){
+        showToast('Could not delete account: ' + err.message, 5000);
+      }
+      return;
+    }
+
+    // Row click (not a button): switch to that account.
+    if(!btn && acc && acc.id !== currentAccountId){
+      switchAccount(acc.id);
+      renderAcctMgmtPage();
+    }
+  });
+
+  document.getElementById('acctMgmtAddBtn').addEventListener('click', async ()=>{
+    await promptCreateAccount();
+    renderAcctMgmtPage();
+  });
+
+  // ================= Platforms page =================
+  async function loadPlatformsPage(){
+    const nameEl = document.getElementById('platformsPageAccountName');
     if(nameEl) nameEl.textContent = currentAccountName();
     const ytRow = document.getElementById('page-acc-youtube');
     const ytHandle = ytRow.querySelector('[data-handle]');
@@ -1361,7 +1455,7 @@
       }catch(err){
         showToast('Could not disconnect — is the server running?');
       }
-      loadAccountsPage();
+      loadPlatformsPage();
       loadStatus();
     }
     // connect-youtube: let the <a href> navigate normally to start the OAuth flow
@@ -1381,7 +1475,7 @@
       }catch(err){
         showToast('Could not disconnect — is the server running?');
       }
-      loadAccountsPage();
+      loadPlatformsPage();
       loadStatus();
     }
   });
@@ -1414,7 +1508,7 @@
       showToast(data.instagram_linked
         ? `Facebook connected — Instagram @${data.instagram_username} linked too.`
         : 'Facebook connected. (No Instagram Business account found on this Page.)', 5000);
-      loadAccountsPage();
+      loadPlatformsPage();
       loadStatus();
     }catch(err){
       showToast('Facebook connect failed: ' + err.message, 6000);
@@ -1463,7 +1557,7 @@
         <div style="font-size:40px;margin-bottom:12px;">📊</div>
         <h2>Analytics</h2>
         <div class="sub" style="margin-top:8px;">${escapeHtml(message)}</div>
-        ${showConnectButton ? '<button class="choose-btn" style="margin-top:18px;" data-goto="accounts">Go to Accounts</button>' : ''}
+        ${showConnectButton ? '<button class="choose-btn" style="margin-top:18px;" data-goto="platforms">Go to Platforms</button>' : ''}
       </div>`;
   }
 
@@ -1599,17 +1693,17 @@
     youtube: {
       endpoint: '/api/analytics/summary',
       render: renderYouTubeAnalytics,
-      connectMsg: "YouTube isn't connected yet — connect it from Accounts to see analytics.",
+      connectMsg: "YouTube isn't connected yet — connect it from Platforms to see analytics.",
     },
     facebook: {
       endpoint: '/api/analytics/facebook',
       render: renderFacebookAnalytics,
-      connectMsg: "Facebook isn't connected yet — connect it from Accounts to see analytics.",
+      connectMsg: "Facebook isn't connected yet — connect it from Platforms to see analytics.",
     },
     instagram: {
       endpoint: '/api/analytics/instagram',
       render: renderInstagramAnalytics,
-      connectMsg: "Instagram isn't connected yet — connect a Facebook Page with a linked Instagram Business account from Accounts.",
+      connectMsg: "Instagram isn't connected yet — connect a Facebook Page with a linked Instagram Business account from Platforms.",
     },
   };
 
