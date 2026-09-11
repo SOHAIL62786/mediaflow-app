@@ -931,6 +931,14 @@ def delete_account(account_id: int, user: str = Depends(require_login)):
                 status_code=400,
                 detail="Can't delete the last remaining account. Add another account first.",
             )
+        # Any still-scheduled posts for this account have a video file held
+        # on disk (see record_queued_upload) that nothing else will ever
+        # clean up once the DB row is gone — delete those files first so
+        # they don't leak in uploads/ forever.
+        pending_paths = conn.execute(
+            "SELECT video_path FROM uploads WHERE account_id = ? AND video_path IS NOT NULL",
+            (account_id,),
+        ).fetchall()
         # Deleting an account removes its independent workspace entirely:
         # its scheduled/published post history and its stored platform
         # credentials. This mirrors how account data is fully siloed per
@@ -940,6 +948,10 @@ def delete_account(account_id: int, user: str = Depends(require_login)):
     cred_dir = account_cred_dir(account_id)
     if cred_dir.exists():
         shutil.rmtree(cred_dir, ignore_errors=True)
+    for row in pending_paths:
+        p = Path(row["video_path"])
+        if p.exists():
+            p.unlink(missing_ok=True)
     return {"ok": True}
 
 
@@ -1586,7 +1598,7 @@ def oauth2callback_youtube(request: Request):
     with open(token_path(account_id), "w") as f:
         json.dump(token_data, f, indent=2)
 
-    return RedirectResponse(f"/?page=accounts&account_id={account_id}")
+    return RedirectResponse(f"/?page=platforms&account_id={account_id}")
 
 
 @app.post("/api/disconnect/youtube")
