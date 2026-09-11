@@ -30,6 +30,15 @@
 - [ ] `disconnect_youtube` / `disconnect_facebook` don't validate the
       account exists (unlike connect/rename/delete) — silently no-op
       instead of 404ing on a bad account_id
+- [ ] Notifications drawer is populated from the dashboard-summary fetch
+      only (failed uploads + recent activity) — there's no dedicated
+      notifications endpoint/read-state, so it always shows the same
+      items as the dashboard and can't be marked "read". Consider a real
+      `/api/notifications` source if this needs to grow (e.g. persisted
+      read/unread, more event types) beyond a dashboard-derived view.
+- [ ] Sidebar collapse/resize state is per-browser (`localStorage`), not
+      per-account or server-synced — fine for a single user, would need
+      revisiting if this is ever multi-user beyond the shared login.
 
 ## Completed
 - [x] Core FastAPI server with SQLite backend
@@ -45,3 +54,6 @@
 - [x] Add UI to rename/delete an account, on a new dedicated Accounts page;
       old combined "Accounts" (platform-connect) page renamed to
       "Platforms" (2026-09-11)
+- [x] Make dashboard stat cards + platform tiles clickable (navigate to
+      their respective page); add a right-side notifications drawer;
+      make sidebar collapsible + drag-resizable (2026-09-11)

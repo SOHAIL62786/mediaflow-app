@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-09-11 (dashboard interactivity + notifications + sidebar)
+
+### Added
+- `static/index.html` — Dashboard stat cards (Scheduled, Published,
+  Connected Accounts) and the YouTube/Facebook/Instagram platform tiles
+  are now clickable: they navigate to their respective page (`scheduled`,
+  `published`, `platforms`) via the existing `data-goto`/`showPage`
+  mechanism, with a hover affordance (lift + shadow) so it's clear
+  they're interactive.
+- `static/index.html` — "Needs Attention" card now opens the Published
+  page pre-loaded with failed uploads only (`goToNeedsAttention()`, using
+  the already-existing `GET /api/library?status=failed` support in
+  `server.py`, no backend change needed).
+- `static/index.html` — new right-side notifications drawer, toggled by
+  clicking the bell icon (opens/closes via backdrop click, × button, or
+  Escape). Populated client-side from data already fetched for the
+  dashboard summary (failed-upload count + recent activity) — no new
+  backend endpoint added. The bell badge now shows a real count instead
+  of the previous hardcoded `3`, and hides when there's nothing to show.
+- `static/index.html` — sidebar is now collapsible (new collapse button
+  next to the logo + a small reopen tab on the far left edge when
+  collapsed) and resizable by dragging its right edge (handle between
+  sidebar and main content, 180–420px range, double-click resets to
+  230px). Both the collapsed state and the chosen width persist across
+  reloads via `localStorage`. Desktop-only — the existing mobile
+  hamburger slide-in behavior (`<720px`) is untouched.
+
+Reason:
+Project owner asked for the dashboard to be fully interactive (cards/
+platform tiles that don't currently do anything on click), a
+notifications panel, and a sidebar that can be resized/collapsed.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11 (bugfix pass)
 
 ### Fixed
