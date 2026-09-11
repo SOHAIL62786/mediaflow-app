@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-09-11
+
+### Added
+- `server.py` — `PATCH /api/accounts/{id}` (rename an account) and
+  `DELETE /api/accounts/{id}` (delete an account: refuses if it's the
+  last remaining account, otherwise deletes its `uploads` rows and its
+  `credentials/accounts/<id>/` directory).
+- `static/index.html` — new **Accounts** nav item/page: lists all
+  accounts, lets you rename (prompt) or delete (confirm) any of them,
+  add a new one, and click a row to switch to it. Delete button is
+  disabled when only one account remains.
+
+### Changed
+- `static/index.html` — the previous **Accounts** page (connect/
+  disconnect YouTube/Facebook/Instagram for the selected account) is
+  renamed to **Platforms**: nav label, `data-page` attribute, element
+  ids (`accountsPageAccountName` → `platformsPageAccountName`,
+  `accountsPageList` → `platformsPageList`), and the JS function
+  `loadAccountsPage()` → `loadPlatformsPage()`.
+- All user-facing "Accounts" wording that actually meant "go connect a
+  platform" — in `server.py` error messages and `static/index.html`
+  toasts/buttons/analytics empty-states — now says "Platforms" instead,
+  to match the page it points to.
+- Refactored the "add account" prompt flow into a shared
+  `promptCreateAccount()`, used by both the top-right account-switcher
+  dropdown and the new Accounts page, instead of duplicating it.
+
+Reason:
+Requested: a way to rename/edit existing accounts (e.g. Sohail, Moiz)
+from the UI (previously create + list only — see TODO.md), and split
+the old combined "Accounts" page into a dedicated account-management
+page plus a "Platforms" page for what it actually did (connect
+YouTube/Facebook/Instagram).
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-10
 
 ### Added

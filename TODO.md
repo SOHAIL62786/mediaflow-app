@@ -1,7 +1,6 @@
 # TODO
 
 ## High Priority
-- [ ] Add UI to rename/delete an account (currently create + list only)
 - [ ] Decide how the background scheduler should scale once there are many
       accounts with due posts — currently iterates every due row across all
       accounts each poll; untested at scale
@@ -36,3 +35,6 @@
 - [x] Documentation/handoff system set up (2026-09-10)
 - [x] Multi-account support: independent platform connections, posts, and
       analytics per account, switched via top-right dropdown (2026-09-10)
+- [x] Add UI to rename/delete an account, on a new dedicated Accounts page;
+      old combined "Accounts" (platform-connect) page renamed to
+      "Platforms" (2026-09-11)
