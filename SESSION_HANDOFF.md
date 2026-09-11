@@ -4,10 +4,9 @@
 2026-09-10
 
 ## Current Task
-Multi-account support: replaced the single-tenant admin pill with a real
-account switcher. Each account now has fully independent platform
-connections, scheduled/published posts, and analytics, behind one shared
-app login.
+Mobile-friendliness check + bug sweep. Found and fixed a real mobile nav
+bug (sidebar vanished below 720px with no way back); also corrected
+stale credential-path docs left over from the multi-account change.
 
 ## Progress
 Completed:
@@ -16,24 +15,18 @@ Completed:
   reset, credentials/ gitignored
 - Documentation system created: docs/PROJECT_CONTEXT.md, docs/DECISIONS.md,
   CHANGELOG.md, TODO.md, this file, CLAUDE_INSTRUCTIONS.md
-- `static/index.html` admin-pill: "Sohail"/"S" → "Moiz"/"M". Committed and
-  pushed to `main` (fbb1483..6f8cbfc)
-- Multi-account support (see docs/DECISIONS.md 003):
-  - `accounts` DB table + `account_id` column on `uploads`, migration-safe
-  - Account 1 auto-seeded as "Moiz" — original install unaffected
-  - Per-account credential dirs under `credentials/accounts/<id>/`, with
-    one-time migration of legacy `credentials/token.json` /
-    `facebook.json` into Account 1's folder
-  - Every relevant backend endpoint takes `account_id` (default 1)
-  - New `GET/POST /api/accounts`
-  - Frontend: top-right pill is now an account switcher dropdown with
-    "+ Add account"; all fetch calls scope to the current account
-  - Verified: `python3 -m py_compile server.py` passes; ran the app
-    locally to confirm the DB migration creates Account 1 = "Moiz";
-    extracted and `node --check`'d the page JS
+- `static/index.html` admin-pill: "Sohail"/"S" → "Moiz"/"M". Pushed
+  (fbb1483..6f8cbfc)
+- Multi-account support (see docs/DECISIONS.md 003), pushed (c26a443..352146f)
+- Mobile nav fix + doc corrections, pushed (352146f..c218be3):
+  - Hamburger menu + slide-in sidebar overlay for screens <720px
+  - Tightened grid/dropdown sizing for narrow screens
+  - README.md / DEPLOYMENT_GUIDE.md updated to match real
+    credentials/accounts/<id>/... paths; added Google OAuth "Testing"
+    mode / test-users note
 
 Currently Working On:
-- Nothing else this session — about to commit and push
+- Nothing else this session
 
 Not Completed:
 - No UI to rename/delete an account (create/list only)
@@ -51,10 +44,13 @@ Not Completed:
   careful with destructive git operations (history rewrites, force pushes).
 
 ## Next Step
-Test the multi-account flow live on the VM: switch accounts, connect a
-second account's YouTube/Facebook, confirm posts and analytics stay
-separated from Account 1. Then pick up UI for renaming/deleting an
-account, or the next item from TODO.md.
+Test on an actual phone (or Chrome DevTools device mode) that the
+hamburger menu opens/closes cleanly and nothing else overflows on very
+narrow screens (e.g. 360px). Then test the multi-account flow live:
+switch accounts, connect a second account's YouTube (add its Google
+login as a Test User in Cloud Console first if the OAuth app is still
+in Testing mode) and Facebook, confirm posts/analytics stay separated
+from Account 1.
 
 ## Security Note
 A live GitHub fine-grained PAT was found stored in plaintext in a project

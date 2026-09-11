@@ -84,3 +84,41 @@ live VM (this change touches `server.py` and `static/**`).
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-10 (mobile nav fix + doc corrections)
+
+### Fixed
+- `static/index.html` — sidebar nav was completely hidden below 720px with
+  no way to get back to it (no hamburger, no alternative navigation). Added
+  a hamburger toggle that opens the sidebar as a slide-in overlay with a
+  backdrop; closes on nav click or backdrop click.
+- Tightened `.stat-grid`, `.platform-grid`, and the account-switcher
+  dropdown sizing for narrow screens; truncated long page titles instead of
+  letting them overflow the topbar.
+
+### Changed
+- `README.md`, `DEPLOYMENT_GUIDE.md` — updated credential path references
+  from the old flat `credentials/token.json` / `credentials/facebook.json`
+  to the real `credentials/accounts/<id>/...` paths used since multi-account
+  support landed; added a note about Google OAuth "Testing" mode requiring
+  test users (see the access_denied error hit this session).
+
+Reason:
+Requested mobile-friendliness check turned up a real navigation bug on
+phone-width screens; fixed it and corrected docs that had gone stale after
+the multi-account change.
+
+Verified:
+- `python3 -m py_compile server.py` (unaffected by this change, still
+  compiles)
+- extracted and `node --check`'d the page's JS after edits
+- reviewed the full diff before pushing
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy (touches
+`static/**`).
+
+Modified By:
+Claude (via chat session)
