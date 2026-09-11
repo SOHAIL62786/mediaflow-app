@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-11 (bugfix pass)
+
+### Fixed
+- `server.py` `delete_account()` — deleting an account with any
+  still-scheduled (unpublished) posts left their video files behind in
+  `uploads/` forever, since only the DB rows were deleted. Now collects
+  those `video_path` values before the DB delete and unlinks the files
+  afterward.
+- `server.py` `oauth2callback_youtube()` — after a successful YouTube
+  connect, the redirect still pointed to `?page=accounts`, which was
+  correct when that page showed platform-connect status but now opens
+  the unrelated account-management page after the Accounts/Platforms
+  split earlier today. Changed to `?page=platforms`.
+
+Reason:
+Found while reviewing the Accounts/Platforms change (see the
+2026-09-11 entry below) for bugs on request. Both were introduced or
+exposed by that change, not pre-existing.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11
 
 ### Added

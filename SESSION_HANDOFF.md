@@ -4,42 +4,62 @@
 2026-09-11
 
 ## Current Task
-Add a UI to rename/delete accounts (the multi-account feature's "workspaces",
-e.g. Sohail, Moiz — not app login), and split the old combined "Accounts"
-page into a dedicated Accounts (manage accounts) page and a renamed
-"Platforms" page (connect/disconnect YouTube/Facebook/Instagram).
+1. Add a UI to rename/delete accounts, split old "Accounts" page into
+   Accounts (manage accounts) + Platforms (connect platforms) — done
+   earlier today.
+2. User asked "find any bugs on current version" — reviewed the change
+   from (1) and found + fixed two real bugs it introduced.
 
 ## Progress
-Completed, pushed (b2b3520..90193c7):
-- `server.py`: added `PATCH /api/accounts/{id}` (rename) and
-  `DELETE /api/accounts/{id}` (delete — refuses on the last remaining
-  account; otherwise deletes that account's `uploads` rows and its
-  `credentials/accounts/<id>/` directory).
-- `static/index.html`:
-  - New **Accounts** nav item/page — list accounts, Rename (prompt),
-    Delete (confirm, disabled when only one account left), Add, and
-    click-a-row-to-switch.
-  - The old **Accounts** page (platform connect/disconnect) renamed to
-    **Platforms** — `data-page`, element ids, and
-    `loadAccountsPage()` → `loadPlatformsPage()`.
-  - All "go connect a platform from Accounts" wording (toasts, buttons,
-    analytics empty-states, and matching `server.py` error strings) now
-    says "Platforms".
-  - `promptCreateAccount()` extracted as a shared function used by both
-    the top-right dropdown's "+ Add account" and the new Accounts page.
-- Verified locally: JS passed `node --check`; ran the FastAPI server
-  locally and exercised create/rename/delete via curl, including the
-  "can't delete the last account" 400 case — all worked as expected.
-- GitHub Actions "Deploy to VM" run queued for this push at time of
-  writing — not confirmed live on the VM yet (see Next Step).
+Completed, pushed (b2b3520..4ac2757):
+- `server.py`: `PATCH /api/accounts/{id}` (rename), `DELETE
+  /api/accounts/{id}` (delete, refuses on the last remaining account,
+  deletes the account's `uploads` rows and `credentials/accounts/<id>/`).
+- `static/index.html`: new Accounts page (list/rename/delete/add
+  accounts); old Accounts page renamed to Platforms (connect/disconnect
+  YouTube/Facebook/Instagram); all "Accounts" wording that meant
+  "go connect a platform" updated to say "Platforms".
+- Bugfix pass (commit 4ac2757), found by re-reading the above change:
+  - `delete_account()` didn't delete the on-disk video file for any of
+    the deleted account's still-scheduled (unpublished) posts — only
+    the DB row. Fixed: now unlinks those files too.
+  - The YouTube OAuth callback (`oauth2callback_youtube`) redirected to
+    `?page=accounts` after connecting, which used to be correct (that
+    was the platform-connect page) but became wrong once that page was
+    renamed to Platforms and `accounts` became the unrelated
+    account-management page. Fixed to `?page=platforms`.
+- Both fixes verified locally: ran the server, inserted a fake
+  scheduled-upload row with a real file on disk, deleted its account,
+  confirmed both the DB row and the file were gone.
+- GitHub Actions "Deploy to VM" confirmed successful for both the
+  feature commit (90193c7) and the bugfix commit (4ac2757).
 
 Currently Working On:
 - Nothing else this session.
 
-Not Completed:
-- Confirm on the actual VM that the deploy succeeded and the new
-  Accounts/Platforms pages work end-to-end in production (was only
-  tested locally with a fresh throwaway DB in this session's sandbox).
+Not Completed / things noticed but NOT fixed (worth a look next time):
+- `connect_youtube`'s OAuth flow builds the redirect back to
+  `/?page=platforms&account_id={id}`, but the frontend's initial-route
+  logic (`new URLSearchParams(location.search).get('page')`) only ever
+  reads `page`, never `account_id` — that query param has been dead
+  since multi-account support was added. It happens to still work
+  today because `currentAccountId` in `localStorage` was already set to
+  the right account *before* the browser navigated away to start the
+  OAuth flow, and localStorage survives the full-page redirect back —
+  but it's fragile (e.g. breaks if a user opens the connect link in a
+  new tab/window that doesn't share that in-memory state at exactly the
+  right moment). Consider actually reading `account_id` from the URL on
+  load and using it as an override.
+- `disconnect_youtube` / `disconnect_facebook` don't call
+  `get_account_or_404` like the connect/rename/delete endpoints do —
+  disconnecting a nonexistent account_id just silently no-ops instead
+  of 404ing. Harmless today, but inconsistent with the rest of the
+  account endpoints.
+- Deleting an account that happens to be the currently-selected one
+  triggers a redundant extra "Switched to X" toast/reload right after
+  the "Account deleted" toast (both `loadAccounts()` and the explicit
+  `switchAccount()` call in the delete handler end up doing the same
+  correction). Cosmetic, not incorrect.
 - Scheduler scaling across many accounts' due posts not yet
   designed/tested (see TODO.md).
 - Other pages (Scheduled, Published, Analytics, Upload) still haven't
@@ -54,27 +74,24 @@ Not Completed:
   PAT (Contents: read/write, this repo only), supplied by the project owner.
   Treat any session with a live token as having real push access — be
   careful with destructive git operations (history rewrites, force pushes).
-- Deleting an account via the new UI is destructive and immediate (no
-  soft-delete/undo): it removes that account's post history and stored
-  platform credentials permanently. The confirm() dialog says this, but
-  worth knowing if support questions come up.
+- Deleting an account via the Accounts page is destructive and immediate
+  (no soft-delete/undo): it removes that account's post history, its
+  pending scheduled video files, and its stored platform credentials
+  permanently.
 
 ## Next Step
-Verify the live VM deploy for commit `90193c7` succeeded (check the
-"Deploy to VM" GitHub Actions run, then load the app and click through
-Accounts and Platforms). After that, consider the visual-redesign pass
-(semantic color, brand-icon tiles, pill-styled controls from the
-Dashboard redesign) on the new Accounts page and on Scheduled/Published/
-Analytics for consistency, if wanted.
+Either address one of the "noticed but not fixed" items above (the
+account_id-in-URL fragility is probably the most worth doing properly),
+or continue with the visual-redesign pass on the newer pages, per the
+project owner's priority.
 
 ## Security Note
 A live GitHub fine-grained PAT was found stored in plaintext in a project
-file (`gittoken.md`) again this session and was used once more to push
-this change, per the "Repo write access" note above and explicit
-instruction from the project owner to proceed. Recommend rotating that
-token and, going forward, supplying it via a secrets manager or a fresh
-per-session token rather than a plaintext file, since it has now been
-exposed in chat/session context across at least two sessions.
+file (`gittoken.md`) again this session and was used again to push these
+changes, per explicit instruction from the project owner. Recommend
+rotating that token and, going forward, supplying it via a secrets
+manager or a fresh per-session token rather than a plaintext file, since
+it has now been exposed in chat/session context across multiple sessions.
 
 ## Known Issues
-None currently tracked beyond what's listed in TODO.md.
+See "Not Completed / things noticed but NOT fixed" above.

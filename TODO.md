@@ -23,6 +23,13 @@
 
 ## Low Priority
 - [ ] Consider a "dry run" / preview mode before a scheduled post fires
+- [ ] `account_id` in the YouTube OAuth callback's redirect URL is never
+      actually read by the frontend (only `page` is) — works today only
+      because localStorage already holds the right account before the
+      redirect; make this explicit/robust instead of relying on that
+- [ ] `disconnect_youtube` / `disconnect_facebook` don't validate the
+      account exists (unlike connect/rename/delete) — silently no-op
+      instead of 404ing on a bad account_id
 
 ## Completed
 - [x] Core FastAPI server with SQLite backend
