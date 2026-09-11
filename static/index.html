@@ -372,6 +372,7 @@
   .lib-info .d{font-size:12px;color:var(--text-mid);margin-top:3px;}
   .lib-info .d a{color:var(--indigo);text-decoration:none;}
   .lib-info .d a:hover{text-decoration:underline;}
+  .gain-pill{display:inline-block;background:#ecfdf3;color:#0a7a3d;font-weight:700;border-radius:6px;padding:1px 7px;margin:0 2px;}
   .pub-pill.sched{background:#fff6e0;color:#b45309;}
   .pub-pill.fail{background:#fde8e8;color:#dc2626;}
   .refresh-link{font-size:13px;color:var(--indigo);font-weight:600;cursor:pointer;}
@@ -1809,8 +1810,8 @@
       return `<div class="bar-wrap" title="${dateLabel}: ${fmtNum(d.views)} views"><div class="bar" style="height:${h}%"></div></div>`;
     }).join('');
 
-    const dayOptions = [7, 28, 90].map(n =>
-      `<button class="pill-btn ${n === days ? 'active' : ''}" data-days="${n}">${n}d</button>`
+    const dayOptions = [1, 7, 28, 90].map(n =>
+      `<button class="pill-btn ${n === days ? 'active' : ''}" data-days="${n}">${n === 1 ? 'Today' : n + 'd'}</button>`
     ).join('');
 
     return `
@@ -1836,13 +1837,15 @@
 
       <div class="card">
         <h2>Daily Views</h2>
-        <div class="sub">Last ${days} days.</div>
+        <div class="sub">${days === 1 ? 'Today.' : `Last ${days} days.`}</div>
         <div class="bar-chart">${barsHtml || '<div class="empty-state">No data for this period.</div>'}</div>
       </div>
 
       <div class="card">
         <h2>Videos</h2>
-        <div class="sub">Ranked by whichever metric you pick below.</div>
+        <div class="sub">${days === 1
+          ? 'Only videos that received views today — ranked by whichever metric you pick below.'
+          : `Videos with activity in the last ${days} days — ranked by whichever metric you pick below.`}</div>
         <div id="videoFilterBarContainer"></div>
         <div id="videoListContainer"><div class="empty-state">Loading…</div></div>
       </div>
@@ -1974,7 +1977,7 @@
         <img class="vid-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
         <div class="lib-info">
           <div class="n">${escapeHtml(v.title)}</div>
-          <div class="d">${fmtNum(v.views)} views • ${fmtHours(v.watch_time_minutes)} watched • ${v.avg_view_percentage}% retention • ${fmtNum(v.likes)} likes</div>
+          <div class="d">${fmtNum(v.lifetime_views)} total views <span class="gain-pill">+${fmtNum(v.views)} ${currentAnalyticsDays === 1 ? 'today' : `in ${currentAnalyticsDays}d`}</span> • ${fmtHours(v.watch_time_minutes)} watched • ${v.avg_view_percentage}% retention • ${fmtNum(v.likes)} likes</div>
         </div>
         <button class="metrics-btn" data-platform="youtube" data-video-id="${v.video_id}">Metrics</button>
       </div>`,
@@ -2088,7 +2091,7 @@
         <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(v.lifetime.likes)}</div></div>
         <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(v.lifetime.comments)}</div></div>
       </div>
-      <div class="sub" style="margin-bottom:6px;">Last ${v.period_days} days</div>
+      <div class="sub" style="margin-bottom:6px;">${v.period_days === 1 ? 'Today' : `Last ${v.period_days} days`}</div>
       <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
         <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
         <div class="stat-card"><div class="stat-label">Watch Time</div><div class="stat-value">${fmtHours(p.watch_time_minutes)}</div></div>

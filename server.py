@@ -20,6 +20,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -977,6 +978,12 @@ def delete_account(account_id: int, user: str = Depends(require_login)):
 
 # ---------- Analytics (real YouTube Analytics data) ----------
 
+# YouTube Analytics' "day" dimension is bucketed in Pacific Time (same as
+# YouTube Studio), not UTC — this matters most for a 1-day ("Today") window,
+# where a UTC-based boundary could be up to ~8 hours off from what Studio
+# shows as "today".
+YT_ANALYTICS_TZ = ZoneInfo("America/Los_Angeles")
+
 @app.get("/api/analytics/summary")
 def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
     creds = get_youtube_credentials(account_id)
@@ -1014,7 +1021,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(r
         "video_count": int(stats.get("videoCount", 0)),
     }
 
-    end_date = datetime.now(timezone.utc).date()
+    end_date = datetime.now(YT_ANALYTICS_TZ).date()
     start_date = end_date - timedelta(days=max(1, days) - 1)
     metrics = "views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares,subscribersGained,subscribersLost"
 
@@ -1086,14 +1093,15 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(r
     top_rows = top_resp.get("rows") or []
     video_ids = [dict(zip(top_headers, row)).get("video") for row in top_rows]
 
-    titles, thumbs = {}, {}
+    titles, thumbs, lifetime_views = {}, {}, {}
     if video_ids:
         try:
             # videos().list only accepts up to 50 ids per call, which matches our cap above
-            vids_resp = yt.videos().list(part="snippet", id=",".join(video_ids)).execute()
+            vids_resp = yt.videos().list(part="snippet,statistics", id=",".join(video_ids)).execute()
             for item in vids_resp.get("items", []):
                 titles[item["id"]] = item["snippet"]["title"]
                 thumbs[item["id"]] = item["snippet"]["thumbnails"].get("default", {}).get("url")
+                lifetime_views[item["id"]] = int(item["statistics"].get("viewCount", 0))
         except HttpError:
             pass  # titles are a nice-to-have; fall back to raw IDs below
 
@@ -1106,6 +1114,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(r
             "title": titles.get(vid, vid),
             "thumbnail": thumbs.get(vid),
             "views": int(d.get("views", 0)),
+            "lifetime_views": lifetime_views.get(vid, 0),
             "watch_time_minutes": round(float(d.get("estimatedMinutesWatched", 0))),
             "likes": int(d.get("likes", 0)),
             "comments": int(d.get("comments", 0)),
@@ -1163,7 +1172,7 @@ def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, u
         "comments": int(v["statistics"].get("commentCount", 0)),
     }
 
-    end_date = datetime.now(timezone.utc).date()
+    end_date = datetime.now(YT_ANALYTICS_TZ).date()
     start_date = end_date - timedelta(days=max(1, days) - 1)
     metrics = "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,likes,comments,shares,subscribersGained,subscribersLost"
 
