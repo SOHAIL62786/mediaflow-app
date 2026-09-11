@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-09-11 ("Today" filter + per-video total/period views in YouTube Analytics)
+
+### Added
+- `server.py` `/api/analytics/summary` — each top video now also returns
+  `lifetime_views` (its all-time YouTube view count, via `statistics`
+  part on `videos().list`) alongside the existing period-scoped `views`.
+- `server.py` — both `/api/analytics/summary` and
+  `/api/analytics/video/{id}` now compute their date range using
+  `America/Los_Angeles` instead of UTC, since YouTube Analytics' `day`
+  dimension is Pacific-Time-bucketed (same as YouTube Studio). Matters
+  most for a 1-day window, where a UTC boundary could disagree with
+  YouTube's own idea of "today" by several hours.
+- `requirements.txt` — added `tzdata`, so `zoneinfo` resolves correctly
+  regardless of the deploy VM's OS-level timezone database.
+- `static/index.html` — added a "Today" option next to 7d/28d/90d in
+  YouTube Analytics. Since the video list already only includes videos
+  with activity in the selected period (YouTube Analytics omits
+  zero-activity rows), selecting "Today" naturally narrows the list to
+  just the videos that actually received views today. Each row now
+  shows total lifetime views plus a "+N today" / "+N in Nd" pill for the
+  period gain, instead of only ever showing the period-scoped count.
+
+### Known limitation (not fixed, documented instead)
+- Facebook/Instagram's video/post lists are unchanged. Meta's Graph API
+  only exposes lifetime view counts at the individual video/media level
+  (no per-day, per-video breakdown), so an equivalent "only posts with
+  views today" list isn't reliably buildable there with the current API.
+
+Reason:
+Project owner wanted to see, for a given date/period, only the videos
+that actually received views in that window, each showing its total
+(lifetime) views plus how many of those came from the selected period.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11 (platform bar subscriber/follower counts)
 
 ### Added

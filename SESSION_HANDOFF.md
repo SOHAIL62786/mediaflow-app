@@ -15,7 +15,33 @@ things:
 Follow-up in the same session: show subscriber/follower counts in the
 dashboard's platform bar (YouTube/Facebook/Instagram tiles).
 
+Second follow-up: in Analytics, show only the videos that received
+views in a specified period (e.g. "today"), with each video's total
+(lifetime) views plus how many it gained in that period.
+
 ## Progress
+Completed, pushed (18e05be, on top of 84f9da1), deploy confirmed
+successful:
+- `server.py`: `/api/analytics/summary` top videos now also include
+  `lifetime_views` (all-time view count) next to the existing
+  period-scoped `views`. Both YouTube analytics endpoints now compute
+  their date range in `America/Los_Angeles` instead of UTC, matching
+  YouTube Analytics' actual "day" boundary (Pacific Time) — matters most
+  for the new 1-day window. Added `tzdata` to requirements.txt so this
+  works regardless of the VM's OS timezone database.
+- `static/index.html`: added a "Today" option (alongside 7d/28d/90d) to
+  YouTube Analytics. The video list already only includes videos with
+  activity in the selected period (YouTube Analytics omits zero-activity
+  rows), so "Today" naturally narrows it to just the videos that got
+  views today — no extra filtering logic needed. Each row now shows
+  total lifetime views + a "+N today"/"+N in Nd" pill for the period
+  gain.
+- Deliberately did NOT touch Facebook/Instagram's video lists — Meta's
+  Graph API only exposes lifetime view counts at the video/media level,
+  no per-day breakdown, so an equivalent "only posts with views today"
+  view isn't reliably buildable there right now. Documented as a known
+  limitation in TODO.md rather than faking it.
+
 Completed, pushed (84f9da1, on top of 981adf2..acb0503), deploy confirmed
 successful:
 - `server.py` `/api/status`: YouTube now returns `subscribers` (via
@@ -59,19 +85,22 @@ Completed, pushed (981adf2..acb0503), deploy confirmed successful:
   scratch port, confirmed the page serves 200 and contains the expected
   new elements/markup, checked JS parses cleanly, checked `/api/status`
   response shape. No real platform credentials available locally, so the
-  subscriber/follower path itself couldn't be exercised end-to-end here
-  — verify on the live VM with an actually-connected account. Deleted
-  the local `mediaflow.db` created by these test runs before each
-  commit (not meant to be tracked).
+  subscriber/follower and Analytics changes couldn't be exercised
+  end-to-end here — verify on the live VM with an actually-connected
+  account. Deleted the local `mediaflow.db` created by these test runs
+  before each commit (not meant to be tracked).
 
 Currently Working On:
 - Nothing else this session.
 
 Not Completed / things noticed but NOT fixed (worth a look next time):
-- Subscriber/follower counts haven't been verified against a real
-  connected YouTube/Facebook/Instagram account yet (no credentials in
-  this session's environment) — worth a quick visual check on the live
-  dashboard next session.
+- Subscriber/follower counts and the new YouTube Analytics "Today"
+  filter / total-vs-period view counts haven't been verified against a
+  real connected account yet (no credentials in this session's
+  environment) — worth a quick visual check on the live dashboard/
+  analytics pages next session.
+- Facebook/Instagram Analytics still can't do a "which posts got views
+  today" view — see TODO.md for why (Graph API limitation, not a bug).
 - The notifications drawer has no independent data source — it's
   derived from the same dashboard-summary fetch, so it can't persist
   read/unread state or show anything the dashboard doesn't already know
@@ -100,12 +129,13 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   server-synced.
 
 ## Next Step
-Verify the subscriber/follower counts on the live dashboard against a
-real connected account (couldn't be tested locally — no credentials in
-this session's environment). After that, pick up one of the still-open
-items above — the account_id-in-URL fragility or the visual-redesign
-pass on Scheduled/Published/Analytics/Upload are probably the most worth
-doing next — or continue with whatever the project owner prioritizes.
+Verify the subscriber/follower counts and the new "Today"/lifetime-vs-
+period Analytics view on the live dashboard against a real connected
+account (couldn't be tested locally — no credentials in this session's
+environment). After that, pick up one of the still-open items above —
+the account_id-in-URL fragility or the visual-redesign pass on
+Scheduled/Published/Analytics/Upload are probably the most worth doing
+next — or continue with whatever the project owner prioritizes.
 
 ## Security Note
 A live GitHub fine-grained PAT was found stored in plaintext in a project

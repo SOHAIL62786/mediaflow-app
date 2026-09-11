@@ -43,6 +43,14 @@
       been visually verified against a real connected account (no
       credentials available in the dev/session environment) — check on
       the live VM.
+- [ ] Same for the new YouTube Analytics "Today" filter and per-video
+      lifetime/period view counts — verify against a real connected
+      YouTube channel with recent uploads.
+- [ ] Facebook/Instagram Analytics still can't show "which posts got
+      views today" the way YouTube now can — Meta's Graph API doesn't
+      expose a per-day, per-video/media view breakdown, only lifetime
+      totals at the video/media level. Would need a different approach
+      (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
 - [x] Core FastAPI server with SQLite backend
@@ -63,3 +71,6 @@
       make sidebar collapsible + drag-resizable (2026-09-11)
 - [x] Show subscriber/follower counts in the dashboard's platform bar
       for YouTube/Facebook/Instagram (2026-09-11)
+- [x] Add a "Today" period option to YouTube Analytics, showing only
+      videos with views today plus their lifetime total + period gain
+      (2026-09-11)
