@@ -122,3 +122,39 @@ Pushed to `main`, triggering the GitHub Actions auto-deploy (touches
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-10 (dashboard redesign)
+
+### Added
+- Dashboard: new "Connected platforms" strip — YouTube/Facebook/Instagram
+  tiles with brand icons and a live green/gray status dot, sourced from
+  `/api/status` for the current account.
+
+### Changed
+- `static/index.html` — "Needs Attention" stat card now tints red only
+  when `failed_count > 0`, instead of a plain white card with red text.
+- Recent Activity list thumbnails now show a platform-colored icon
+  (YouTube red / Facebook blue / Instagram gradient) instead of a
+  decorative purple gradient block.
+- Account switcher pill (top right) restyled as a bordered pill with a
+  hover state, instead of plain text + caret.
+
+Reason:
+Requested UI sample based on the app's own architecture; applied the
+approved direction (semantic color usage, at-a-glance platform status,
+clearer visual hierarchy) to the real dashboard.
+
+Verified:
+- extracted and `node --check`'d the page's JS after edits
+- confirmed `/api/status` response shape (`{connected: bool}` per
+  platform) matches what the new tile logic reads
+- `python3 -m py_compile server.py` (unaffected, still compiles)
+
+Deployed:
+Pushed to `main` (d332531..54506b7), triggering the GitHub Actions
+auto-deploy (touches `static/**`).
+
+Modified By:
+Claude (via chat session)
