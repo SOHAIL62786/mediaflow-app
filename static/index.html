@@ -47,6 +47,33 @@
     font-weight:700;
   }
   .logo svg{flex-shrink:0;}
+  .sidebar-collapse-btn{
+    margin-left:auto;background:none;border:none;color:#9a9ecb;cursor:pointer;
+    padding:4px;border-radius:6px;display:flex;flex-shrink:0;
+  }
+  .sidebar-collapse-btn:hover{background:#22224a;color:#fff;}
+
+  /* Desktop drag-to-resize handle, sits between sidebar and main content */
+  .sidebar-resize-handle{
+    width:5px;flex-shrink:0;cursor:col-resize;background:transparent;
+    position:relative;touch-action:none;
+  }
+  .sidebar-resize-handle:hover,body.sidebar-resizing .sidebar-resize-handle{background:var(--indigo);}
+  body.sidebar-resizing{user-select:none;cursor:col-resize;}
+
+  /* Collapsed sidebar state (desktop) + the small tab to reopen it */
+  .sidebar.collapsed{width:0!important;padding:0;overflow:hidden;border:none;}
+  .sidebar.collapsed ~ .sidebar-resize-handle{display:none;}
+  .sidebar-reopen-tab{
+    display:none;align-items:center;justify-content:center;
+    position:fixed;left:0;top:20px;z-index:60;
+    width:22px;height:44px;border:1px solid var(--border);border-left:none;
+    background:var(--sidebar-bg);color:#fff;border-radius:0 8px 8px 0;cursor:pointer;
+  }
+  .sidebar-reopen-tab:hover{background:var(--sidebar-active);}
+  @media (max-width:720px){
+    .sidebar-collapse-btn,.sidebar-resize-handle,.sidebar-reopen-tab{display:none!important;}
+  }
   .nav{list-style:none;display:flex;flex-direction:column;gap:4px;flex:1;}
   .nav li{
     display:flex;align-items:center;gap:12px;
@@ -109,6 +136,37 @@
   .account-dd-item .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--primary,#5b5fef);color:#fff;font-weight:700;flex-shrink:0;}
   .account-dd-add{margin-top:8px;width:100%;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:none;cursor:pointer;font-size:13px;color:var(--text-mid);text-align:left;}
   .account-dd-add:hover{background:#f5f6fa;color:var(--text-dark);}
+
+  /* Notifications drawer (right-side slide-in panel) */
+  .bell{cursor:pointer;}
+  .notif-backdrop{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:299;
+  }
+  .notif-backdrop.open{display:block;}
+  .notif-drawer{
+    position:fixed;top:0;right:0;bottom:0;width:360px;max-width:90vw;
+    background:#fff;z-index:300;box-shadow:-8px 0 30px rgba(0,0,0,.15);
+    display:flex;flex-direction:column;
+    transform:translateX(100%);transition:transform .25s ease;
+  }
+  .notif-drawer.open{transform:translateX(0);}
+  .notif-drawer-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 20px;border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  .notif-drawer-header h3{font-size:16px;font-weight:700;}
+  .notif-close-btn{background:none;border:none;color:var(--text-mid);cursor:pointer;padding:4px;border-radius:6px;display:flex;}
+  .notif-close-btn:hover{background:#f1f2f6;color:var(--text-dark);}
+  .notif-drawer-body{flex:1;overflow-y:auto;padding:8px 12px;}
+  .notif-item{
+    display:flex;gap:12px;align-items:flex-start;padding:12px 8px;border-radius:10px;cursor:pointer;
+  }
+  .notif-item:hover{background:#f5f6fa;}
+  .notif-item.warn .notif-title{color:#dc2626;}
+  .notif-icon{font-size:18px;flex-shrink:0;line-height:1.3;}
+  .notif-text{min-width:0;}
+  .notif-title{font-size:13.5px;font-weight:600;color:var(--text-dark);}
+  .notif-sub{font-size:12px;color:var(--text-mid);margin-top:2px;}
 
   .content{
     display:grid;
@@ -287,6 +345,8 @@
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px;}
   .stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:22px;}
   .stat-card.tint-warn{background:#fef2f2;border-color:#fbd5d5;}
+  .stat-card[data-goto],.stat-card.clickable{cursor:pointer;transition:box-shadow .15s,transform .15s,border-color .15s;}
+  .stat-card[data-goto]:hover,.stat-card.clickable:hover{box-shadow:0 6px 18px rgba(20,20,50,.08);transform:translateY(-2px);border-color:var(--indigo);}
   .stat-label{font-size:13px;color:var(--text-mid);margin-bottom:8px;font-weight:600;}
   .stat-value{font-size:28px;font-weight:800;color:var(--text-dark);}
   .stat-value.warn{color:#dc2626;}
@@ -294,7 +354,8 @@
 
   /* Dashboard: connected-platforms strip */
   .dash-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}
-  .dash-platform-tile{display:flex;align-items:center;gap:10px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;}
+  .dash-platform-tile{display:flex;align-items:center;gap:10px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:box-shadow .15s,border-color .15s;}
+  .dash-platform-tile:hover{box-shadow:0 6px 18px rgba(20,20,50,.08);border-color:var(--indigo);}
   .dash-platform-tile .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-light);margin-left:auto;flex-shrink:0;}
   .dash-platform-tile.connected .status-dot{background:var(--green);}
   .dash-platform-tile:not(.connected){color:var(--text-mid);}
@@ -420,6 +481,9 @@
   <div class="logo">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="7" fill="#5b5bf0"/><path d="M9 7l8 5-8 5V7z" fill="#fff"/></svg>
     MediaFlow
+    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
   </div>
   <ul class="nav" id="navList">
     <li data-page="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z"/></svg>Dashboard</li>
@@ -444,6 +508,10 @@
     </div>
   </div>
 </aside>
+<div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+<button class="sidebar-reopen-tab" id="sidebarReopenTab" aria-label="Open sidebar" title="Open sidebar">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+</button>
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
 <div class="main">
@@ -455,9 +523,9 @@
       <h1 id="pageTitle">Dashboard</h1>
     </div>
     <div class="topbar-right">
-      <div class="bell">
+      <div class="bell" id="notifBell">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span class="badge">3</span>
+        <span class="badge" id="notifBadge" style="display:none;">0</span>
       </div>
       <div class="account-dd-wrap" id="accountDropdown">
         <div class="admin-pill" id="accountPill">
@@ -472,38 +540,51 @@
     </div>
   </div>
 
+  <div class="notif-backdrop" id="notifBackdrop"></div>
+  <aside class="notif-drawer" id="notifDrawer">
+    <div class="notif-drawer-header">
+      <h3>Notifications</h3>
+      <button class="notif-close-btn" id="notifCloseBtn" aria-label="Close notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="notif-drawer-body" id="notifDrawerBody">
+      <div class="empty-state">No notifications right now.</div>
+    </div>
+  </aside>
+
   <!-- DASHBOARD -->
   <div class="page" data-page="dashboard">
     <div class="content-single">
       <div class="stat-grid">
-        <div class="stat-card">
+        <div class="stat-card" data-goto="scheduled">
           <div class="stat-label">Scheduled</div>
           <div class="stat-value" id="statScheduled">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" data-goto="published">
           <div class="stat-label">Published</div>
           <div class="stat-value" id="statPublished">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" data-goto="platforms">
           <div class="stat-label">Connected Accounts</div>
           <div class="stat-value" id="statConnected">–</div>
         </div>
-        <div class="stat-card" id="statFailedCard">
+        <div class="stat-card clickable" id="statFailedCard">
           <div class="stat-label">Needs Attention</div>
           <div class="stat-value warn" id="statFailed">–</div>
         </div>
       </div>
 
       <div class="dash-platforms" id="dashPlatforms">
-        <div class="dash-platform-tile" id="dashPlatform-youtube">
+        <div class="dash-platform-tile" id="dashPlatform-youtube" data-goto="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg>
           <span>YouTube</span><span class="status-dot"></span>
         </div>
-        <div class="dash-platform-tile" id="dashPlatform-facebook">
+        <div class="dash-platform-tile" id="dashPlatform-facebook" data-goto="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg>
           <span>Facebook</span><span class="status-dot"></span>
         </div>
-        <div class="dash-platform-tile" id="dashPlatform-instagram">
+        <div class="dash-platform-tile" id="dashPlatform-instagram" data-goto="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="igdash" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igdash)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
           <span>Instagram</span><span class="status-dot"></span>
         </div>
@@ -1208,7 +1289,23 @@
     el.addEventListener('click', () => { showPage(el.dataset.goto); closeMobileSidebar(); });
   });
 
-  // ---- Mobile sidebar (hamburger menu) ----
+  // "Needs Attention" doesn't have its own page — it's the failed subset of
+  // the Published library. Land on Published but load the failed rows into
+  // its list container instead of the normal published-only fetch.
+  function goToNeedsAttention(){
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const target = document.querySelector('.page[data-page="published"]');
+    if(target) target.classList.add('active');
+    document.querySelectorAll('#navList li').forEach(li => li.classList.toggle('active', li.dataset.page === 'published'));
+    document.getElementById('pageTitle').textContent = 'Needs Attention';
+    document.title = 'MediaFlow - Needs Attention';
+    history.replaceState(null, '', '?page=published');
+    loadLibrary('failed');
+    closeMobileSidebar();
+  }
+  document.getElementById('statFailedCard').addEventListener('click', goToNeedsAttention);
+
+  // ---- Mobile sidebar (hamburger menu, slide-in overlay on small screens) ----
   function openMobileSidebar(){
     document.querySelector('.sidebar').classList.add('open');
     document.body.classList.add('sidebar-open');
@@ -1219,6 +1316,123 @@
   }
   document.getElementById('menuToggle').addEventListener('click', openMobileSidebar);
   document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileSidebar);
+
+  // ---- Desktop sidebar: collapsible + drag-to-resize ----
+  const sidebarEl = document.querySelector('.sidebar');
+  const sidebarHandle = document.getElementById('sidebarResizeHandle');
+  const sidebarReopenTab = document.getElementById('sidebarReopenTab');
+  const SIDEBAR_WIDTH_KEY = 'mf_sidebar_width';
+  const SIDEBAR_COLLAPSED_KEY = 'mf_sidebar_collapsed';
+  const SIDEBAR_MIN = 180, SIDEBAR_MAX = 420;
+
+  function setSidebarWidth(px){
+    px = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, px));
+    sidebarEl.style.width = px + 'px';
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(px));
+  }
+  function collapseSidebar(){
+    sidebarEl.classList.add('collapsed');
+    sidebarReopenTab.style.display = 'flex';
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+  }
+  function expandSidebar(){
+    sidebarEl.classList.remove('collapsed');
+    sidebarReopenTab.style.display = 'none';
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '0');
+  }
+  // Restore saved width/collapsed state
+  const savedWidth = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
+  if(savedWidth) setSidebarWidth(savedWidth);
+  if(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') collapseSidebar();
+
+  document.getElementById('sidebarCollapseBtn').addEventListener('click', collapseSidebar);
+  sidebarReopenTab.addEventListener('click', expandSidebar);
+
+  let sidebarDragging = false, sidebarDragStartX = 0, sidebarDragStartW = 0;
+  sidebarHandle.addEventListener('pointerdown', (e) => {
+    if(sidebarEl.classList.contains('collapsed')) return;
+    sidebarDragging = true;
+    sidebarDragStartX = e.clientX;
+    sidebarDragStartW = sidebarEl.getBoundingClientRect().width;
+    sidebarHandle.setPointerCapture(e.pointerId);
+    document.body.classList.add('sidebar-resizing');
+  });
+  sidebarHandle.addEventListener('pointermove', (e) => {
+    if(!sidebarDragging) return;
+    setSidebarWidth(sidebarDragStartW + (e.clientX - sidebarDragStartX));
+  });
+  function endSidebarDrag(){
+    sidebarDragging = false;
+    document.body.classList.remove('sidebar-resizing');
+  }
+  sidebarHandle.addEventListener('pointerup', endSidebarDrag);
+  sidebarHandle.addEventListener('pointercancel', endSidebarDrag);
+  sidebarHandle.addEventListener('dblclick', () => setSidebarWidth(230));
+
+  // ---- Notifications drawer ----
+  const notifDrawer = document.getElementById('notifDrawer');
+  const notifBackdrop = document.getElementById('notifBackdrop');
+  const notifBell = document.getElementById('notifBell');
+  const notifBadge = document.getElementById('notifBadge');
+
+  function renderNotifications(){
+    const body = document.getElementById('notifDrawerBody');
+    if(!body || !lastDashboardData) return;
+    const items = [];
+    if(lastDashboardData.failed_count > 0){
+      items.push({
+        icon: '⚠️', tone: 'warn',
+        title: `${lastDashboardData.failed_count} upload${lastDashboardData.failed_count === 1 ? '' : 's'} need${lastDashboardData.failed_count === 1 ? 's' : ''} attention`,
+        sub: 'A scheduled publish failed — tap to review.',
+        goto: 'needs-attention'
+      });
+    }
+    (lastDashboardData.recent || []).slice(0, 6).forEach(r => {
+      const isSched = r.status === 'scheduled';
+      items.push({
+        icon: isSched ? '🕒' : (r.status === 'failed' ? '⚠️' : '✅'),
+        tone: r.status === 'failed' ? 'warn' : 'default',
+        title: r.title || r.filename || 'Untitled upload',
+        sub: isSched ? 'Scheduled' : (r.status === 'failed' ? 'Failed to publish' : 'Published'),
+        goto: isSched ? 'scheduled' : 'published'
+      });
+    });
+    body.innerHTML = items.length
+      ? items.map(it => `
+          <div class="notif-item ${it.tone === 'warn' ? 'warn' : ''}" data-notif-goto="${it.goto}">
+            <div class="notif-icon">${it.icon}</div>
+            <div class="notif-text"><div class="notif-title">${escapeHtml(it.title)}</div><div class="notif-sub">${escapeHtml(it.sub)}</div></div>
+          </div>`).join('')
+      : '<div class="empty-state">No notifications right now.</div>';
+
+    const count = items.length;
+    if(count > 0){ notifBadge.textContent = count > 9 ? '9+' : String(count); notifBadge.style.display = 'flex'; }
+    else { notifBadge.style.display = 'none'; }
+  }
+
+  document.getElementById('notifDrawerBody').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-notif-goto]');
+    if(!item) return;
+    const dest = item.dataset.notifGoto;
+    if(dest === 'needs-attention') goToNeedsAttention(); else showPage(dest);
+    closeNotifDrawer();
+  });
+
+  function openNotifDrawer(){
+    notifDrawer.classList.add('open');
+    notifBackdrop.classList.add('open');
+    renderNotifications();
+  }
+  function closeNotifDrawer(){
+    notifDrawer.classList.remove('open');
+    notifBackdrop.classList.remove('open');
+  }
+  notifBell.addEventListener('click', () => {
+    notifDrawer.classList.contains('open') ? closeNotifDrawer() : openNotifDrawer();
+  });
+  document.getElementById('notifCloseBtn').addEventListener('click', closeNotifDrawer);
+  notifBackdrop.addEventListener('click', closeNotifDrawer);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeNotifDrawer(); });
 
   // ================= Dashboard =================
   const PLATFORM_THUMB = {
@@ -1253,11 +1467,15 @@
       </div>`;
   }
 
+  let lastDashboardData = null;
+
   async function loadDashboard(){
     try{
       const res = await fetch(withAccount(`${API}/api/dashboard/summary`));
       if(!res.ok) throw new Error();
       const data = await res.json();
+      lastDashboardData = data;
+      renderNotifications();
       document.getElementById('statScheduled').textContent = data.scheduled_count;
       document.getElementById('statPublished').textContent = data.published_count;
       document.getElementById('statConnected').textContent = data.connected_accounts;
