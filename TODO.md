@@ -39,6 +39,10 @@
 - [ ] Sidebar collapse/resize state is per-browser (`localStorage`), not
       per-account or server-synced — fine for a single user, would need
       revisiting if this is ever multi-user beyond the shared login.
+- [ ] Subscriber/follower counts in the dashboard platform bar haven't
+      been visually verified against a real connected account (no
+      credentials available in the dev/session environment) — check on
+      the live VM.
 
 ## Completed
 - [x] Core FastAPI server with SQLite backend
@@ -57,3 +61,5 @@
 - [x] Make dashboard stat cards + platform tiles clickable (navigate to
       their respective page); add a right-side notifications drawer;
       make sidebar collapsible + drag-resizable (2026-09-11)
+- [x] Show subscriber/follower counts in the dashboard's platform bar
+      for YouTube/Facebook/Instagram (2026-09-11)

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-11 (platform bar subscriber/follower counts)
+
+### Added
+- `server.py` `/api/status` — YouTube now requests `statistics` in
+  addition to `snippet` and returns `subscribers` (omitted if the
+  channel owner has hidden their subscriber count via
+  `hiddenSubscriberCount`). Facebook/Instagram now request
+  `followers_count` on the Page and on its linked Instagram Business
+  account; if the Page token doesn't have permission for those fields,
+  falls back to the original minimal-fields query so connection-status
+  detection keeps working either way (counts just won't show).
+- `static/index.html` — the dashboard's platform bar (YouTube/Facebook/
+  Instagram tiles) now shows a compact count next to the status dot when
+  connected and the backend provided one, e.g. "12.4K subscribers" /
+  "3.2K followers" (new `fmtCompact()` helper). Blank when not
+  connected or the count isn't available.
+
+Reason:
+Project owner asked to see subscriber/follower counts in the dashboard's
+platform bar.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11 (dashboard interactivity + notifications + sidebar)
 
 ### Added

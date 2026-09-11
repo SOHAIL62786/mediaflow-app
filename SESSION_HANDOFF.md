@@ -12,8 +12,24 @@ things:
    again.
 3. Sidebar should be draggable (resizable) and closable.
 
+Follow-up in the same session: show subscriber/follower counts in the
+dashboard's platform bar (YouTube/Facebook/Instagram tiles).
+
 ## Progress
-Completed, pushed (981adf2..552dff8), deploy confirmed successful:
+Completed, pushed (84f9da1, on top of 981adf2..acb0503), deploy confirmed
+successful:
+- `server.py` `/api/status`: YouTube now returns `subscribers` (via
+  `statistics` part on `channels().list`, omitted if the channel hides
+  its count). Facebook/Instagram now return `followers` (Page
+  `followers_count` / linked IG Business account `followers_count`),
+  with a fallback to the original minimal-fields query if a token lacks
+  permission for those fields — so status detection can't break because
+  of this.
+- `static/index.html`: dashboard platform tiles show a compact count
+  ("12.4K subscribers" / "3.2K followers") next to the status dot, via a
+  new `fmtCompact()` helper. Blank if disconnected or no count returned.
+
+Completed, pushed (981adf2..acb0503), deploy confirmed successful:
 - `static/index.html` only — no backend changes.
 - Scheduled / Published / Connected Accounts stat cards and the
   YouTube/Facebook/Instagram dashboard tiles now use the existing
@@ -39,16 +55,23 @@ Completed, pushed (981adf2..552dff8), deploy confirmed successful:
   in `localStorage` (`mf_sidebar_width`, `mf_sidebar_collapsed`).
   Desktop-only by design — left the existing mobile hamburger/backdrop
   slide-in (`<720px`) completely alone.
-- Tested locally before pushing: ran `server.py` on a scratch port,
-  confirmed the page serves 200 and contains the new elements, checked
-  the JS parses cleanly, and grepped for duplicate/missing element IDs.
-  Deleted the local `mediaflow.db` created by that test run before
-  committing (it's not meant to be tracked).
+- Tested locally before pushing (each round): ran `server.py` on a
+  scratch port, confirmed the page serves 200 and contains the expected
+  new elements/markup, checked JS parses cleanly, checked `/api/status`
+  response shape. No real platform credentials available locally, so the
+  subscriber/follower path itself couldn't be exercised end-to-end here
+  — verify on the live VM with an actually-connected account. Deleted
+  the local `mediaflow.db` created by these test runs before each
+  commit (not meant to be tracked).
 
 Currently Working On:
 - Nothing else this session.
 
 Not Completed / things noticed but NOT fixed (worth a look next time):
+- Subscriber/follower counts haven't been verified against a real
+  connected YouTube/Facebook/Instagram account yet (no credentials in
+  this session's environment) — worth a quick visual check on the live
+  dashboard next session.
 - The notifications drawer has no independent data source — it's
   derived from the same dashboard-summary fetch, so it can't persist
   read/unread state or show anything the dashboard doesn't already know
@@ -77,10 +100,12 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   server-synced.
 
 ## Next Step
-Pick up one of the still-open items above — the account_id-in-URL
-fragility or the visual-redesign pass on Scheduled/Published/Analytics/
-Upload are probably the most worth doing next — or continue with
-whatever the project owner prioritizes.
+Verify the subscriber/follower counts on the live dashboard against a
+real connected account (couldn't be tested locally — no credentials in
+this session's environment). After that, pick up one of the still-open
+items above — the account_id-in-URL fragility or the visual-redesign
+pass on Scheduled/Published/Analytics/Upload are probably the most worth
+doing next — or continue with whatever the project owner prioritizes.
 
 ## Security Note
 A live GitHub fine-grained PAT was found stored in plaintext in a project
