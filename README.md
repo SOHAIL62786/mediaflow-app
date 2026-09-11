@@ -49,19 +49,26 @@ pip install -r requirements.txt
 
 ## 2. Connecting YouTube
 
-Your Google OAuth client is already in `credentials/client_secret.json`.
-**Treat this folder like a password file** — don't commit it to git or
-share it.
+Your Google OAuth client goes in `credentials/client_secret.json` (shared
+across accounts by default — see "Multi-account support" below for the
+per-account override). **Treat this folder like a password file** — don't
+commit it to git or share it.
 
 Open the app, go to **Accounts**, and click **Connect** next to YouTube —
 this runs Google's OAuth flow in your browser (via `/api/connect/youtube`)
-and saves a fresh `credentials/token.json` automatically, refresh token
-included, so you won't need to log in again unless you click **Disconnect**
-or the token gets revoked.
+and saves a fresh token for whichever account is currently selected in the
+top-right switcher, at `credentials/accounts/<account_id>/token.json`,
+refresh token included, so you won't need to log in again unless you click
+**Disconnect** or the token gets revoked.
 
 The connect flow requests upload, read-only, and analytics scopes together,
 so Google's consent screen will list all three — that's intentional, it
 means a future Analytics page won't need yet another re-auth.
+
+**Note:** while your Google Cloud OAuth app is in "Testing" publishing
+status, only email addresses added as Test Users (OAuth consent screen →
+Test users, in Google Cloud Console) can complete this flow — anyone else
+gets an "hasn't completed verification" block.
 
 ## 3. Connecting Facebook + Instagram
 
@@ -79,8 +86,9 @@ Go to **Accounts** → **Facebook** → **Connect**, and fill in:
 | Page Access Token | Graph API Explorer (select your Page, request `pages_manage_posts` + `pages_read_engagement`), then exchange for a **long-lived** token so it doesn't expire every 60 days — see Meta's [access token guide](https://developers.facebook.com/docs/pages/access-tokens) |
 
 MediaFlow validates the token against the Graph API when you click
-**Save & Connect**, and stores everything in `credentials/facebook.json`
-(same "treat it like a password" rule applies).
+**Save & Connect**, and stores everything for the currently-selected
+account at `credentials/accounts/<account_id>/facebook.json` (same "treat
+it like a password" rule applies).
 
 **Instagram** rides on this same connection — no separate credentials. If
 your Page has an Instagram **Business or Creator** account linked to it
@@ -88,6 +96,21 @@ your Page has an Instagram **Business or Creator** account linked to it
 the Instagram card lights up too. If it doesn't show as linked, that's the
 most common reason: the account has to be a Business/Creator account, and
 it has to be linked to the Page specifically (not just "connected" loosely).
+
+## 4. Multi-account support
+
+The top-right pill is an account switcher, not a user login — there's
+still just one shared app password. Each account has its own YouTube
+token, Facebook/Instagram connection, scheduled/published posts, and
+analytics, completely separate from every other account. Use **+ Add
+account** in that dropdown to create a new one, then connect its
+platforms from the Accounts page same as above.
+
+`credentials/client_secret.json` (the Google OAuth *app* client, not a
+per-user token) is shared across all accounts by default so you don't
+have to re-upload it each time — drop a `client_secret.json` inside a
+specific account's own folder (`credentials/accounts/<id>/`) if that
+account needs its own separate Google Cloud project instead.
 
 One real limitation that still applies regardless of scheduling: Instagram's
 publishing API requires a public URL to fetch the video from — it can't

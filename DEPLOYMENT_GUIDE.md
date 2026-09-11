@@ -208,8 +208,10 @@ sudo systemctl restart mediaflow
 
 ## Backups worth keeping
 
-- `credentials/token.json` — if this is lost and the refresh token stops
-  working, you'll need to redo the Google OAuth flow from scratch.
+- `credentials/accounts/<id>/token.json` for each connected account — if
+  one is lost and its refresh token stops working, you'll need to redo the
+  Google OAuth flow from scratch for that account. Back up the whole
+  `credentials/accounts/` folder to catch every account at once.
 - `mediaflow.env` — your login password.
 
 Keep a copy of both somewhere safe (password manager, encrypted backup) —
