@@ -364,13 +364,16 @@ def status(account_id: int = 1, user: str = Depends(require_login)):
         if creds:
             yt = build("youtube", "v3", credentials=creds)
             try:
-                resp = yt.channels().list(part="snippet", mine=True).execute()
+                resp = yt.channels().list(part="snippet,statistics", mine=True).execute()
                 items = resp.get("items", [])
                 if items:
+                    stats = items[0]["statistics"]
                     platforms["youtube"] = {
                         "connected": True,
                         "channel": items[0]["snippet"]["title"],
                     }
+                    if not stats.get("hiddenSubscriberCount"):
+                        platforms["youtube"]["subscribers"] = int(stats.get("subscriberCount", 0))
                 else:
                     platforms["youtube"] = {"connected": True, "channel": "YouTube (upload-only token)"}
             except HttpError as e:
@@ -392,17 +395,34 @@ def status(account_id: int = 1, user: str = Depends(require_login)):
             resp = requests.get(
                 f"{GRAPH_BASE}/{fb_creds['page_id']}",
                 params={
-                    "fields": "name,instagram_business_account{id,username}",
+                    "fields": "name,followers_count,instagram_business_account{id,username,followers_count}",
                     "access_token": fb_creds["page_access_token"],
                 },
                 timeout=10,
             )
             data = resp.json()
+            if not resp.ok or "error" in data:
+                # Some Page tokens don't have permission for follower counts.
+                # Fall back to the original minimal fields so connection
+                # status detection still works even without the counts.
+                resp = requests.get(
+                    f"{GRAPH_BASE}/{fb_creds['page_id']}",
+                    params={
+                        "fields": "name,instagram_business_account{id,username}",
+                        "access_token": fb_creds["page_access_token"],
+                    },
+                    timeout=10,
+                )
+                data = resp.json()
             if resp.ok and "error" not in data:
                 platforms["facebook"] = {"connected": True, "channel": data.get("name")}
+                if data.get("followers_count") is not None:
+                    platforms["facebook"]["followers"] = data.get("followers_count")
                 ig = data.get("instagram_business_account")
                 if ig:
                     platforms["instagram"] = {"connected": True, "channel": ig.get("username")}
+                    if ig.get("followers_count") is not None:
+                        platforms["instagram"]["followers"] = ig.get("followers_count")
                 else:
                     platforms["instagram"] = {
                         "connected": False,
