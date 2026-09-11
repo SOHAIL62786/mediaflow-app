@@ -96,7 +96,8 @@
     font-size:10px;font-weight:700;width:16px;height:16px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
   }
-  .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);cursor:pointer;user-select:none;}
+  .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:24px;padding:5px 14px 5px 5px;transition:border-color .15s,background .15s;}
+  .admin-pill:hover{border-color:var(--indigo);background:#f8f8ff;}
   .admin-pill .avatar{width:30px;height:30px;font-size:12px;}
   .account-dd-wrap{position:relative;}
   .account-dd-panel{display:none;position:absolute;top:calc(100% + 10px);right:0;min-width:200px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;z-index:50;}
@@ -259,8 +260,8 @@
   .see-all{font-size:13px;color:var(--indigo);font-weight:600;cursor:pointer;}
   .recent-item{display:flex;align-items:center;gap:12px;}
   .recent-thumb{
-    width:52px;height:40px;border-radius:8px;flex-shrink:0;
-    background:linear-gradient(135deg,#3a3a5c,#5b5b8a);
+    width:40px;height:40px;border-radius:10px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
   }
   .recent-info{flex:1;min-width:0;}
   .recent-info .n{font-size:13px;font-weight:600;}
@@ -285,10 +286,19 @@
   /* Dashboard stat cards */
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px;}
   .stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:22px;}
+  .stat-card.tint-warn{background:#fef2f2;border-color:#fbd5d5;}
   .stat-label{font-size:13px;color:var(--text-mid);margin-bottom:8px;font-weight:600;}
   .stat-value{font-size:28px;font-weight:800;color:var(--text-dark);}
   .stat-value.warn{color:#dc2626;}
   @media (max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+
+  /* Dashboard: connected-platforms strip */
+  .dash-platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}
+  .dash-platform-tile{display:flex;align-items:center;gap:10px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;}
+  .dash-platform-tile .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-light);margin-left:auto;flex-shrink:0;}
+  .dash-platform-tile.connected .status-dot{background:var(--green);}
+  .dash-platform-tile:not(.connected){color:var(--text-mid);}
+  @media (max-width:720px){.dash-platforms{grid-template-columns:1fr;}}
 
   /* Library rows (Scheduled / Published) */
   .empty-state{color:var(--text-mid);font-size:14px;padding:30px 0;text-align:center;}
@@ -477,9 +487,24 @@
           <div class="stat-label">Connected Accounts</div>
           <div class="stat-value" id="statConnected">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" id="statFailedCard">
           <div class="stat-label">Needs Attention</div>
           <div class="stat-value warn" id="statFailed">–</div>
+        </div>
+      </div>
+
+      <div class="dash-platforms" id="dashPlatforms">
+        <div class="dash-platform-tile" id="dashPlatform-youtube">
+          <svg width="18" height="18" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg>
+          <span>YouTube</span><span class="status-dot"></span>
+        </div>
+        <div class="dash-platform-tile" id="dashPlatform-facebook">
+          <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg>
+          <span>Facebook</span><span class="status-dot"></span>
+        </div>
+        <div class="dash-platform-tile" id="dashPlatform-instagram">
+          <svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="igdash" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igdash)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+          <span>Instagram</span><span class="status-dot"></span>
         </div>
       </div>
 
@@ -1180,6 +1205,18 @@
   document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileSidebar);
 
   // ================= Dashboard =================
+  const PLATFORM_THUMB = {
+    youtube:   {bg:'#FF0000', icon:'<svg width="16" height="16" viewBox="0 0 24 24"><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg>'},
+    facebook:  {bg:'#1877F2', icon:'<svg width="16" height="16" viewBox="0 0 24 24"><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg>'},
+    instagram: {bg:'linear-gradient(135deg,#FEDA75,#D62976,#962FBF,#4F5BD5)', icon:'<svg width="15" height="15" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.8"/></svg>'},
+    tiktok:    {bg:'#000', icon:'<svg width="14" height="14" viewBox="0 0 24 24"><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg>'},
+  };
+  function thumbHtml(platformsStr){
+    const first = (platformsStr.split(',')[0] || '').trim().toLowerCase();
+    const cfg = PLATFORM_THUMB[first] || {bg:'var(--text-light)', icon:''};
+    return `<div class="recent-thumb" style="background:${cfg.bg}">${cfg.icon}</div>`;
+  }
+
   function libraryRowHtml(rec){
     const platforms = rec.platforms.split(',').map(p=>p.trim()).join(', ');
     const yt = rec.results && rec.results.youtube;
@@ -1191,7 +1228,7 @@
     const pillLabel = rec.status.charAt(0).toUpperCase() + rec.status.slice(1);
     return `
       <div class="lib-row">
-        <div class="recent-thumb"></div>
+        ${thumbHtml(rec.platforms)}
         <div class="lib-info">
           <div class="n">${escapeHtml(rec.title)}</div>
           <div class="d">${escapeHtml(platforms)} • ${when}${link}</div>
@@ -1209,6 +1246,7 @@
       document.getElementById('statPublished').textContent = data.published_count;
       document.getElementById('statConnected').textContent = data.connected_accounts;
       document.getElementById('statFailed').textContent = data.failed_count;
+      document.getElementById('statFailedCard').classList.toggle('tint-warn', data.failed_count > 0);
 
       const list = document.getElementById('dashRecentList');
       list.innerHTML = data.recent.length
@@ -1223,6 +1261,21 @@
       }
     }catch(err){
       document.getElementById('dashRecentList').innerHTML = '<div class="empty-state">Could not load dashboard data.</div>';
+    }
+    loadDashboardPlatforms();
+  }
+
+  async function loadDashboardPlatforms(){
+    try{
+      const res = await fetch(withAccount(`${API}/api/status`));
+      const data = await res.json();
+      ['youtube','facebook','instagram'].forEach(p=>{
+        const tile = document.getElementById(`dashPlatform-${p}`);
+        if(!tile) return;
+        tile.classList.toggle('connected', !!(data[p] && data[p].connected));
+      });
+    }catch(err){
+      // leave tiles in their default (disconnected-looking) state
     }
   }
 
