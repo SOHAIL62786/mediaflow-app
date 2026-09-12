@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-09-12 (real multi-user login: Sign In / Sign Up pages)
+
+### Added
+- `server.py` — new `users` and `sessions` tables. Passwords hashed with
+  PBKDF2-HMAC-SHA256 (random per-user salt, 260,000 iterations — stdlib
+  only, no new dependency). Session identity is a random token in an
+  HttpOnly/SameSite=Lax cookie (`mf_session`, 30-day expiry), replacing
+  HTTP Basic Auth entirely.
+- `server.py` — new routes: `GET /login`, `GET /signup` (public; redirect
+  to `/` if already logged in), `POST /api/auth/signup`,
+  `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+  `GET /` now redirects to `/login` instead of a Basic Auth 401 when not
+  logged in.
+- `static/login.html`, `static/signup.html` — new standalone pages
+  (outside the main SPA) matching MediaFlow's existing visual language —
+  dark brand panel + form, collapsing to just the form on mobile. Signup
+  has live "passwords match" / min-length validation; both show an
+  inline error banner on failure instead of a native browser prompt.
+- `static/index.html` — sidebar's user card (previously hardcoded
+  "Admin / admin@example.com") now shows the real logged-in username and
+  a working Log Out button. Added a global `fetch` wrapper that redirects
+  to `/login` on any 401 response, so an expired/invalidated session
+  bounces the person to sign in again instead of every page silently
+  failing to load its data.
+- `require_login` kept its old return signature (just the username) so
+  none of the ~20 existing `Depends(require_login)` route signatures
+  needed to change — only how that identity gets established did.
+
+### Backward compatibility
+If `APP_USERNAME`/`APP_PASSWORD` env vars are set and no `users` row
+exists yet, one account is seeded from them on first boot (existing
+installs aren't locked out). If neither is set, a one-time
+random-password account is created and printed to the server log
+instead. Either way this only happens once — from then on it's an
+ordinary account, and new people should use Sign Up rather than share it.
+
+### Note — this reverses part of Decision 003
+Decision 003 (multi-account support) explicitly kept "one shared login,
+not separate user logins." This session's request was specifically for
+real per-person accounts, so that part of Decision 003 no longer holds —
+see Decision 004 in `docs/DECISIONS.md` for the full reasoning. The
+*workspace*-accounts concept from Decision 003 (independent platform
+connections/posts/analytics, switched via the top-right dropdown) is
+unrelated and unchanged.
+
+### Known limitation (by explicit choice, not an oversight)
+Sign-up is fully open — anyone who reaches the app's URL can create an
+account with full access to the dashboard and connected platforms. This
+was offered as a choice (gated vs. open) and open was explicitly chosen.
+An optional invite-code gate was proposed and noted in TODO.md in case
+this needs tightening later, but wasn't built since it wasn't requested.
+
+### Verification
+Tested locally end-to-end before pushing (this repo's dev environment
+has no real platform credentials, but auth itself needed none): signup,
+duplicate-username rejection, short-password rejection, wrong-password
+login rejection, correct login, logout, post-logout 401, and legacy
+env-var seeding all verified via curl. Full UI flow (both pages, desktop
++ mobile, validation states, error states, post-signup/login redirect,
+sidebar user card, logout, and both the server-side redirect guard and
+the client-side 401 fetch guard for an invalidated session) verified
+with a headless-browser walkthrough — no console/page errors.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11 (bug fix: sidebar collapse breaking mobile menu)
 
 ### Fixed

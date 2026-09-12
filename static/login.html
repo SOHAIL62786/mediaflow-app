@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In - MediaFlow</title>
+<style>
+  :root{
+    --indigo:#5b5bf0;
+    --indigo-dark:#4a4ae0;
+    --sidebar-bg:#151530;
+    --page-bg:#f5f6fa;
+    --card-bg:#ffffff;
+    --border:#e6e8f0;
+    --text-dark:#1a1a2e;
+    --text-mid:#6b7080;
+    --text-light:#9a9ea8;
+    --red:#dc2626;
+    --red-bg:#fef2f2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--page-bg);
+    min-height:100vh;
+    display:flex;
+  }
+
+  /* ---- Left brand panel (hidden on narrow screens) ---- */
+  .brand-panel{
+    width:42%;
+    min-width:360px;
+    background:var(--sidebar-bg);
+    color:#fff;
+    padding:56px 48px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+  }
+  .brand-mark{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;}
+  .brand-copy{max-width:360px;}
+  .brand-copy h1{font-size:28px;line-height:1.3;font-weight:700;margin-bottom:14px;}
+  .brand-copy p{font-size:14.5px;line-height:1.6;color:#c7c8e6;}
+  .brand-platforms{display:flex;gap:12px;margin-top:28px;}
+  .brand-platform-icon{
+    width:38px;height:38px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.06);
+  }
+  .brand-foot{font-size:12px;color:#7d7ea8;}
+
+  /* ---- Right form panel ---- */
+  .form-panel{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 24px;
+  }
+  .form-card{width:100%;max-width:380px;}
+  .form-card h2{font-size:24px;font-weight:700;color:var(--text-dark);margin-bottom:6px;}
+  .form-card .sub{font-size:14px;color:var(--text-mid);margin-bottom:28px;}
+  .form-card .sub a{color:var(--indigo);text-decoration:none;font-weight:600;}
+  .form-card .sub a:hover{text-decoration:underline;}
+
+  label{display:block;font-size:13px;font-weight:600;color:var(--text-dark);margin-bottom:6px;}
+  .field{margin-bottom:18px;}
+  input[type=text],input[type=password]{
+    width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:9px;
+    font-size:14px;color:var(--text-dark);background:#fff;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  input[type=text]:focus,input[type=password]:focus{
+    outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px rgba(91,91,240,.12);
+  }
+
+  .submit-btn{
+    width:100%;padding:12px;border:none;border-radius:9px;
+    background:var(--indigo);color:#fff;font-size:14.5px;font-weight:700;
+    cursor:pointer;transition:background .15s;margin-top:4px;
+  }
+  .submit-btn:hover{background:var(--indigo-dark);}
+  .submit-btn:disabled{background:#b7b8f0;cursor:default;}
+
+  .error-banner{
+    display:none;background:var(--red-bg);color:var(--red);border:1px solid #fbd5d5;
+    border-radius:9px;padding:10px 13px;font-size:13px;margin-bottom:18px;
+  }
+  .error-banner.show{display:block;}
+
+  @media (max-width:820px){
+    .brand-panel{display:none;}
+    .form-panel{align-items:flex-start;padding:56px 20px 24px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="brand-panel">
+    <div class="brand-mark">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="7" fill="#5b5bf0"/><path d="M9 7l8 5-8 5V7z" fill="#fff"/></svg>
+      MediaFlow
+    </div>
+    <div class="brand-copy">
+      <h1>Publish everywhere from one dashboard.</h1>
+      <p>Upload once, schedule it, and MediaFlow gets it out to YouTube, Facebook, and Instagram — with real analytics for every video in one place.</p>
+      <div class="brand-platforms">
+        <div class="brand-platform-icon"><svg width="18" height="18" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
+        <div class="brand-platform-icon"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
+        <div class="brand-platform-icon"><svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg></div>
+      </div>
+    </div>
+    <div class="brand-foot">Self-hosted &amp; under your control.</div>
+  </div>
+
+  <div class="form-panel">
+    <div class="form-card">
+      <h2>Sign in</h2>
+      <div class="sub">New to MediaFlow? <a href="/signup">Create an account</a></div>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="submit-btn" id="submitBtn">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const errorBanner = document.getElementById('errorBanner');
+  const submitBtn = document.getElementById('submitBtn');
+
+  function showError(msg){
+    errorBanner.textContent = msg;
+    errorBanner.classList.add('show');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBanner.classList.remove('show');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in…';
+
+    try{
+      const body = new URLSearchParams(new FormData(form));
+      const res = await fetch('/api/auth/login', { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        showError(data.detail || 'Something went wrong. Try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in';
+        return;
+      }
+      window.location.href = '/';
+    }catch(err){
+      showError('Could not reach the server. Check your connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign in';
+    }
+  });
+</script>
+</body>
+</html>

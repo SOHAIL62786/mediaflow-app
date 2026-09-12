@@ -15,12 +15,15 @@ Backend:
 - SQLite (local DB, no external DB server)
 
 Frontend:
-- Single-page app, plain HTML/JS (`static/index.html`)
+- Single-page app, plain HTML/JS (`static/index.html`), plus two
+  standalone pages outside the SPA for auth (`static/login.html`,
+  `static/signup.html`)
 
 Deployment:
 - Designed to run as a systemd service (`mediaflow.service`) behind nginx
   (`mediaflow.nginx.conf`), or locally for dev
-- HTTP Basic Auth built in for when exposed on a public VM
+- Real multi-user login built in (session cookies, own Sign In/Sign Up
+  pages) for when exposed on a public VM — see Decision 004
 
 ## Architecture (high level)
 
@@ -45,7 +48,8 @@ Facebook page tokens) are stored as local JSON files and are gitignored —
 they do NOT sync via git. Each machine/session needs them supplied separately.
 
 ## Current Status
-- Authentication (HTTP Basic Auth for the app itself): done
+- Authentication (multi-user login: session cookies, Sign In/Sign Up
+  pages, hashed passwords — see Decision 004): done
 - YouTube publishing: working (OAuth + upload + analytics)
 - Facebook publishing: working (token-based)
 - Instagram publishing: working (via Facebook Graph API)

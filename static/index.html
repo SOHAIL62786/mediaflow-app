@@ -108,6 +108,13 @@
     display:flex;align-items:center;gap:10px;
     background:#1e1e42;padding:10px 12px;border-radius:10px;margin-top:12px;
   }
+  .user-card-info{flex:1;min-width:0;}
+  .user-card-info .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .logout-btn{
+    flex-shrink:0;background:none;border:none;color:#9a9ecb;cursor:pointer;
+    padding:6px;border-radius:6px;display:flex;
+  }
+  .logout-btn:hover{background:#33335c;color:#fff;}
   .avatar{
     width:34px;height:34px;border-radius:50%;
     background:linear-gradient(135deg,#7b7bf5,#5b5bf0);
@@ -512,11 +519,14 @@
     <div class="toggle" id="darkToggle"></div>
   </div>
   <div class="user-card">
-    <div class="avatar">A</div>
-    <div>
-      <div class="name">Admin</div>
-      <div class="email">admin@example.com</div>
+    <div class="avatar" id="currentUserAvatar">?</div>
+    <div class="user-card-info">
+      <div class="name" id="currentUserName">…</div>
+      <div class="email">Signed in</div>
     </div>
+    <button class="logout-btn" id="logoutBtn" title="Log out" aria-label="Log out">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+    </button>
   </div>
 </aside>
 <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
@@ -930,6 +940,21 @@
 </div>
 
 <script>
+  // ---- Session guard: if any API call comes back 401 (session expired,
+  // logged out elsewhere, etc.), bounce to the login page instead of
+  // letting every page silently fail to load its data. ----
+  (function(){
+    const _origFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const res = await _origFetch(...args);
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+      if(res.status === 401 && !url.includes('/api/auth/')){
+        window.location.href = '/login';
+      }
+      return res;
+    };
+  })();
+
   // File selection / drag & drop
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
@@ -2370,6 +2395,24 @@
       el.addEventListener('click', () => showPage(el.dataset.goto));
     });
   }
+
+  // ---- Current user (sidebar footer) + logout ----
+  async function loadCurrentUser(){
+    try{
+      const res = await fetch('/api/auth/me');
+      if(!res.ok) return;
+      const data = await res.json();
+      document.getElementById('currentUserName').textContent = data.username;
+      document.getElementById('currentUserAvatar').textContent = data.username.charAt(0).toUpperCase();
+    }catch(err){
+      // sidebar just keeps its placeholder; not worth surfacing an error for
+    }
+  }
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try{ await fetch('/api/auth/logout', { method: 'POST' }); }catch(err){}
+    window.location.href = '/login';
+  });
+  loadCurrentUser();
 
   // ================= Initial route =================
   const initialPage = new URLSearchParams(location.search).get('page') || 'dashboard';

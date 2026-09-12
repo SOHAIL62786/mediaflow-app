@@ -77,9 +77,14 @@ chmod 700 credentials
 chmod 600 credentials/*.json
 ```
 
-## 6. Set your login password
+## 6. Seed a first account (optional)
 
-Copy the example env file and edit it:
+MediaFlow has real sign-up/login — once the app is running, anyone who
+reaches it can create their own account from the Sign Up page, and
+everyone who signs up shares the same dashboard and data.
+
+If you'd rather have a ready-to-use login before your first visit
+(instead of using Sign Up), copy the example env file and edit it:
 
 ```bash
 cp mediaflow.env.example mediaflow.env
@@ -88,8 +93,10 @@ nano mediaflow.env
 
 Change `APP_PASSWORD` to something long and random (a password manager's
 generator is fine). Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
+This only takes effect once, before any account exists — safe to remove
+afterward.
 
-Then lock that file down too, since it holds your password in plain text:
+Then lock that file down too, since it holds a password in plain text:
 
 ```bash
 chmod 600 mediaflow.env

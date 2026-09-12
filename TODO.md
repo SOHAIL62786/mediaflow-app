@@ -1,14 +1,19 @@
 # TODO
 
 ## High Priority
+- [ ] Sign-up is fully open to anyone who reaches the URL (project
+      owner's explicit choice) — if that turns out to be too permissive,
+      add an optional `SIGNUP_CODE` env var gate: if set, require a
+      matching invite code on the signup form; if unset, stays fully
+      open as it is now. Not built since it wasn't requested.
+- [ ] No admin UI yet to list/remove users or force a password reset for
+      the new multi-user login — currently needs direct DB access
+      (`users`/`sessions` tables). Consider a simple Settings-page panel.
 - [ ] Decide how the background scheduler should scale once there are many
       accounts with due posts — currently iterates every due row across all
       accounts each poll; untested at scale
 - [ ] Decide whether TikTok support is still a near-term goal; if so, scaffold
       OAuth connect route + DB fields now so UI/schema don't need retrofitting
-- [ ] Harden default-password behavior: currently prints a warning if
-      `APP_PASSWORD` is left as `change-me-now`; consider refusing to start
-      on `0.0.0.0` with the default instead of just warning
 
 ## Medium Priority
 - [ ] Lock down CORS (`allow_origins=["*"]`) to the actual frontend origin
@@ -58,7 +63,7 @@
 - [x] Facebook publishing via Page Access Token
 - [x] Instagram publishing via Facebook Graph API
 - [x] Scheduler loop (30s poll, catch-up on restart)
-- [x] HTTP Basic Auth for app access
+- [x] HTTP Basic Auth for app access (superseded 2026-09-12 — see below)
 - [x] nginx config + systemd service file for deployment
 - [x] Documentation/handoff system set up (2026-09-10)
 - [x] Multi-account support: independent platform connections, posts, and
@@ -78,3 +83,6 @@
       check via headless-browser rendering; found and fixed a real bug
       where collapsing the sidebar on desktop broke the mobile hamburger
       menu (2026-09-11)
+- [x] Replaced HTTP Basic Auth with real multi-user login: custom Sign
+      In/Sign Up pages, hashed passwords, session cookies — see
+      Decision 004 (2026-09-12)

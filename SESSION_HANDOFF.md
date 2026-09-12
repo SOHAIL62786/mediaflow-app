@@ -1,140 +1,108 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-11
+2026-09-12
 
 ## Current Task
-Project owner shared a screenshot of the Dashboard and asked for three
-things:
-1. Dashboard stat cards + platform tiles weren't clickable — make them
-   open their respective page.
-2. A right-side notifications panel that opens on bell-click and closes
-   again.
-3. Sidebar should be draggable (resizable) and closable.
-
-Follow-up in the same session: show subscriber/follower counts in the
-dashboard's platform bar (YouTube/Facebook/Instagram tiles).
-
-Second follow-up: in Analytics, show only the videos that received
-views in a specified period (e.g. "today"), with each video's total
-(lifetime) views plus how many it gained in that period.
-
-Third follow-up: audit the last several sessions' changes for bugs and
-mobile-alignment issues.
+Project owner asked for a proper Sign In / Sign Up page instead of the
+generic browser Basic Auth popup. Clarified up front whether "sign up"
+meant real multi-user accounts, a nicer single-password page, or
+admin-created users only — project owner chose real multi-user accounts:
+different people can each register their own login, and everyone who
+does shares the same MediaFlow dashboard and data (no per-user data
+separation, just per-user credentials).
 
 ## Progress
-Completed, pushed (a3f6f63, on top of 44f6dd5), deploy confirmed
-successful — bug fix, no new features:
-- Found and fixed a real regression: `.sidebar.collapsed{width:0!important}`
-  (added in the "dashboard interactivity" session) had no responsive
-  guard. Collapsing the sidebar on desktop persists that state in
-  localStorage; opening the mobile hamburger drawer on that same browser
-  afterward (live resize or fresh load) showed the dark backdrop but no
-  visible sidebar, since `!important` beat the mobile
-  `.sidebar.open{transform:translateX(0)}` rule regardless of viewport
-  width. Fixed by scoping the collapsed-state rule to `>720px`, and
-  added `width:230px!important` to the mobile `.sidebar` rule so a
-  desktop drag-resized width can't leak into the mobile drawer either.
-- Verified with a headless Chromium (Puppeteer) rather than just reading
-  CSS: reproduced the bug both ways (live resize and fresh mobile load
-  with persisted collapsed state), confirmed the fix resolves both;
-  swept all 9 pages at a 390px mobile viewport with no console errors or
-  horizontal overflow; stress-tested with deliberately extreme mock data
-  (very long subscriber counts, a ~120-character video title, long
-  notification text) with no overflow/overlap anywhere; exercised the
-  notification drawer, sidebar drag-resize, and notification-click
-  navigation. No other bugs or alignment issues found.
+Completed, tested locally, NOT YET PUSHED (awaiting confirmation since
+this touches server.py and will trigger a deploy):
 
-Completed, pushed (18e05be, on top of 84f9da1), deploy confirmed
-successful:
-- `server.py`: `/api/analytics/summary` top videos now also include
-  `lifetime_views` (all-time view count) next to the existing
-  period-scoped `views`. Both YouTube analytics endpoints now compute
-  their date range in `America/Los_Angeles` instead of UTC, matching
-  YouTube Analytics' actual "day" boundary (Pacific Time) — matters most
-  for the new 1-day window. Added `tzdata` to requirements.txt so this
-  works regardless of the VM's OS timezone database.
-- `static/index.html`: added a "Today" option (alongside 7d/28d/90d) to
-  YouTube Analytics. The video list already only includes videos with
-  activity in the selected period (YouTube Analytics omits zero-activity
-  rows), so "Today" naturally narrows it to just the videos that got
-  views today — no extra filtering logic needed. Each row now shows
-  total lifetime views + a "+N today"/"+N in Nd" pill for the period
-  gain.
-- Deliberately did NOT touch Facebook/Instagram's video lists — Meta's
-  Graph API only exposes lifetime view counts at the video/media level,
-  no per-day breakdown, so an equivalent "only posts with views today"
-  view isn't reliably buildable there right now. Documented as a known
-  limitation in TODO.md rather than faking it.
+- `server.py`:
+  - New `users` (id, username, password_hash, created_at) and `sessions`
+    (token, user_id, created_at, expires_at) tables.
+  - Passwords hashed with PBKDF2-HMAC-SHA256, random per-user salt,
+    260,000 iterations (OWASP's 2023 recommended minimum) — stdlib
+    `hashlib`/`secrets` only, no new dependency.
+  - Session identity is a random token in an HttpOnly/SameSite=Lax
+    cookie (`mf_session`, 30-day expiry) — replaces HTTP Basic Auth
+    entirely, which is what makes a custom login page possible instead
+    of the browser's native popup.
+  - `require_login` rewritten to check the session cookie instead of
+    Basic Auth credentials, but kept its old return signature (just the
+    username) — none of the ~20 existing `Depends(require_login)` route
+    signatures needed to change.
+  - New routes: `GET /login`, `GET /signup` (public; redirect to `/` if
+    already logged in), `POST /api/auth/signup`, `POST /api/auth/login`,
+    `POST /api/auth/logout`, `GET /api/auth/me`. `GET /` now redirects
+    to `/login` instead of a Basic Auth 401 when not authenticated.
+  - Backward compat: if `APP_USERNAME`/`APP_PASSWORD` env vars are set
+    and no `users` row exists yet, one account is seeded from them on
+    first boot. If neither is set, a one-time random-password account is
+    created and printed to the server log instead. Either way this only
+    happens once — from then on it's an ordinary account.
+- `static/login.html`, `static/signup.html` (new): standalone pages
+  outside the SPA, matching MediaFlow's existing visual language (dark
+  brand panel + form, collapsing to just the form on mobile — top-aligned
+  there, not vertically centered, so an on-screen keyboard doesn't
+  awkwardly cover a centered form). Signup has live "passwords match"/
+  min-length validation; both show an inline error banner instead of a
+  native browser prompt on failure.
+- `static/index.html`: sidebar's user card (previously hardcoded
+  "Admin / admin@example.com") now shows the real logged-in username +
+  first-letter avatar, and has a working Log Out button
+  (`POST /api/auth/logout` then redirect to `/login`). Added a global
+  `fetch` wrapper that redirects to `/login` on any 401 response, so an
+  expired/invalidated session bounces to sign-in instead of every page
+  silently failing to load its data.
+- `docs/DECISIONS.md`: added Decision 004 documenting that this reverses
+  the login part of Decision 003 ("single shared login, not separate
+  user logins") — the *workspace*-accounts concept from Decision 003
+  (independent platform connections/posts/analytics, switched via the
+  top-right dropdown) is unrelated and unchanged; what changed is that
+  multiple *people* can now each have their own login into that same
+  shared dashboard.
+- `docs/PROJECT_CONTEXT.md`, `README.md`, `DEPLOYMENT_GUIDE.md`,
+  `mediaflow.env.example`: updated to describe the new login model
+  instead of Basic Auth. Also fixed a few now-stale in-code comments in
+  server.py that referenced "HTTP Basic Auth" (the YouTube OAuth
+  callback comment and the `/media/` public-serving comment) for
+  technical accuracy.
+- `TODO.md`: added the open-signup tradeoff (see below) and lack of an
+  admin user-management UI as new items; removed the now-obsolete
+  "harden default password" item (there's no more shared default
+  password to harden).
 
-Completed, pushed (84f9da1, on top of 981adf2..acb0503), deploy confirmed
-successful:
-- `server.py` `/api/status`: YouTube now returns `subscribers` (via
-  `statistics` part on `channels().list`, omitted if the channel hides
-  its count). Facebook/Instagram now return `followers` (Page
-  `followers_count` / linked IG Business account `followers_count`),
-  with a fallback to the original minimal-fields query if a token lacks
-  permission for those fields — so status detection can't break because
-  of this.
-- `static/index.html`: dashboard platform tiles show a compact count
-  ("12.4K subscribers" / "3.2K followers") next to the status dot, via a
-  new `fmtCompact()` helper. Blank if disconnected or no count returned.
-
-Completed, pushed (981adf2..acb0503), deploy confirmed successful:
-- `static/index.html` only — no backend changes.
-- Scheduled / Published / Connected Accounts stat cards and the
-  YouTube/Facebook/Instagram dashboard tiles now use the existing
-  `data-goto` + `showPage()` mechanism to navigate to `scheduled`,
-  `published`, and `platforms` respectively, with a hover lift/shadow so
-  they read as clickable.
-- "Needs Attention" card has its own handler (`goToNeedsAttention()`):
-  opens the Published page but loads it via
-  `GET /api/library?status=failed` (already supported server-side, so no
-  backend change) instead of the normal `status=published` fetch.
-- New right-side notifications drawer (`#notifDrawer` + `#notifBackdrop`),
-  toggled by the bell (`#notifBell`). Closes via the × button, backdrop
-  click, or Escape. Content comes from `lastDashboardData` — the same
-  payload `/api/dashboard/summary` already returns for the dashboard
-  (failed-upload count + recent activity) — cached in JS, no new
-  endpoint added. Clicking a notification navigates to the relevant page
-  and closes the drawer. The bell badge now reflects the real item count
-  and hides at zero, replacing the old hardcoded `3`.
-- Sidebar is collapsible (new button next to the "MediaFlow" logo;
-  collapsing shows a small tab on the left edge to reopen it) and
-  resizable by dragging its right edge (pointer events, 180–420px clamp,
-  double-click resets to 230px). Both collapsed state and width persist
-  in `localStorage` (`mf_sidebar_width`, `mf_sidebar_collapsed`).
-  Desktop-only by design — left the existing mobile hamburger/backdrop
-  slide-in (`<720px`) completely alone.
-- Tested locally before pushing (each round): ran `server.py` on a
-  scratch port, confirmed the page serves 200 and contains the expected
-  new elements/markup, checked JS parses cleanly, checked `/api/status`
-  response shape. No real platform credentials available locally, so the
-  subscriber/follower and Analytics changes couldn't be exercised
-  end-to-end here — verify on the live VM with an actually-connected
-  account. Deleted the local `mediaflow.db` created by these test runs
-  before each commit (not meant to be tracked).
+Testing done (this repo's dev environment has no real platform
+credentials, but none of this needed any):
+- curl: signup, duplicate-username rejection (case-insensitive — "Admin"
+  correctly blocked when "admin" exists), short-password rejection,
+  invalid-username-character rejection, wrong-password login rejection,
+  correct login, logout, post-logout 401 on `/api/auth/me`, and legacy
+  `APP_USERNAME`/`APP_PASSWORD` seeding+login — all verified directly
+  against the running server.
+- Headless Chromium (Puppeteer): both pages at desktop + mobile widths,
+  live signup validation states, login error banner, post-signup and
+  post-login redirect to `/`, sidebar user card showing the real
+  username, logout redirecting to `/login`, the server-side redirect
+  guard (direct navigation with an invalid cookie), and the client-side
+  401 fetch guard (session invalidated mid-app, triggered by a normal
+  in-app action) — no console/page errors in any of it.
 
 Currently Working On:
-- Nothing else this session.
+- Nothing else — feature is complete and tested. Ready to commit/push
+  once confirmed, since it touches server.py (deploy trigger).
 
 Not Completed / things noticed but NOT fixed (worth a look next time):
-- Subscriber/follower counts and the new YouTube Analytics "Today"
-  filter / total-vs-period view counts haven't been verified against a
-  real connected account yet (no credentials in this session's
-  environment) — worth a quick visual check on the live dashboard/
-  analytics pages next session.
-- Facebook/Instagram Analytics still can't do a "which posts got views
-  today" view — see TODO.md for why (Graph API limitation, not a bug).
-- The notifications drawer has no independent data source — it's
-  derived from the same dashboard-summary fetch, so it can't persist
-  read/unread state or show anything the dashboard doesn't already know
-  about. Fine for now; flagged in TODO.md if it needs to grow.
-- All "Not Completed" items from the previous (2026-09-11 bugfix) session
-  are still open — see TODO.md (account_id-in-URL fragility,
-  disconnect_youtube/facebook not 404ing on bad IDs, the cosmetic
-  double-toast on deleting the current account, scheduler-at-scale, and
-  the visual-redesign pass on pages other than Dashboard).
+- Sign-up is fully open to anyone who reaches the app's URL — offered as
+  a choice (gated vs. open) and open was explicitly chosen by the
+  project owner. Noted an optional `SIGNUP_CODE` env var gate as a future
+  lever in TODO.md, not built since it wasn't asked for.
+- No admin UI to list/remove users or force a password reset — would
+  need direct DB access (`users`/`sessions` tables) right now.
+- Everything from prior sessions' "Not Completed" lists is still open —
+  see TODO.md (scheduler-at-scale, account_id-in-URL fragility,
+  disconnect_youtube/facebook not 404ing on bad IDs, Facebook/Instagram
+  Analytics can't do a "views today" per-post view, visual-redesign pass
+  on pages other than Dashboard).
 
 ## Important Information
 - `credentials/` is gitignored and will NOT be present when a new session
@@ -142,35 +110,42 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   separately (not via git) — see docs/PROJECT_CONTEXT.md.
 - Repo write access for a Claude session is granted via a GitHub
   fine-grained PAT (Contents: read/write, this repo only), supplied by
-  the project owner via a plaintext file (`gittoken.md`). Treat any
-  session with a live token as having real push access — be careful with
-  destructive git operations (history rewrites, force pushes).
-- Deleting an account via the Accounts page is destructive and immediate
-  (no soft-delete/undo): it removes that account's post history, its
-  pending scheduled video files, and its stored platform credentials
-  permanently.
+  the project owner via a plaintext file (`gittoken.md`). This has been
+  flagged as exposed across multiple sessions now — still not rotated as
+  of this session.
+- **Login is now real multi-user accounts, not one shared password** —
+  see Decision 004. Anyone who signs up gets full access to the shared
+  dashboard and all connected platforms; there's no invite gate or
+  per-user permission scoping.
+- Deleting an account (workspace) via the Accounts page is destructive
+  and immediate (no soft-delete/undo) — unrelated to the new user-login
+  accounts, don't conflate the two "accounts" concepts (see Decision 004).
 - The sidebar's collapsed/expanded state and width are stored in the
   browser's `localStorage`, so they're per-browser, not per-account or
   server-synced.
 
 ## Next Step
-Verify the subscriber/follower counts and the new "Today"/lifetime-vs-
-period Analytics view on the live dashboard against a real connected
-account (couldn't be tested locally — no credentials in this session's
-environment). After that, pick up one of the still-open items above —
-the account_id-in-URL fragility or the visual-redesign pass on
-Scheduled/Published/Analytics/Upload are probably the most worth doing
-next — or continue with whatever the project owner prioritizes.
+Get confirmation and push this session's auth changes (touches
+server.py, requirements unchanged, will trigger a deploy). After that,
+worth verifying the whole login/signup flow once more on the live VM
+(this session's testing was all local — no reason to expect
+VM-environment-specific issues, but it's a security-sensitive feature
+worth a real-world check). Then pick up whatever's next from TODO.md.
 
 ## Security Note
-A live GitHub fine-grained PAT was found stored in plaintext in a project
-file (`gittoken.md`) again this session and was used again to push these
-changes, per explicit instruction from the project owner (asked and
-confirmed mid-session before pushing). This is now flagged across
-multiple consecutive sessions. Recommend rotating that token and, going
-forward, supplying it via a secrets manager or a fresh per-session token
-rather than a plaintext file, since it has now been exposed in chat/
-session context repeatedly.
+A live GitHub fine-grained PAT stored in plaintext in `gittoken.md` has
+been used across multiple sessions now, including this one (once the
+push is confirmed). Still recommend rotating it and moving to a secrets
+manager or per-session token — this has been flagged repeatedly without
+being addressed.
+
+Separately, worth being explicit about: this session's change means
+anyone who can reach this app's URL can now create their own account and
+get full publishing access to every connected platform. That's an
+explicit, confirmed choice by the project owner (not a bug), but it
+raises the stakes on network-level access control (firewall / who can
+reach the VM) compared to before, when only people who already knew a
+single shared password could get in.
 
 ## Known Issues
 See "Not Completed / things noticed but NOT fixed" above.

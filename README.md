@@ -115,8 +115,8 @@ account needs its own separate Google Cloud project instead.
 One real limitation that still applies regardless of scheduling: Instagram's
 publishing API requires a public URL to fetch the video from — it can't
 accept a direct upload. MediaFlow handles this by briefly serving the file at
-`/media/<random-filename>` (no login, since Instagram's servers can't do HTTP
-Basic Auth) and deleting it right after the publish finishes. The filename is
+`/media/<random-filename>` (no login required, since Instagram's servers
+can't complete an interactive sign-in) and deleting it right after the publish finishes. The filename is
 a random tempfile name, not guessable or listable, so the exposure window is
 small — but it's worth knowing this happens.
 
@@ -200,8 +200,9 @@ connect flow (same pattern as YouTube's) plus the matching upload function.
 
 ## Running this on a VM (public IP, no domain)
 
-The app now has a login (HTTP Basic Auth) — required once it's reachable
-from the internet, or anyone with the URL could publish to your channel.
+The app now has a real login (its own Sign In / Sign Up pages, not a
+browser popup) — required once it's reachable from the internet, or
+anyone with the URL could sign up and publish to your channel.
 
 ### 1. Copy the app to the VM
 
@@ -221,10 +222,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Set a real password
+### 3. First login
 
-Don't skip this — without it, the server falls back to `admin` /
-`change-me-now`.
+MediaFlow has real sign-up/login now — anyone who can reach the app can
+create their own account from the Sign Up page, and everyone who's signed
+up shares the same dashboard and data (there's no per-user data
+separation, just per-user credentials).
+
+For a brand-new install with no accounts yet, you can optionally seed one
+via env vars so you're not stuck if you'd rather not use the Sign Up page
+first — otherwise a one-time random-password account is created for you
+and printed to the server log on first boot:
 
 ```
 export APP_USERNAME=admin
@@ -233,8 +241,13 @@ export PORT=8000
 python server.py
 ```
 
-Visit `http://YOUR_VM_IP:8000` — your browser will prompt for the
-username/password you just set.
+These two vars only matter once, before any account exists — safe to
+unset afterward. Visit `http://YOUR_VM_IP:8000`, which redirects to a
+custom Sign In / Sign Up page (no more browser popup).
+
+Because sign-up is open to anyone who reaches the URL, treat the app's
+address itself as the access control — see "Open the port" and "A note
+on HTTPS" below.
 
 ### 4. Open the port in your VM's firewall
 
@@ -274,5 +287,5 @@ the VM. Two ways to fix that later:
   self-signed certificate, but browsers will show a security warning you
   have to click past each time.
 
-For now, at minimum: pick a strong `APP_PASSWORD`, and restrict the
-firewall to your own IP if your VM provider allows it.
+For now, at minimum: restrict the firewall to your own IP if your VM
+provider allows it, since sign-up is open to anyone who reaches the URL.

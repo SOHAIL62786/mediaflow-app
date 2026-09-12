@@ -9,6 +9,7 @@ needed to wire those in, and drop credentials in credentials/ when ready.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -27,7 +28,6 @@ import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
 from google.oauth2.credentials import Credentials
@@ -181,9 +181,29 @@ def init_db():
                 ("Moiz", datetime.now(timezone.utc).isoformat()),
             )
 
-
-init_db()
-_migrate_legacy_credentials_to_account_1()
+        # ---- Multi-user login (replaces single shared APP_USERNAME/
+        # APP_PASSWORD Basic Auth — see the "Password protection" section
+        # below for the seeding step that runs after this) ----
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def record_upload(title, caption, platforms, privacy, tags, made_for_kids,
@@ -244,25 +264,134 @@ def row_to_dict(row: sqlite3.Row) -> dict:
     d["results"] = json.loads(d["results"])
     return d
 
-# ---------- Password protection ----------
-# Once this server is reachable over the internet (VM's public IP), anyone
-# who finds the URL could otherwise upload videos to your YouTube channel.
-# Set APP_USERNAME / APP_PASSWORD as environment variables before running.
-# If you don't set them, it falls back to admin / change-me-now and prints
-# a loud warning — don't leave that running on a public IP.
+# ---------- Password protection (multi-user login) ----------
+# Each person signs up for their own username/password (see /signup);
+# once logged in, everyone shares the same MediaFlow dashboard and data —
+# there's no per-user data separation, just per-user credentials. Session
+# identity is a random token in an HttpOnly cookie, not HTTP Basic Auth,
+# so a custom login/signup page can be shown instead of the browser's
+# native auth popup.
+#
+# Legacy: if you were using this install before user accounts existed,
+# APP_USERNAME / APP_PASSWORD env vars (if set) seed exactly one account
+# the first time this runs post-upgrade, so the existing admin isn't
+# locked out. New people should use Sign Up for their own account instead
+# of sharing that one.
+APP_USERNAME = os.environ.get("APP_USERNAME", "")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
-APP_USERNAME = os.environ.get("APP_USERNAME", "admin")
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "change-me-now")
+SESSION_COOKIE_NAME = "mf_session"
+SESSION_LIFETIME_DAYS = 30
+PBKDF2_ITERATIONS = 260_000  # OWASP-recommended minimum for PBKDF2-SHA256 as of 2023
 
-if APP_PASSWORD == "change-me-now":
-    print(
-        "\n"
-        "*** WARNING: using the default password (admin / change-me-now). ***\n"
-        "*** Set APP_USERNAME and APP_PASSWORD env vars before exposing    ***\n"
-        "*** this server on a public IP.                                  ***\n"
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), PBKDF2_ITERATIONS)
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${digest.hex()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        algo, iterations, salt, hex_digest = stored_hash.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), int(iterations))
+        return secrets.compare_digest(digest.hex(), hex_digest)
+    except (ValueError, AttributeError):
+        return False
+
+
+def _seed_legacy_user_if_none_exist():
+    with get_db() as conn:
+        if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+            return
+        username = APP_USERNAME or "admin"
+        password = APP_PASSWORD or secrets.token_urlsafe(12)
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (username, hash_password(password), datetime.now(timezone.utc).isoformat()),
+        )
+    if APP_PASSWORD:
+        print(
+            "\n"
+            f"*** No accounts existed yet — created one from APP_USERNAME/APP_PASSWORD: '{username}'.    ***\n"
+            "*** Log in with that once; everyone else should use Sign Up for their own account.          ***\n"
+        )
+    else:
+        print(
+            "\n"
+            "*** No accounts existed and APP_USERNAME/APP_PASSWORD weren't set — created a one-time      ***\n"
+            f"*** account so you're not locked out -> username: {username}  password: {password}\n"
+            "*** Log in with that once, then use Sign Up for real accounts going forward.                ***\n"
+        )
+
+
+def create_session(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=SESSION_LIFETIME_DAYS)
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (token, user_id, now.isoformat(), expires.isoformat()),
+        )
+    return token
+
+
+def get_user_from_session(token: Optional[str]) -> Optional[sqlite3.Row]:
+    if not token:
+        return None
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT users.id, users.username, sessions.expires_at
+            FROM sessions JOIN users ON users.id = sessions.user_id
+            WHERE sessions.token = ?
+            """,
+            (token,),
+        ).fetchone()
+        if not row:
+            return None
+        if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            return None
+    return row
+
+
+def delete_session(token: Optional[str]):
+    if not token:
+        return
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def set_session_cookie(response, request: Request, token: str):
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=SESSION_LIFETIME_DAYS * 24 * 3600,
+        httponly=True,
+        samesite="lax",
+        secure=(request.url.scheme == "https"),
+        path="/",
     )
 
-security = HTTPBasic()
+
+def require_login(request: Request) -> str:
+    """FastAPI dependency used across the API. Kept returning just the
+    username (same as the old Basic Auth version) so none of the many
+    existing `user: str = Depends(require_login)` route signatures needed
+    to change — only how that identity is established did."""
+    user = get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME))
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    return user["username"]
+
+
+init_db()
+_migrate_legacy_credentials_to_account_1()
+_seed_legacy_user_if_none_exist()
 
 
 # ---------- Public base URL (needed by the background scheduler) ----------
@@ -273,18 +402,6 @@ security = HTTPBasic()
 # from) it needs this configured explicitly. Only required if you schedule
 # Instagram posts; everything else works without it.
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-
-
-def require_login(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_user = secrets.compare_digest(credentials.username, APP_USERNAME)
-    correct_pass = secrets.compare_digest(credentials.password, APP_PASSWORD)
-    if not (correct_user and correct_pass):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
 
 
 # ---------- YouTube auth helpers ----------
@@ -902,9 +1019,11 @@ def dashboard_summary(account_id: int = 1, user: str = Depends(require_login)):
 
 # ---------- Accounts (multi-account switcher) ----------
 # Each "account" is a fully independent set of platform connections,
-# scheduled/published posts, and analytics. There's still just one shared
-# login (APP_USERNAME/APP_PASSWORD) — accounts are workspaces you switch
-# between after logging in, not separate user logins.
+# scheduled/published posts, and analytics — a workspace you switch
+# between after logging in. This is unrelated to user login: every
+# logged-in user (see /signup) can see and switch between all of them,
+# there's no per-user restriction on which accounts/workspaces they can
+# access.
 
 @app.get("/api/accounts")
 def list_accounts(user: str = Depends(require_login)):
@@ -1598,11 +1717,12 @@ def connect_youtube(request: Request, account_id: int = 1, user: str = Depends(r
 @app.get("/api/oauth2callback/youtube")
 def oauth2callback_youtube(request: Request):
     # No @Depends(require_login) here — this is a browser redirect coming
-    # back from Google, not an API call the frontend makes with basic auth.
-    # HTTP Basic Auth cannot be attached to a server-initiated redirect
-    # anyway, so this endpoint verifies the `state` value instead, which
-    # only exists because /api/connect/youtube (which IS login-gated) issued
-    # it moments earlier. The account_id it was issued for travels along
+    # back from Google, not an API call the frontend makes directly. The
+    # session cookie would actually be attached fine (it's a same-origin
+    # navigation), but this endpoint intentionally verifies the `state`
+    # value instead, which only exists because /api/connect/youtube (which
+    # IS login-gated) issued it moments earlier — one less place trusting
+    # a cookie is enough. The account_id it was issued for travels along
     # with the flow object in _pending_oauth_flows so the token lands in the
     # right account's credentials folder, not always Account 1.
     state = request.query_params.get("state")
@@ -1702,11 +1822,12 @@ def disconnect_facebook(account_id: int = 1, user: str = Depends(require_login))
 # ---------- Temporary public media serving (Instagram needs a fetchable URL) ----------
 # Instagram's Content Publishing API can't accept a direct file upload — it
 # fetches the video from a URL you give it. This route exists only to serve
-# that fetch. It's intentionally NOT behind login (Instagram's servers can't
-# do HTTP Basic Auth), so treat it as a narrow, deliberate exception:
-# filenames are random tempfile names (not guessable/listable), and the file
-# is deleted right after each publish attempt finishes — so the exposure
-# window is only as long as one upload takes.
+# that fetch. It's intentionally NOT behind login (Instagram's servers have
+# no session cookie or account to log in with), so treat it as a narrow,
+# deliberate exception: filenames are random tempfile names (not
+# guessable/listable), and the file is deleted right after each publish
+# attempt finishes — so the exposure window is only as long as one upload
+# takes.
 @app.get("/media/{filename}")
 def serve_media(filename: str):
     safe_name = Path(filename).name  # strip any path components, just in case
@@ -1716,10 +1837,81 @@ def serve_media(filename: str):
     return FileResponse(path, media_type="video/mp4")
 
 
+# ---------- Auth pages + API ----------
+
+@app.get("/login")
+def login_page(request: Request):
+    if get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME)):
+        return RedirectResponse("/")
+    return FileResponse(STATIC_DIR / "login.html")
+
+
+@app.get("/signup")
+def signup_page(request: Request):
+    if get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME)):
+        return RedirectResponse("/")
+    return FileResponse(STATIC_DIR / "signup.html")
+
+
+@app.post("/api/auth/signup")
+def api_signup(request: Request, username: str = Form(...), password: str = Form(...)):
+    username = username.strip()
+    if len(username) < 3 or len(username) > 32:
+        raise HTTPException(status_code=400, detail="Username must be 3-32 characters.")
+    if not all(c.isalnum() or c in "_-." for c in username):
+        raise HTTPException(status_code=400, detail="Username can only contain letters, numbers, '_', '-', and '.'")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    with get_db() as conn:
+        if conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+            raise HTTPException(status_code=409, detail="That username is already taken.")
+        cur = conn.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (username, hash_password(password), datetime.now(timezone.utc).isoformat()),
+        )
+        user_id = cur.lastrowid
+
+    token = create_session(user_id)
+    resp = JSONResponse({"ok": True, "username": username})
+    set_session_cookie(resp, request, token)
+    return resp
+
+
+@app.post("/api/auth/login")
+def api_login(request: Request, username: str = Form(...), password: str = Form(...)):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT id, username, password_hash FROM users WHERE username = ?", (username.strip(),)
+        ).fetchone()
+    if not row or not verify_password(password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect username or password.")
+
+    token = create_session(row["id"])
+    resp = JSONResponse({"ok": True, "username": row["username"]})
+    set_session_cookie(resp, request, token)
+    return resp
+
+
+@app.post("/api/auth/logout")
+def api_logout(request: Request):
+    delete_session(request.cookies.get(SESSION_COOKIE_NAME))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(SESSION_COOKIE_NAME, path="/")
+    return resp
+
+
+@app.get("/api/auth/me")
+def api_me(user: str = Depends(require_login)):
+    return {"username": user}
+
+
 # ---------- Static frontend ----------
 
 @app.get("/")
-def index(user: str = Depends(require_login)):
+def index(request: Request):
+    if not get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME)):
+        return RedirectResponse("/login")
     return FileResponse(STATIC_DIR / "index.html")
 
 
