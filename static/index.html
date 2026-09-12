@@ -61,9 +61,16 @@
   .sidebar-resize-handle:hover,body.sidebar-resizing .sidebar-resize-handle{background:var(--indigo);}
   body.sidebar-resizing{user-select:none;cursor:col-resize;}
 
-  /* Collapsed sidebar state (desktop) + the small tab to reopen it */
-  .sidebar.collapsed{width:0!important;padding:0;overflow:hidden;border:none;}
-  .sidebar.collapsed ~ .sidebar-resize-handle{display:none;}
+  /* Collapsed sidebar state (desktop only — see the >720px guard below).
+     Bug fix: this used to apply width:0!important with no media guard,
+     which meant a sidebar collapsed on desktop stayed width:0 (invisible)
+     even inside the mobile hamburger drawer, since .collapsed's !important
+     silently beat the mobile .sidebar.open transform. Scoping it to
+     desktop widths only fixes that without touching the mobile behavior. */
+  @media (min-width:721px){
+    .sidebar.collapsed{width:0!important;padding:0;overflow:hidden;border:none;}
+    .sidebar.collapsed ~ .sidebar-resize-handle{display:none;}
+  }
   .sidebar-reopen-tab{
     display:none;align-items:center;justify-content:center;
     position:fixed;left:0;top:20px;z-index:60;
@@ -468,6 +475,7 @@
     .platform-grid{grid-template-columns:1fr;}
     .sidebar{
       position:fixed;top:0;left:0;bottom:0;z-index:200;
+      width:230px!important; /* ignore any desktop drag-resized width here */
       transform:translateX(-100%);transition:transform .2s ease;
       box-shadow:0 0 30px rgba(0,0,0,.3);
     }
