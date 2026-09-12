@@ -19,7 +19,32 @@ Second follow-up: in Analytics, show only the videos that received
 views in a specified period (e.g. "today"), with each video's total
 (lifetime) views plus how many it gained in that period.
 
+Third follow-up: audit the last several sessions' changes for bugs and
+mobile-alignment issues.
+
 ## Progress
+Completed, pushed (a3f6f63, on top of 44f6dd5), deploy confirmed
+successful — bug fix, no new features:
+- Found and fixed a real regression: `.sidebar.collapsed{width:0!important}`
+  (added in the "dashboard interactivity" session) had no responsive
+  guard. Collapsing the sidebar on desktop persists that state in
+  localStorage; opening the mobile hamburger drawer on that same browser
+  afterward (live resize or fresh load) showed the dark backdrop but no
+  visible sidebar, since `!important` beat the mobile
+  `.sidebar.open{transform:translateX(0)}` rule regardless of viewport
+  width. Fixed by scoping the collapsed-state rule to `>720px`, and
+  added `width:230px!important` to the mobile `.sidebar` rule so a
+  desktop drag-resized width can't leak into the mobile drawer either.
+- Verified with a headless Chromium (Puppeteer) rather than just reading
+  CSS: reproduced the bug both ways (live resize and fresh mobile load
+  with persisted collapsed state), confirmed the fix resolves both;
+  swept all 9 pages at a 390px mobile viewport with no console errors or
+  horizontal overflow; stress-tested with deliberately extreme mock data
+  (very long subscriber counts, a ~120-character video title, long
+  notification text) with no overflow/overlap anywhere; exercised the
+  notification drawer, sidebar drag-resize, and notification-click
+  navigation. No other bugs or alignment issues found.
+
 Completed, pushed (18e05be, on top of 84f9da1), deploy confirmed
 successful:
 - `server.py`: `/api/analytics/summary` top videos now also include

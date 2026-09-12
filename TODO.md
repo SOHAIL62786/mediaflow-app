@@ -74,3 +74,7 @@
 - [x] Add a "Today" period option to YouTube Analytics, showing only
       videos with views today plus their lifetime total + period gain
       (2026-09-11)
+- [x] Bug audit of the last several sessions' changes + mobile alignment
+      check via headless-browser rendering; found and fixed a real bug
+      where collapsing the sidebar on desktop broke the mobile hamburger
+      menu (2026-09-11)

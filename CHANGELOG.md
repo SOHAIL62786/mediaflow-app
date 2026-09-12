@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-09-11 (bug fix: sidebar collapse breaking mobile menu)
+
+### Fixed
+- `static/index.html` — `.sidebar.collapsed{width:0!important}` had no
+  responsive guard, so collapsing the sidebar on desktop (state
+  persisted in `localStorage`) silently broke the mobile hamburger
+  drawer on that same browser: opening it (live resize or fresh mobile
+  load) showed the dark backdrop but no visible sidebar, since
+  `!important` beat the mobile `.sidebar.open` transform regardless of
+  screen width. Scoped the collapsed-state rule to `>720px` only, and
+  hardened the mobile `.sidebar` rule with an explicit
+  `width:230px!important` so a desktop drag-resized width can't leak
+  into the mobile drawer either.
+
+### Verification
+Requested a bug/mobile-alignment audit of the last few sessions' changes.
+Used a headless Chromium (Puppeteer) to actually render and interact
+with the app rather than just reading the CSS:
+- Reproduced the bug above via both a live desktop→mobile resize and a
+  fresh mobile page load with collapsed state already in localStorage;
+  confirmed both fixed after the change.
+- Swept every page (Dashboard, Accounts, Platforms, Upload, Scheduled,
+  Published, Analytics, Settings, Help) at a 390px mobile viewport —
+  no console/page errors, no horizontal overflow.
+- Stress-tested with intentionally extreme mock data: very long
+  subscriber/follower counts on the dashboard platform tiles, a
+  ~120-character video title in Analytics' video list (wraps cleanly,
+  thumbnail placeholder space reserved correctly), and long titles in
+  the notifications drawer — no overflow or overlap in any case.
+- Exercised the notification drawer (open/close/click-through), the
+  desktop sidebar drag-resize, and notification-click navigation — all
+  worked as expected.
+
+No other bugs or alignment issues found in this pass.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-11 ("Today" filter + per-video total/period views in YouTube Analytics)
 
 ### Added
