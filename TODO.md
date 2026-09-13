@@ -86,3 +86,7 @@
 - [x] Replaced HTTP Basic Auth with real multi-user login: custom Sign
       In/Sign Up pages, hashed passwords, session cookies — see
       Decision 004 (2026-09-12)
+- [x] Fixed video/upload row layout breaking on long or mixed-script
+      titles (thumbnail/button misalignment from align-items:center
+      against an unbounded-height title) — reported via live screenshot,
+      fixed with 2-line title clamp + top-alignment (2026-09-12)

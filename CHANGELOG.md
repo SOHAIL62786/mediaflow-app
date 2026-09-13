@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-12 (bug fix: video row layout breaking on long/mixed-script titles)
+
+### Fixed
+- `static/index.html` — `.lib-row` used `align-items:center`, which
+  vertically centers flex items against the tallest one in the row. A
+  real video title with hashtags and non-Latin script (reported: an
+  Arabic salutation glyph after "Biography of prophet Muhammad", plus
+  hashtags) wrapped to 4+ lines on mobile, and centering then placed the
+  thumbnail and Metrics button partway down the row instead of at the
+  top — looking broken/unprofessional. Fixed by clamping the title
+  (`.lib-info .n`) to 2 lines with an ellipsis and switching
+  `align-items` to `flex-start`, so thumbnail/title/action always
+  top-align regardless of title length — same pattern YouTube Studio's
+  own video list uses. Affects all three Analytics video-row renderers
+  (YouTube/Facebook/Instagram) plus the Dashboard's Recent Activity list,
+  since they share `.lib-row`.
+
+### Verification
+Reported via a real screenshot from the live mobile site. Reproduced
+with the exact reported title in a headless-browser mobile render, and
+confirmed thumbnail/title/button now measure identical top offsets in
+every row regardless of title length, on both the Analytics video list
+and Dashboard Recent Activity.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-12 (real multi-user login: Sign In / Sign Up pages)
 
 ### Added

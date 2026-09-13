@@ -12,9 +12,29 @@ different people can each register their own login, and everyone who
 does shares the same MediaFlow dashboard and data (no per-user data
 separation, just per-user credentials).
 
+Follow-up in the same session: after the above shipped, project owner
+sent a live screenshot showing the Analytics video list looking broken
+on mobile (thumbnail and Metrics button floating oddly, not aligned with
+the title) — a real production video title with hashtags and an Arabic
+salutation glyph was wrapping to 4+ lines and exposing a pre-existing
+`align-items:center` bug in `.lib-row` (unrelated to the login work
+above, just surfaced around the same time). Fixed and pushed separately
+— see Progress below.
+
 ## Progress
-Completed, tested locally, NOT YET PUSHED (awaiting confirmation since
-this touches server.py and will trigger a deploy):
+Completed and pushed (009dd22): fixed `.lib-row`'s alignment — it used
+`align-items:center`, which centers flex items against the tallest one
+in the row. A long/mixed-script video title could wrap tall enough that
+the thumbnail and action button ended up centered against the *middle*
+of the wrapped title instead of pinned to the top, looking broken.
+Fixed by clamping the title to 2 lines (`-webkit-line-clamp`) and
+switching to `align-items:flex-start`. Affects all three Analytics
+video-row renderers and the Dashboard's Recent Activity list (shared
+`.lib-row`). Verified with the exact reported title via a headless
+mobile render — thumbnail/title/button now measure identical top offsets
+in every row. Small, CSS-only, low-risk change.
+
+Completed, tested locally, and pushed (2f9cf4e):
 
 - `server.py`:
   - New `users` (id, username, password_hash, created_at) and `sessions`
@@ -88,8 +108,8 @@ credentials, but none of this needed any):
   in-app action) — no console/page errors in any of it.
 
 Currently Working On:
-- Nothing else — feature is complete and tested. Ready to commit/push
-  once confirmed, since it touches server.py (deploy trigger).
+- Nothing else — both the auth feature and the layout fix are complete,
+  tested, pushed, and deployed successfully.
 
 Not Completed / things noticed but NOT fixed (worth a look next time):
 - Sign-up is fully open to anyone who reaches the app's URL — offered as
@@ -98,6 +118,10 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   lever in TODO.md, not built since it wasn't asked for.
 - No admin UI to list/remove users or force a password reset — would
   need direct DB access (`users`/`sessions` tables) right now.
+- The `.lib-row` layout fix was verified against the exact title that
+  broke in production, but only with mocked API data (no real connected
+  YouTube account in this dev environment) — worth a glance at the real
+  Analytics page next time credentials are available, just to confirm.
 - Everything from prior sessions' "Not Completed" lists is still open —
   see TODO.md (scheduler-at-scale, account_id-in-URL fragility,
   disconnect_youtube/facebook not 404ing on bad IDs, Facebook/Instagram
@@ -125,12 +149,14 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   server-synced.
 
 ## Next Step
-Get confirmation and push this session's auth changes (touches
-server.py, requirements unchanged, will trigger a deploy). After that,
-worth verifying the whole login/signup flow once more on the live VM
-(this session's testing was all local — no reason to expect
-VM-environment-specific issues, but it's a security-sensitive feature
-worth a real-world check). Then pick up whatever's next from TODO.md.
+Both changes from this session are live. Worth verifying the login/
+signup flow once more on the live VM directly (this session's testing
+was all local — no reason to expect VM-environment-specific issues, but
+it's a security-sensitive feature worth a real-world check), and
+glancing at the real Analytics video list once a YouTube account with
+actual upload history is available, to confirm the row-alignment fix
+looks right outside of mocked data too. Then pick up whatever's next
+from TODO.md.
 
 ## Security Note
 A live GitHub fine-grained PAT stored in plaintext in `gittoken.md` has
