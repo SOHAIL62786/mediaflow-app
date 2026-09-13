@@ -1,6 +1,20 @@
 # TODO
 
 ## High Priority
+- [ ] **Per-user data isolation (user → own accounts → own platforms).**
+      Right now every logged-in user shares the same pool of
+      workspace-accounts (Decision 003) and can see/switch into any of
+      them — signing up gives a person full access to everyone else's
+      connected platforms, scheduled posts, and analytics, not just
+      their own. Desired model: each user owns their own set of
+      workspace-accounts, and no user can see or access another user's
+      accounts or the platforms connected under them. This is a real
+      architectural change (adds a `user_id` scope to `accounts` and
+      threads it through every account-scoped endpoint, credential
+      lookup, and the frontend account-switcher) and effectively
+      reverses part of Decision 003 (shared account pool) — needs a
+      DECISIONS.md entry when implemented. Not started — flagged by
+      project owner, to be scheduled for a future session.
 - [ ] Sign-up is fully open to anyone who reaches the URL (project
       owner's explicit choice) — if that turns out to be too permissive,
       add an optional `SIGNUP_CODE` env var gate: if set, require a
