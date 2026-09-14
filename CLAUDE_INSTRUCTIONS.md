@@ -21,6 +21,15 @@ architecture.
   components/functions where reasonable, avoid duplicating functionality.
 - Never commit anything under `credentials/` — it must stay gitignored.
   (See docs/DECISIONS.md 001 for why this matters.)
+- Backend logic lives under `app/` (routes in `app/routes/*.py`), not in
+  `server.py` — see docs/DECISIONS.md 005. Add new routes as a new or
+  existing `app/routes/*.py` file and register it in `server.py`, don't
+  add routes directly to `server.py`.
+- Frontend: edit `frontend-src/` (per-page HTML, style.css, app.js), not
+  `static/index.html` directly — it's a generated file. Run
+  `python3 build.py` after any `frontend-src/` change (see
+  docs/DECISIONS.md 005). `static/login.html` / `static/signup.html` are
+  standalone pages, not part of this build — edit those directly.
 - Before writing to CHANGELOG.md or SESSION_HANDOFF.md, check the actual
   `git diff` / `git log` for what changed — do not document from memory
   or assumption.

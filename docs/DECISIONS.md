@@ -158,3 +158,59 @@ Accepted. Not yet done: any admin UI to list/remove users or reset a
 password (currently would require direct DB access); an optional
 invite-code gate on sign-up was proposed but not requested — noted in
 TODO.md in case open sign-up turns out to be too permissive later.
+
+---
+
+## Decision 005
+
+Date: 2026-09-14
+
+Decision:
+Split the monolithic server.py (~1930 lines) into a package under app/
+(one file per concern, FastAPI APIRouters per route group), and split the
+monolithic static/index.html (~2430 lines) into source files under
+frontend-src/ (one file per page, plus separate CSS/JS), assembled back
+into static/index.html by a build.py script that also runs automatically
+in CI on every push (see .github/workflows/deploy.yml).
+
+Reason:
+Editing any one page or API route meant scrolling through the entire file.
+Splitting lets you touch just the relevant file (e.g. app/routes/accounts.py,
+or frontend-src/pages/upload.html) without the rest of the app being in the
+diff or in view.
+
+Implementation:
+- Backend: server.py now only does app creation, middleware, startup, and
+  `include_router()` calls. Shared logic (DB, credentials, multi-user auth,
+  uploaders, scheduler) lives in app/*.py; each group of related routes
+  lives in app/routes/*.py, including a new app/routes/auth_pages.py for
+  the login/signup/logout/me routes added in Decision 004. No behavior
+  change — verified with a real regression test (FastAPI TestClient
+  covering signup, login, bad-password rejection, session cookies, account
+  create/rename/delete guards, and every other endpoint) comparing the
+  refactored app's responses against the original app's responses before
+  committing — one real bug (a missing import) was caught and fixed by
+  this process before it ever shipped.
+- Frontend: static/index.html is now a **generated file** — edits go
+  through frontend-src/ (layout.html, style.css, app.js, pages/*.html) and
+  `python3 build.py`. Verified byte-for-byte identical output (aside from
+  one intentional "generated file, don't edit" comment) before committing
+  — this caught two separate off-by-one slicing bugs during development
+  (a missing closing `</div>` for `.main`, and a duplicated trailing
+  newline), both fixed before anything shipped.
+  static/login.html and static/signup.html are standalone pages, small
+  enough on their own, and are NOT part of this build — edit them directly.
+- .github/workflows/deploy.yml `paths:` filter updated to also watch
+  `app/**`, `frontend-src/**`, and `build.py` — otherwise a change to only
+  one of those wouldn't have triggered a deploy at all.
+
+Alternatives Considered:
+- Frontend: Jinja2 server-side templates (rejected — adds a new dependency
+  and changes how routes are served, for no benefit over a pre-build step
+  given there's no other reason to add server-side rendering)
+- Frontend: client-side fetching of page partials at navigation time
+  (rejected — adds a network round-trip per page switch and more moving
+  JS parts, for a codebase this size the build-step approach is simpler)
+
+Status:
+Accepted.

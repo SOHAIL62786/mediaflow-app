@@ -104,3 +104,8 @@
       titles (thumbnail/button misalignment from align-items:center
       against an unbounded-height title) — reported via live screenshot,
       fixed with 2-line title clamp + top-alignment (2026-09-12)
+- [ ] File-architecture split (server.py → app/ package + routers;
+      static/index.html → frontend-src/ + build.py) — done and
+      regression-verified locally, but not yet pushed to main pending
+      project owner review, given the recent diverged-history incident.
+      See docs/DECISIONS.md 005 and SESSION_HANDOFF.md (2026-09-14)

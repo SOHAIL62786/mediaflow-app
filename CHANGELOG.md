@@ -459,3 +459,53 @@ auto-deploy (touches `static/**`).
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-14 (backend + frontend file-architecture split)
+
+### Added
+- `app/` package: `config.py`, `db.py`, `auth.py` (multi-user login),
+  `credentials.py`, `uploaders.py`, `scheduler.py`, and `app/routes/*.py`
+  (status_publish, library, accounts, analytics_youtube, analytics_meta,
+  youtube_oauth, facebook_connect, media, auth_pages)
+- `frontend-src/`: `layout.html`, `style.css`, `app.js`, `pages/*.html`
+  (one per page) — the new source of truth for the single-page app
+- `build.py` — assembles `frontend-src/` into `static/index.html`
+
+### Changed
+- `server.py` reduced from ~1930 lines to just app creation, middleware,
+  startup, and router registration — all logic moved into `app/`
+- `static/index.html` is now a generated file (still committed, still what
+  the server serves, but edits should go through `frontend-src/` + `build.py`).
+  `static/login.html` / `static/signup.html` are unaffected — not part of
+  this build.
+- `.github/workflows/deploy.yml`: added a "Build static/index.html from
+  frontend-src/" step before rsync, and widened the `paths:` trigger to
+  include `app/**`, `frontend-src/**`, and `build.py`
+
+Reason:
+Requested ability to touch one API's file or one page's file without
+dealing with the whole codebase. See docs/DECISIONS.md 005.
+
+Verified (no behavior change intended or expected):
+- Backend: captured a full baseline of every real endpoint's response
+  (including signup/login/logout, session cookies, and account
+  create/rename/delete guards) from the original server.py using FastAPI's
+  TestClient, then diffed the refactored app's responses against that
+  baseline — 28/28 checks matched (only difference was a timestamp that's
+  naturally different between two separate test runs). Caught and fixed
+  one real bug (a missing import) before it shipped.
+- Frontend: diffed build.py's output against the original static/index.html
+  — byte-for-byte identical aside from one intentional "generated file,
+  don't edit" comment. Caught and fixed two off-by-one slicing bugs (a
+  missing `</div>` closing `.main`, and a duplicated trailing newline)
+  before they shipped.
+- `python3 -m py_compile` on every new/changed `.py` file
+- `node --check` on the assembled JS in the final generated file
+
+Not deployed yet — this work is on the local session's copy of the repo,
+pending review before push (see SESSION_HANDOFF.md).
+
+Modified By:
+Claude (via chat session)

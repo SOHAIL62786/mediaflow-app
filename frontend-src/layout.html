@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaFlow - New Upload</title>
+<style>
+{{CSS}}</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="7" fill="#5b5bf0"/><path d="M9 7l8 5-8 5V7z" fill="#fff"/></svg>
+    MediaFlow
+    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+  </div>
+  <ul class="nav" id="navList">
+    <li data-page="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z"/></svg>Dashboard</li>
+    <li data-page="accounts"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Accounts</li>
+    <li data-page="platforms"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7a5 5 0 0 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>Platforms</li>
+    <li data-page="upload"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New Upload</li>
+    <li data-page="scheduled"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Scheduled</li>
+    <li data-page="published"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Published</li>
+    <li data-page="analytics"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Analytics</li>
+    <li data-page="settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</li>
+    <li data-page="help"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>Help &amp; Support</li>
+  </ul>
+  <div class="darkmode-row">
+    <span>🌙 Dark Mode</span>
+    <div class="toggle" id="darkToggle"></div>
+  </div>
+  <div class="user-card">
+    <div class="avatar" id="currentUserAvatar">?</div>
+    <div class="user-card-info">
+      <div class="name" id="currentUserName">…</div>
+      <div class="email">Signed in</div>
+    </div>
+    <button class="logout-btn" id="logoutBtn" title="Log out" aria-label="Log out">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+    </button>
+  </div>
+</aside>
+<div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+<button class="sidebar-reopen-tab" id="sidebarReopenTab" aria-label="Open sidebar" title="Open sidebar">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" id="menuToggle" aria-label="Open menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <h1 id="pageTitle">Dashboard</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="bell" id="notifBell">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge" id="notifBadge" style="display:none;">0</span>
+      </div>
+      <div class="account-dd-wrap" id="accountDropdown">
+        <div class="admin-pill" id="accountPill">
+          <div class="avatar" id="accountPillAvatar">M</div>
+          <span id="accountPillName">Moiz</span> ▾
+        </div>
+        <div class="account-dd-panel">
+          <div class="account-dd-list" id="accountDropdownList"></div>
+          <button class="account-dd-add" id="addAccountBtn">+ Add account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notif-backdrop" id="notifBackdrop"></div>
+  <aside class="notif-drawer" id="notifDrawer">
+    <div class="notif-drawer-header">
+      <h3>Notifications</h3>
+      <button class="notif-close-btn" id="notifCloseBtn" aria-label="Close notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="notif-drawer-body" id="notifDrawerBody">
+      <div class="empty-state">No notifications right now.</div>
+    </div>
+  </aside>
+
+  <!-- DASHBOARD -->
+{{PAGES}}</div>
+
+<div class="toast" id="toast">Video published successfully!</div>
+
+<div class="modal-overlay" id="videoModalOverlay">
+  <div class="modal-card">
+    <button class="modal-close" id="videoModalClose" aria-label="Close">&times;</button>
+    <div id="videoModalBody"><div class="empty-state">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+{{JS}}</script>
+
+</body>
+</html>

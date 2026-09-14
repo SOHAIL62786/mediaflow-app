@@ -1,27 +1,35 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-12
+2026-09-14
 
 ## Current Task
-Project owner asked for a proper Sign In / Sign Up page instead of the
-generic browser Basic Auth popup. Clarified up front whether "sign up"
-meant real multi-user accounts, a nicer single-password page, or
-admin-created users only — project owner chose real multi-user accounts:
-different people can each register their own login, and everyone who
-does shares the same MediaFlow dashboard and data (no per-user data
-separation, just per-user credentials).
+Split server.py and static/index.html into per-concern files (backend:
+app/ package with routers; frontend: frontend-src/ with a build.py step),
+so future edits touch only the relevant file. Verified with a real
+regression test before this write-up — see docs/DECISIONS.md 005.
 
-Follow-up in the same session: after the above shipped, project owner
-sent a live screenshot showing the Analytics video list looking broken
-on mobile (thumbnail and Metrics button floating oddly, not aligned with
-the title) — a real production video title with hashtags and an Arabic
-salutation glyph was wrapping to 4+ lines and exposing a pre-existing
-`align-items:center` bug in `.lib-row` (unrelated to the login work
-above, just surfaced around the same time). Fixed and pushed separately
-— see Progress below.
+Context: this repo briefly had a diverged main (another session/account
+pushed 16 commits, including this login/signup work, while a separate
+line of work — an earlier multi-account switcher without per-user login —
+was in flight elsewhere). The project owner chose to keep THIS login/
+signup line of history as main and had the other one discarded. If
+you're a future session and something referenced here seems to contradict
+older history you find, this session's version is the one that was kept.
 
 ## Progress
+Not yet committed or pushed — this session's file-architecture split is
+done and verified locally, but deliberately left for the project owner to
+review before it goes anywhere near `main`, given the recent history
+issue above. See CHANGELOG.md's "2026-09-14 (backend + frontend
+file-architecture split)" entry for the full verification details.
+
+Everything from prior sessions (multi-user login, workspace accounts,
+dashboard interactivity, notifications drawer, resizable sidebar,
+subscriber counts, "Today" analytics filter, the `.lib-row` alignment
+fix) is unaffected — this session only reorganized files, it didn't
+change behavior.
+
 Completed and pushed (009dd22): fixed `.lib-row`'s alignment — it used
 `align-items:center`, which centers flex items against the tallest one
 in the row. A long/mixed-script video title could wrap tall enough that
@@ -149,14 +157,19 @@ Not Completed / things noticed but NOT fixed (worth a look next time):
   server-synced.
 
 ## Next Step
-Both changes from this session are live. Worth verifying the login/
-signup flow once more on the live VM directly (this session's testing
-was all local — no reason to expect VM-environment-specific issues, but
-it's a security-sensitive feature worth a real-world check), and
-glancing at the real Analytics video list once a YouTube account with
-actual upload history is available, to confirm the row-alignment fix
-looks right outside of mocked data too. Then pick up whatever's next
-from TODO.md.
+IMPORTANT for future sessions: server.py logic now lives under app/, and
+static/index.html is generated from frontend-src/ — read docs/DECISIONS.md
+005 and the "File architecture" section of docs/PROJECT_CONTEXT.md before
+editing either. Always run `python3 build.py` after touching
+frontend-src/ (CI does this too, but preview locally first).
+
+Before this split goes to `main`: get the project owner's go-ahead (it's
+sitting locally, fully verified, but not pushed — see "Current Task"
+above for why extra caution is warranted right now). After that: verify
+the login/signup flow once more on the live VM directly, and glance at
+the real Analytics video list once a YouTube account with actual upload
+history is available to confirm the row-alignment fix looks right outside
+of mocked data too.
 
 ## Security Note
 A live GitHub fine-grained PAT stored in plaintext in `gittoken.md` has

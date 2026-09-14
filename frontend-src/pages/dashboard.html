@@ -1,0 +1,45 @@
+  <div class="page" data-page="dashboard">
+    <div class="content-single">
+      <div class="stat-grid">
+        <div class="stat-card" data-goto="scheduled">
+          <div class="stat-label">Scheduled</div>
+          <div class="stat-value" id="statScheduled">–</div>
+        </div>
+        <div class="stat-card" data-goto="published">
+          <div class="stat-label">Published</div>
+          <div class="stat-value" id="statPublished">–</div>
+        </div>
+        <div class="stat-card" data-goto="platforms">
+          <div class="stat-label">Connected Accounts</div>
+          <div class="stat-value" id="statConnected">–</div>
+        </div>
+        <div class="stat-card clickable" id="statFailedCard">
+          <div class="stat-label">Needs Attention</div>
+          <div class="stat-value warn" id="statFailed">–</div>
+        </div>
+      </div>
+
+      <div class="dash-platforms" id="dashPlatforms">
+        <div class="dash-platform-tile" id="dashPlatform-youtube" data-goto="platforms">
+          <svg width="18" height="18" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg>
+          <span>YouTube</span><span class="dash-platform-count" id="dashPlatformCount-youtube"></span><span class="status-dot"></span>
+        </div>
+        <div class="dash-platform-tile" id="dashPlatform-facebook" data-goto="platforms">
+          <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg>
+          <span>Facebook</span><span class="dash-platform-count" id="dashPlatformCount-facebook"></span><span class="status-dot"></span>
+        </div>
+        <div class="dash-platform-tile" id="dashPlatform-instagram" data-goto="platforms">
+          <svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="igdash" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igdash)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+          <span>Instagram</span><span class="dash-platform-count" id="dashPlatformCount-instagram"></span><span class="status-dot"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="recent-header">
+          <h2>Recent Activity</h2>
+          <span class="see-all" data-goto="upload">+ New Upload</span>
+        </div>
+        <div id="dashRecentList"><div class="empty-state">Loading…</div></div>
+      </div>
+    </div>
+  </div>
