@@ -36,9 +36,6 @@
       (in case a crash happens between publish and delete)
 - [ ] Add retry/backoff for transient platform API failures during
       scheduled publish, instead of failing permanently on first error
-- [ ] Confirm scheduler behavior when a scheduled video file is missing at
-      publish time (should fail loudly + mark row failed, not hang/retry
-      forever silently)
 
 ## Low Priority
 - [ ] Consider a "dry run" / preview mode before a scheduled post fires
@@ -117,3 +114,17 @@
       code had, causing a 500 on `/api/analytics/facebook` and
       `/api/analytics/instagram` for any account with those platforms
       actually connected. See CHANGELOG.md (2026-09-14)
+- [x] Confirmed scheduler behavior when a scheduled video file is missing
+      at publish time: it already fails loudly and correctly — marks the
+      row `failed` with a clear per-platform error, sets `video_path` to
+      NULL, and (since the poll query only selects `status = 'scheduled'`)
+      never retries it again on later polls. Verified empirically by
+      queuing a row pointing at a nonexistent file, running the poll
+      twice, and confirming it goes `failed` once and stays `failed`
+      (2026-09-14) — no code change was needed, this was already correct
+- [x] Full feature-regression audit of the file-architecture split
+      (comparing the pre-split monolith against the post-split `app/` +
+      `frontend-src/` across all 27 routes, all 61 functions body-by-body,
+      every module-level constant, the full static/index.html output, and
+      the CI workflow) — confirmed nothing else was lost beyond the
+      `analytics_meta.py` import above (2026-09-14)
