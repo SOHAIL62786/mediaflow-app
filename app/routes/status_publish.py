@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 
 from app.auth import require_login
 from app.config import GRAPH_BASE, UPLOAD_DIR
-from app.credentials import get_facebook_credentials, get_youtube_credentials
+from app.credentials import get_account_or_404, get_facebook_credentials, get_youtube_credentials
 from app.db import record_queued_upload, record_upload
 from app.uploaders import _upload_to_facebook, _upload_to_instagram, _upload_to_youtube
 
@@ -28,7 +28,8 @@ router = APIRouter()
 # ---------- Status ----------
 
 @router.get("/api/status")
-def status(account_id: int = 1, user: str = Depends(require_login)):
+def status(account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     platforms = {
         "youtube": {"connected": False, "channel": None},
         "facebook": {"connected": False, "channel": None},
@@ -130,8 +131,9 @@ async def publish(
     contains_synthetic_media: bool = Form(False),  # YouTube's AI/altered-content disclosure
     scheduled_time: Optional[str] = Form(None),  # RFC3339 UTC timestamp, e.g. "2026-09-10T14:30:00.000Z"
     account_id: int = 1,
-    user: str = Depends(require_login),
+    user: dict = Depends(require_login),
 ):
+    get_account_or_404(account_id, user["id"])
     selected = [p.strip().lower() for p in platforms.split(",") if p.strip()]
     if not selected:
         raise HTTPException(status_code=400, detail="No platforms selected.")

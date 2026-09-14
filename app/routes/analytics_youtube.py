@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from app.auth import require_login
-from app.credentials import get_youtube_credentials
+from app.credentials import get_account_or_404, get_youtube_credentials
 
 router = APIRouter()
 
@@ -25,7 +25,8 @@ router = APIRouter()
 YT_ANALYTICS_TZ = ZoneInfo("America/Los_Angeles")
 
 @router.get("/api/analytics/summary")
-def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_summary(days: int = 28, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     creds = get_youtube_credentials(account_id)
     if not creds:
         raise HTTPException(status_code=401, detail="YouTube is not connected. Connect it from Platforms first.")
@@ -173,7 +174,8 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: str = Depends(r
 
 
 @router.get("/api/analytics/video/{video_id}")
-def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_video_detail(video_id: str, days: int = 28, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     """Per-video detail for the metrics modal — the numbers YouTube Studio
     shows on a single video's Analytics tab, including the audience
     retention curve (the actual per-second retention data, same source

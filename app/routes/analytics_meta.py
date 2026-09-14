@@ -11,7 +11,7 @@ import requests
 
 from app.auth import require_login
 from app.config import GRAPH_BASE
-from app.credentials import get_facebook_credentials
+from app.credentials import get_account_or_404, get_facebook_credentials
 
 router = APIRouter()
 
@@ -50,7 +50,8 @@ def _insights_total(insight_payload: dict, metric: str) -> int:
 
 
 @router.get("/api/analytics/facebook")
-def analytics_facebook(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_facebook(days: int = 28, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     fb_creds = get_facebook_credentials(account_id)
     if not fb_creds:
         raise HTTPException(status_code=401, detail="Facebook is not connected. Connect it from Platforms first.")
@@ -128,7 +129,8 @@ def analytics_facebook(days: int = 28, account_id: int = 1, user: str = Depends(
 
 
 @router.get("/api/analytics/facebook/video/{video_id}")
-def analytics_facebook_video_detail(video_id: str, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_facebook_video_detail(video_id: str, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     """Per-video detail for the metrics modal. Facebook's public API doesn't
     expose a second-by-second retention curve like YouTube's — this shows
     the real metrics it does expose: views, watch time, average watch time,
@@ -184,7 +186,8 @@ def analytics_facebook_video_detail(video_id: str, account_id: int = 1, user: st
 
 
 @router.get("/api/analytics/instagram")
-def analytics_instagram(days: int = 28, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_instagram(days: int = 28, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     fb_creds = get_facebook_credentials(account_id)
     ig_id = fb_creds.get("instagram_business_account_id") if fb_creds else None
     if not fb_creds or not ig_id:
@@ -290,7 +293,8 @@ def analytics_instagram(days: int = 28, account_id: int = 1, user: str = Depends
 
 
 @router.get("/api/analytics/instagram/video/{media_id}")
-def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: str = Depends(require_login)):
+def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     """Per-post detail for the metrics modal. Instagram's public API doesn't
     expose a retention curve either — this shows the closest real metrics
     it does provide, which vary by media type (Reels get 'plays'/'saved',

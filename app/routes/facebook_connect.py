@@ -28,9 +28,9 @@ def connect_facebook(
     page_id: str = Form(...),
     page_access_token: str = Form(...),
     account_id: int = 1,
-    user: str = Depends(require_login),
+    user: dict = Depends(require_login),
 ):
-    get_account_or_404(account_id)
+    get_account_or_404(account_id, user["id"])
     try:
         resp = requests.get(
             f"{GRAPH_BASE}/{page_id}",
@@ -70,7 +70,11 @@ def connect_facebook(
 
 
 @router.post("/api/disconnect/facebook")
-def disconnect_facebook(account_id: int = 1, user: str = Depends(require_login)):
+def disconnect_facebook(account_id: int = 1, user: dict = Depends(require_login)):
+    # Also fixes a pre-existing gap (see TODO.md): this previously never
+    # validated the account existed/was yours, silently no-op'ing on a bad
+    # account_id instead of 404ing.
+    get_account_or_404(account_id, user["id"])
     path = facebook_creds_path(account_id)
     if path.exists():
         path.unlink()

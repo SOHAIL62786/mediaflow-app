@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from app.auth import get_user_from_session, seed_legacy_user_if_none_exist, SESSION_COOKIE_NAME
 from app.config import STATIC_DIR
 from app.credentials import migrate_legacy_credentials_to_account_1
-from app.db import init_db
+from app.db import backfill_account_ownership, init_db
 from app.routes import (
     accounts,
     analytics_meta,
@@ -56,6 +56,7 @@ app.add_middleware(
 init_db()
 migrate_legacy_credentials_to_account_1()
 seed_legacy_user_if_none_exist()
+backfill_account_ownership()
 
 app.include_router(status_publish.router)
 app.include_router(library.router)

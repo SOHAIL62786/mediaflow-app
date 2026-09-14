@@ -60,10 +60,20 @@ def init_db():
             CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                user_id INTEGER
             )
             """
         )
+        # Migration for databases created before per-user account ownership
+        # existed (see docs/DECISIONS.md 006). Nullable here because at this
+        # point in startup the `users` table may still be empty (init_db()
+        # runs before seed_legacy_user_if_none_exist()) — orphaned rows are
+        # assigned to an owner afterwards by backfill_account_ownership().
+        accounts_cols = {row["name"] for row in conn.execute("PRAGMA table_info(accounts)")}
+        if "user_id" not in accounts_cols:
+            conn.execute("ALTER TABLE accounts ADD COLUMN user_id INTEGER")
+
         if "account_id" not in existing_cols:
             # Every existing row belongs to whatever was previously the one
             # and only account — becomes Account 1 below, unaffected.
@@ -102,6 +112,37 @@ def init_db():
             )
             """
         )
+
+
+def backfill_account_ownership():
+    """One-time migration step (see docs/DECISIONS.md 006): assign any
+    account with no owner yet (`user_id IS NULL` — every account created
+    before per-user isolation existed) to the earliest-created user. Must
+    run after seed_legacy_user_if_none_exist() so there's at least one user
+    to assign to; a no-op on installs where every account already has an
+    owner. This preserves access to existing workspaces/data for whoever
+    was already using this install, rather than orphaning them."""
+    with get_db() as conn:
+        orphaned = conn.execute("SELECT id FROM accounts WHERE user_id IS NULL").fetchall()
+        if not orphaned:
+            return
+        first_user = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        if not first_user:
+            return
+        conn.execute("UPDATE accounts SET user_id = ? WHERE user_id IS NULL", (first_user["id"],))
+
+
+def create_workspace_account(name: str, user_id: int) -> int:
+    """Create a new workspace account (see docs/DECISIONS.md 003) owned by
+    `user_id`. Shared by the manual 'Add account' flow (app/routes/accounts.py)
+    and the automatic default-account-on-signup flow (app/routes/auth_pages.py)
+    so a brand-new user always has at least one workspace to land in."""
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO accounts (name, created_at, user_id) VALUES (?, ?, ?)",
+            (name, datetime.now(timezone.utc).isoformat(), user_id),
+        )
+        return cur.lastrowid
 
 
 def record_upload(title, caption, platforms, privacy, tags, made_for_kids,

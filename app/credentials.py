@@ -122,9 +122,16 @@ def get_facebook_credentials(account_id: int = 1) -> Optional[dict]:
         return json.load(f)
 
 
-def get_account_or_404(account_id: int) -> dict:
+def get_account_or_404(account_id: int, user_id: int) -> dict:
+    """Look up a workspace account, scoped to its owner (see
+    docs/DECISIONS.md 006 — per-user data isolation). Returns the same 404
+    whether the account doesn't exist at all or belongs to someone else, so
+    a logged-in user can't distinguish "no such account" from "not yours"
+    by probing IDs."""
     with get_db() as conn:
-        row = conn.execute("SELECT id, name, created_at FROM accounts WHERE id = ?", (account_id,)).fetchone()
-    if not row:
+        row = conn.execute(
+            "SELECT id, name, created_at, user_id FROM accounts WHERE id = ?", (account_id,)
+        ).fetchone()
+    if not row or row["user_id"] != user_id:
         raise HTTPException(status_code=404, detail=f"Account {account_id} does not exist.")
     return dict(row)

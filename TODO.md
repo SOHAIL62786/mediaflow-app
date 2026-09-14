@@ -1,28 +1,15 @@
 # TODO
 
 ## High Priority
-- [ ] **Per-user data isolation (user → own accounts → own platforms).**
-      Right now every logged-in user shares the same pool of
-      workspace-accounts (Decision 003) and can see/switch into any of
-      them — signing up gives a person full access to everyone else's
-      connected platforms, scheduled posts, and analytics, not just
-      their own. Desired model: each user owns their own set of
-      workspace-accounts, and no user can see or access another user's
-      accounts or the platforms connected under them. This is a real
-      architectural change (adds a `user_id` scope to `accounts` and
-      threads it through every account-scoped endpoint, credential
-      lookup, and the frontend account-switcher) and effectively
-      reverses part of Decision 003 (shared account pool) — needs a
-      DECISIONS.md entry when implemented. Not started — flagged by
-      project owner, to be scheduled for a future session.
 - [ ] Sign-up is fully open to anyone who reaches the URL (project
       owner's explicit choice) — if that turns out to be too permissive,
       add an optional `SIGNUP_CODE` env var gate: if set, require a
       matching invite code on the signup form; if unset, stays fully
       open as it is now. Not built since it wasn't requested.
-- [ ] No admin UI yet to list/remove users or force a password reset for
-      the new multi-user login — currently needs direct DB access
-      (`users`/`sessions` tables). Consider a simple Settings-page panel.
+- [ ] No admin UI yet to list/remove users, force a password reset, or
+      manually reassign a workspace account's owner — currently needs
+      direct DB access (`users`/`sessions`/`accounts` tables). Consider a
+      simple Settings-page panel. (See docs/DECISIONS.md 004 and 006.)
 - [ ] Decide how the background scheduler should scale once there are many
       accounts with due posts — currently iterates every due row across all
       accounts each poll; untested at scale
@@ -43,9 +30,6 @@
       actually read by the frontend (only `page` is) — works today only
       because localStorage already holds the right account before the
       redirect; make this explicit/robust instead of relying on that
-- [ ] `disconnect_youtube` / `disconnect_facebook` don't validate the
-      account exists (unlike connect/rename/delete) — silently no-op
-      instead of 404ing on a bad account_id
 - [ ] Notifications drawer is populated from the dashboard-summary fetch
       only (failed uploads + recent activity) — there's no dedicated
       notifications endpoint/read-state, so it always shows the same
@@ -128,3 +112,12 @@
       every module-level constant, the full static/index.html output, and
       the CI workflow) — confirmed nothing else was lost beyond the
       `analytics_meta.py` import above (2026-09-14)
+- [x] Per-user data isolation: workspace accounts now belong to exactly
+      one user (new `accounts.user_id`), every account-scoped endpoint
+      checks ownership (404 if not yours), `list_accounts` only returns
+      your own, and a new signup gets its own default account instead of
+      the old shared pool. Fixed a real bug found along the way
+      (`delete_account`'s "last account" check was counting globally
+      instead of per-user) and a pre-existing gap (`disconnect_youtube`/
+      `disconnect_facebook` not validating `account_id`). See
+      docs/DECISIONS.md 006 and CHANGELOG.md (2026-09-14)

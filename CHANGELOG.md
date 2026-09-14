@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-09-14 (feature: per-user data isolation for workspace accounts)
+
+### Added
+- `accounts.user_id` column — every workspace account (docs/DECISIONS.md
+  003) is now owned by exactly one logged-in user (docs/DECISIONS.md 004).
+  See docs/DECISIONS.md 006 for the full writeup, alternatives considered,
+  and what's still open.
+- `app/db.py`: `backfill_account_ownership()` (assigns any pre-existing
+  account with no owner to the earliest-created user, run once at startup
+  after the legacy-user seed step) and `create_workspace_account(name,
+  user_id)` (shared helper for manual account creation and the new
+  auto-created signup account below).
+- `POST /api/auth/signup` now also creates one default workspace account
+  for the new user, so a fresh signup isn't dropped into an empty account
+  switcher.
+
+### Changed
+- `app/auth.py`: `require_login` now returns `{"id", "username"}` instead
+  of just the username string, so route handlers can check account
+  ownership. Every existing `Depends(require_login)` call site's type hint
+  was updated (`str` → `dict`); the one place that used the return value
+  directly (`GET /api/auth/me`) now reads `user["username"]`.
+- `app/credentials.py`: `get_account_or_404(account_id, user_id)` now
+  takes the requesting user's id and 404s if the account either doesn't
+  exist or belongs to someone else — same response in both cases, so
+  account IDs can't be probed.
+- Every account-scoped endpoint now checks ownership before doing anything
+  with the `account_id` it was given: `/api/status`, `/api/publish`,
+  `/api/library`, `/api/dashboard/summary`, YouTube connect, Facebook
+  connect, all four Facebook/Instagram/YouTube analytics routes, and
+  accounts list/create/rename/delete.
+- `list_accounts` (`GET /api/accounts`) now filters to the requesting
+  user's own accounts instead of returning every account on the install.
+- `delete_account`'s "can't delete your last account" guard now counts
+  only the requesting user's own accounts, not every account across every
+  user — the previous global count was a real bug once more than one user
+  existed (a user could be blocked from deleting their last account
+  because *other* users had accounts, or allowed to delete their only one
+  because the global count looked fine).
+
+### Fixed
+- `disconnect_youtube` and `disconnect_facebook` previously never
+  validated `account_id` at all (flagged in TODO.md) — silently no-op'd on
+  a bad or someone-else's account_id instead of 404ing. Now go through the
+  same ownership check as every other account-scoped route.
+
+### Verified
+- `pyflakes app/ server.py` — clean, no undefined names or unused imports.
+- Two-user isolation test (fresh `FastAPI TestClient` per user, real
+  signup flow): confirmed a second user gets a 404 attempting to reach the
+  first user's account via `account_id` on every account-scoped route
+  (`/api/library`, `/api/dashboard/summary`, `/api/status`, accounts
+  rename/delete, Facebook connect/disconnect, YouTube connect, both
+  Facebook and YouTube analytics endpoints), while each user's own account
+  continues to work normally (200s).
+- Legacy-upgrade test: hand-built a pre-migration SQLite DB matching a
+  real production install (an `accounts` table with no `user_id` column,
+  one pre-existing user). Confirmed on startup the existing account gets
+  correctly backfilled to that pre-existing user, that user keeps full
+  access to their existing account/data exactly as before, and a brand-new
+  signup afterward gets its own separate account and a 404 when trying to
+  touch the legacy account.
+- Smoke test of previously-working flows on an isolated account: immediate
+  publish, scheduled publish, `/api/library` (all + status-filtered),
+  `/api/dashboard/summary` — all still behave as before.
+- Delete-account behavior specifically: confirmed a user with one account
+  is blocked from deleting it (400), and can delete it once they have two.
+
 ## 2026-09-14 (bug fix: missing datetime import in app/routes/analytics_meta.py)
 
 ### Fixed

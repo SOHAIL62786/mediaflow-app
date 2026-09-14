@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import require_login
-from app.credentials import get_facebook_credentials, get_youtube_credentials
+from app.credentials import get_account_or_404, get_facebook_credentials, get_youtube_credentials
 from app.db import get_db, row_to_dict
 from app.scheduler import _process_due_scheduled_uploads
 
@@ -18,7 +18,8 @@ router = APIRouter()
 # ---------- Library (Scheduled / Published pages) ----------
 
 @router.get("/api/library")
-def library(status: Optional[str] = None, account_id: int = 1, user: str = Depends(require_login)):
+def library(status: Optional[str] = None, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     valid = {"scheduled", "published", "failed", "partial"}
     if status and status not in valid:
         raise HTTPException(status_code=400, detail=f"status must be one of {sorted(valid)}")
@@ -41,7 +42,8 @@ def library(status: Optional[str] = None, account_id: int = 1, user: str = Depen
 
 
 @router.get("/api/dashboard/summary")
-def dashboard_summary(account_id: int = 1, user: str = Depends(require_login)):
+def dashboard_summary(account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     _process_due_scheduled_uploads()
     with get_db() as conn:
         counts = {"scheduled": 0, "published": 0, "failed": 0, "partial": 0}

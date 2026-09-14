@@ -214,3 +214,87 @@ Alternatives Considered:
 
 Status:
 Accepted.
+
+---
+
+## Decision 006
+
+Date: 2026-09-14
+
+Decision:
+Scope every workspace account (docs/DECISIONS.md 003) to exactly one owning
+user. Previously, once multi-user login existed (docs/DECISIONS.md 004),
+every logged-in user could see and switch into every workspace account —
+signing up gave a stranger full access to everyone else's connected
+platforms, scheduled posts, and analytics. This was the single biggest
+open item in TODO.md. This does not touch login itself (still Decision
+004) or the workspace-account concept itself (still Decision 003) — it
+only adds an ownership boundary between the two.
+
+Implementation:
+- `accounts` gets a new `user_id INTEGER` column (migration: `ALTER TABLE`
+  if missing, nullable at first since `users` may not exist yet at that
+  point in startup).
+- `app/db.py`: new `backfill_account_ownership()`, run once at startup
+  after `seed_legacy_user_if_none_exist()` (order matters — needs at least
+  one user to exist). Assigns any account still missing an owner
+  (`user_id IS NULL` — i.e. every account that existed before this change)
+  to the earliest-created user, so an existing install's data isn't
+  orphaned. New `create_workspace_account(name, user_id)` helper, shared by
+  the manual "Add account" flow and the new automatic one below.
+- `app/auth.py`: `require_login` now returns `{"id", "username"}` instead
+  of just the username string, so routes can check ownership. The ~20
+  existing `Depends(require_login)` call sites only needed a type-hint
+  change (`str` → `dict`); the one place that actually used the returned
+  value (`GET /api/auth/me`) now reads `user["username"]`.
+- `app/credentials.py`: `get_account_or_404(account_id, user_id)` now takes
+  the requesting user's id and 404s (not 403) if the account doesn't exist
+  *or* belongs to someone else — same response either way, so account IDs
+  can't be probed to find out which ones exist.
+- Every account-scoped endpoint (`/api/status`, `/api/publish`,
+  `/api/library`, `/api/dashboard/summary`, the YouTube/Facebook connect
+  *and* disconnect routes, all four Facebook/Instagram/YouTube analytics
+  routes, and accounts list/create/rename/delete) now calls
+  `get_account_or_404(account_id, user["id"])` before doing anything with
+  that `account_id`. `disconnect_youtube`/`disconnect_facebook` previously
+  didn't validate `account_id` at all (a pre-existing gap already flagged
+  in TODO.md) — fixed as a side effect.
+- `list_accounts` filters by `WHERE user_id = ?`; `create_account` sets the
+  new row's owner to the creator. `delete_account`'s "can't delete your
+  last account" check now counts only the requesting user's own accounts
+  — the old global `COUNT(*) FROM accounts` was a real bug once more than
+  one user existed (could block/allow deletion based on *other* users'
+  account counts).
+- `POST /api/auth/signup` now also creates one default workspace account
+  for the new user (`create_workspace_account` + `account_cred_dir`), so a
+  brand-new signup has somewhere to land instead of an empty account
+  switcher — mirrors how Account 1 was seeded for the original
+  single-tenant install (Decision 003).
+- No frontend change needed: `frontend-src/app.js`'s account switcher
+  already falls back to `accountsCache[0]` whenever its cached
+  `currentAccountId` isn't in whatever `/api/accounts` returns (e.g. a
+  stale `localStorage` value after this change) — verified this path
+  directly rather than assuming it from reading the code.
+
+Reason:
+Project owner flagged this as the biggest real gap in TODO.md: nobody's
+data was actually private from anyone else who signed up.
+
+Alternatives Considered:
+- Leaving orphaned (pre-migration) accounts unowned/inaccessible until
+  manually claimed (rejected — silently locks the existing user out of
+  their own data on upgrade, worse than picking a reasonable owner)
+- 403 instead of 404 for "exists but not yours" (rejected — leaks which
+  account IDs exist to a user who shouldn't know)
+- Passing `user_id` as a decoupled second FastAPI dependency instead of
+  changing what `require_login` returns (rejected — same number of call
+  sites to touch, but two dependencies doing overlapping session lookups
+  per request instead of one)
+
+Status:
+Accepted. Not yet done: an admin UI or CLI to manually reassign an
+account's owner (would need direct DB access today, same gap as Decision
+004's user-management item); deciding what should happen if the
+first-created user's account is later deleted while orphaned accounts
+still reference it (edge case, not currently possible via the API since
+users can't be deleted at all yet).

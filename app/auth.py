@@ -117,12 +117,15 @@ def set_session_cookie(response, request: Request, token: str):
     )
 
 
-def require_login(request: Request) -> str:
-    """FastAPI dependency used across the API. Kept returning just the
-    username (same as the old Basic Auth version) so none of the many
-    existing `user: str = Depends(require_login)` route signatures needed
-    to change — only how that identity is established did."""
+def require_login(request: Request) -> dict:
+    """FastAPI dependency used across the API. Returns {"id", "username"} —
+    previously returned just the username, but per-user data isolation
+    (see docs/DECISIONS.md 006) needs the numeric id to check which
+    workspace accounts a user actually owns. Route bodies that only cared
+    about gating access (the vast majority) don't need any other change;
+    the few that display the username (e.g. GET /api/auth/me) now read
+    user["username"] instead."""
     user = get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME))
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
-    return user["username"]
+    return {"id": user["id"], "username": user["username"]}

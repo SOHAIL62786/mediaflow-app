@@ -4,215 +4,165 @@
 2026-09-14
 
 ## Current Task
-Bug audit of the file-architecture split (server.py → app/ package;
-static/index.html → frontend-src/ + build.py), requested after that
-split was pushed to `main` by a different session/account than the one
-that wrote it. See docs/DECISIONS.md 005 for the split itself.
-
-Context: this repo briefly had a diverged main (another session/account
-pushed 16 commits, including this login/signup work, while a separate
-line of work — an earlier multi-account switcher without per-user login —
-was in flight elsewhere). The project owner chose to keep THIS login/
-signup line of history as main and had the other one discarded. If
-you're a future session and something referenced here seems to contradict
-older history you find, this session's version is the one that was kept.
+Per-user data isolation for workspace accounts — the biggest open item in
+TODO.md. Before this session, every logged-in user could see and switch
+into every workspace account (Decision 003) on the install; signing up
+gave a stranger full access to everyone else's connected platforms,
+scheduled posts, and analytics. See docs/DECISIONS.md 006 for the full
+design writeup.
 
 ## Progress
-**Correction to the previous entry below:** it stated the file-architecture
+Completed, tested, **not yet committed or pushed** (see "Next Step"):
+
+- `accounts` table now has a `user_id` column. Existing/legacy accounts
+  (from before this change) get backfilled to the earliest-created user at
+  startup, once at least one user exists — see `backfill_account_ownership()`
+  in `app/db.py`.
+- `require_login` (`app/auth.py`) now returns `{"id", "username"}` instead
+  of just the username, so routes can check ownership. Only one route body
+  actually used the old return value (`GET /api/auth/me`) — updated to
+  match, everywhere else was just a type-hint change.
+- `get_account_or_404(account_id, user_id)` (`app/credentials.py`) now
+  checks ownership and 404s either way (account doesn't exist, or isn't
+  yours) — same response, so IDs can't be probed.
+- Every account-scoped endpoint now goes through that check before doing
+  anything with the `account_id` it's given: `/api/status`, `/api/publish`,
+  `/api/library`, `/api/dashboard/summary`, YouTube connect, Facebook
+  connect, all four Facebook/Instagram/YouTube analytics routes, and
+  accounts list/create/rename/delete.
+- `list_accounts` filters to the caller's own accounts. `create_account`
+  sets the creator as owner. Signup now also auto-creates one default
+  account for the new user, so they're not dropped into an empty switcher.
+- Found and fixed a real bug along the way: `delete_account`'s "can't
+  delete your last account" check used to count `accounts` globally, so it
+  could block a user from deleting their last account because *other*
+  users happened to have accounts (or the reverse). Now scoped per-user.
+- Fixed a pre-existing gap flagged in TODO.md: `disconnect_youtube` /
+  `disconnect_facebook` never validated `account_id` at all before; they
+  now go through the same ownership check as everything else.
+- No frontend changes were needed — `frontend-src/app.js`'s account
+  switcher already falls back to `accountsCache[0]` if its cached
+  `currentAccountId` isn't in whatever `/api/accounts` returns, which is
+  exactly what happens for anyone whose stale `localStorage` pointed at an
+  account they no longer see. Verified this directly (see Testing below),
+  not just assumed from reading the code.
+
+Full implementation detail (files touched, exact behavior changes,
+alternatives considered) is in docs/DECISIONS.md 006 and CHANGELOG.md's
+"2026-09-14 (feature: per-user data isolation for workspace accounts)"
+entry — short version above, don't re-derive it from memory later.
+
+Testing done (all via FastAPI `TestClient`, this sandbox has no real
+platform credentials but none of this needed any):
+- **Two-user isolation**, fresh signups: confirmed user B gets a 404
+  reaching user A's account via `account_id` on every account-scoped
+  route (library, dashboard summary, status, accounts rename/delete,
+  Facebook connect/disconnect, YouTube connect, both Facebook and YouTube
+  analytics endpoints) — 10 distinct cross-access attempts, all 404.
+  Confirmed each user's own account still works normally (200s), and that
+  one user's account churn (rename/create/delete) never changes what the
+  other user's `/api/accounts` returns.
+- **Legacy-upgrade path**: hand-built a pre-migration SQLite DB matching a
+  real production install (`accounts` table with no `user_id` column, one
+  pre-existing user, matching what's actually on the VM right now).
+  Confirmed on startup: the existing account backfills correctly to that
+  user, that user keeps full access to their existing data unchanged, and
+  a brand-new signup afterward gets a separate account and a 404 touching
+  the legacy one.
+- **Delete-account edge case**: a user with exactly one account is blocked
+  (400) from deleting it; can once they have two.
+- **Smoke test** of previously-working flows scoped to one account:
+  immediate publish, scheduled publish, `/api/library` (unfiltered and
+  status-filtered), `/api/dashboard/summary` — all unchanged.
+- `pyflakes app/ server.py` — clean.
+
+Below is the original write-up of the file-architecture bug audit, left
+intact for context:
+
+Correction to the previous entry below: it stated the file-architecture
 split was "not yet committed or pushed" and left for review. That was
-inaccurate as of this session — commit `0793280` ("Split server.py and
+inaccurate as of that session — commit `0793280` ("Split server.py and
 static/index.html into per-concern files") is on `main` and already live.
-Since it was already deployed, this session treated it as production code
+Since it was already deployed, that session treated it as production code
 needing a bug pass rather than a pending review.
 
-**Bug found and fixed (this session):** `app/routes/analytics_meta.py`
-used `datetime`, `timedelta`, and `timezone` (for the Facebook/Instagram
-analytics date-range math) but the split dropped the import that supplied
-them — present in the original monolithic `server.py`, missing from the
-new file. Any account with Facebook or Instagram actually connected would
-get a real response back from the Graph API and then hit an immediate
-`NameError` → 500 on both `/api/analytics/facebook` and
-`/api/analytics/instagram`. Fixed by restoring the import. Full
-verification details in CHANGELOG.md's "2026-09-14 (bug fix: missing
-datetime import in app/routes/analytics_meta.py)" entry — short version:
-`pyflakes` confirmed this was the *only* undefined-name issue anywhere in
-the split, and both endpoints were exercised end-to-end via `TestClient`
-with the Graph API mocked (this sandbox can't reach graph.facebook.com)
-to confirm 200s post-fix.
-
-**Why the split's own regression test missed this:** that test ran with
-no real Facebook Page credentials available, so both endpoints
-short-circuited to a clean 401 *before* the line that used `datetime` —
-the buggy code path only executes once real credentials are connected,
-which this dev environment has never had.
-
-Below is the original (now-corrected) write-up of the split itself, left
-intact for context:
+**Bug found and fixed:** `app/routes/analytics_meta.py` used `datetime`,
+`timedelta`, and `timezone` but the split dropped the import. Fixed by
+restoring it. Full detail in CHANGELOG.md's "2026-09-14 (bug fix: missing
+datetime import in app/routes/analytics_meta.py)" entry.
 
 Everything from prior sessions (multi-user login, workspace accounts,
 dashboard interactivity, notifications drawer, resizable sidebar,
 subscriber counts, "Today" analytics filter, the `.lib-row` alignment
-fix) is unaffected — this session only reorganized files, it didn't
-change behavior.
+fix) is unaffected by the file-architecture split — see CHANGELOG.md for
+the fuller history if needed.
 
-Completed and pushed (009dd22): fixed `.lib-row`'s alignment — it used
-`align-items:center`, which centers flex items against the tallest one
-in the row. A long/mixed-script video title could wrap tall enough that
-the thumbnail and action button ended up centered against the *middle*
-of the wrapped title instead of pinned to the top, looking broken.
-Fixed by clamping the title to 2 lines (`-webkit-line-clamp`) and
-switching to `align-items:flex-start`. Affects all three Analytics
-video-row renderers and the Dashboard's Recent Activity list (shared
-`.lib-row`). Verified with the exact reported title via a headless
-mobile render — thumbnail/title/button now measure identical top offsets
-in every row. Small, CSS-only, low-risk change.
+## Currently Working On
+Nothing else this session — the per-user isolation work above is
+complete, tested, and ready to review, but **not yet on `main`**.
 
-Completed, tested locally, and pushed (2f9cf4e):
-
-- `server.py`:
-  - New `users` (id, username, password_hash, created_at) and `sessions`
-    (token, user_id, created_at, expires_at) tables.
-  - Passwords hashed with PBKDF2-HMAC-SHA256, random per-user salt,
-    260,000 iterations (OWASP's 2023 recommended minimum) — stdlib
-    `hashlib`/`secrets` only, no new dependency.
-  - Session identity is a random token in an HttpOnly/SameSite=Lax
-    cookie (`mf_session`, 30-day expiry) — replaces HTTP Basic Auth
-    entirely, which is what makes a custom login page possible instead
-    of the browser's native popup.
-  - `require_login` rewritten to check the session cookie instead of
-    Basic Auth credentials, but kept its old return signature (just the
-    username) — none of the ~20 existing `Depends(require_login)` route
-    signatures needed to change.
-  - New routes: `GET /login`, `GET /signup` (public; redirect to `/` if
-    already logged in), `POST /api/auth/signup`, `POST /api/auth/login`,
-    `POST /api/auth/logout`, `GET /api/auth/me`. `GET /` now redirects
-    to `/login` instead of a Basic Auth 401 when not authenticated.
-  - Backward compat: if `APP_USERNAME`/`APP_PASSWORD` env vars are set
-    and no `users` row exists yet, one account is seeded from them on
-    first boot. If neither is set, a one-time random-password account is
-    created and printed to the server log instead. Either way this only
-    happens once — from then on it's an ordinary account.
-- `static/login.html`, `static/signup.html` (new): standalone pages
-  outside the SPA, matching MediaFlow's existing visual language (dark
-  brand panel + form, collapsing to just the form on mobile — top-aligned
-  there, not vertically centered, so an on-screen keyboard doesn't
-  awkwardly cover a centered form). Signup has live "passwords match"/
-  min-length validation; both show an inline error banner instead of a
-  native browser prompt on failure.
-- `static/index.html`: sidebar's user card (previously hardcoded
-  "Admin / admin@example.com") now shows the real logged-in username +
-  first-letter avatar, and has a working Log Out button
-  (`POST /api/auth/logout` then redirect to `/login`). Added a global
-  `fetch` wrapper that redirects to `/login` on any 401 response, so an
-  expired/invalidated session bounces to sign-in instead of every page
-  silently failing to load its data.
-- `docs/DECISIONS.md`: added Decision 004 documenting that this reverses
-  the login part of Decision 003 ("single shared login, not separate
-  user logins") — the *workspace*-accounts concept from Decision 003
-  (independent platform connections/posts/analytics, switched via the
-  top-right dropdown) is unrelated and unchanged; what changed is that
-  multiple *people* can now each have their own login into that same
-  shared dashboard.
-- `docs/PROJECT_CONTEXT.md`, `README.md`, `DEPLOYMENT_GUIDE.md`,
-  `mediaflow.env.example`: updated to describe the new login model
-  instead of Basic Auth. Also fixed a few now-stale in-code comments in
-  server.py that referenced "HTTP Basic Auth" (the YouTube OAuth
-  callback comment and the `/media/` public-serving comment) for
-  technical accuracy.
-- `TODO.md`: added the open-signup tradeoff (see below) and lack of an
-  admin user-management UI as new items; removed the now-obsolete
-  "harden default password" item (there's no more shared default
-  password to harden).
-
-Testing done (this repo's dev environment has no real platform
-credentials, but none of this needed any):
-- curl: signup, duplicate-username rejection (case-insensitive — "Admin"
-  correctly blocked when "admin" exists), short-password rejection,
-  invalid-username-character rejection, wrong-password login rejection,
-  correct login, logout, post-logout 401 on `/api/auth/me`, and legacy
-  `APP_USERNAME`/`APP_PASSWORD` seeding+login — all verified directly
-  against the running server.
-- Headless Chromium (Puppeteer): both pages at desktop + mobile widths,
-  live signup validation states, login error banner, post-signup and
-  post-login redirect to `/`, sidebar user card showing the real
-  username, logout redirecting to `/login`, the server-side redirect
-  guard (direct navigation with an invalid cookie), and the client-side
-  401 fetch guard (session invalidated mid-app, triggered by a normal
-  in-app action) — no console/page errors in any of it.
-
-Currently Working On:
-- Nothing else — both the auth feature and the layout fix are complete,
-  tested, pushed, and deployed successfully.
-
-Not Completed / things noticed but NOT fixed (worth a look next time):
-- Sign-up is fully open to anyone who reaches the app's URL — offered as
-  a choice (gated vs. open) and open was explicitly chosen by the
-  project owner. Noted an optional `SIGNUP_CODE` env var gate as a future
-  lever in TODO.md, not built since it wasn't asked for.
-- No admin UI to list/remove users or force a password reset — would
-  need direct DB access (`users`/`sessions` tables) right now.
-- The `.lib-row` layout fix was verified against the exact title that
-  broke in production, but only with mocked API data (no real connected
-  YouTube account in this dev environment) — worth a glance at the real
-  Analytics page next time credentials are available, just to confirm.
-- Everything from prior sessions' "Not Completed" lists is still open —
-  see TODO.md (scheduler-at-scale, account_id-in-URL fragility,
-  disconnect_youtube/facebook not 404ing on bad IDs, Facebook/Instagram
-  Analytics can't do a "views today" per-post view, visual-redesign pass
-  on pages other than Dashboard).
+## Not Completed / things noticed but NOT fixed (worth a look next time)
+- **This session's changes have not been committed or pushed.** They're
+  sitting as uncommitted local changes (`git status` / `git diff` shows
+  exactly what changed) pending the project owner's review, since this is
+  a schema-changing, security-relevant change and pushing to `main`
+  auto-deploys to the live VM.
+- No admin UI or CLI to manually reassign a workspace account's owner, or
+  to list/remove users — same gap as before, now also relevant to account
+  ownership (see docs/DECISIONS.md 006). Would need direct DB access.
+- Sign-up is still fully open to anyone who reaches the app's URL (an
+  explicit, unchanged choice by the project owner) — each new signup now
+  gets their *own* isolated account rather than shared access to
+  everyone's, which meaningfully lowers the blast radius of that being
+  open, but doesn't replace an invite gate if one's ever wanted (see
+  TODO.md's `SIGNUP_CODE` idea).
+- Everything else from prior sessions' "Not Completed" lists is still
+  open — see TODO.md (scheduler-at-scale, TikTok decision, CORS
+  lockdown, Facebook/Instagram "views today" limitation, visual-redesign
+  pass on pages other than Dashboard, etc).
 
 ## Important Information
 - `credentials/` is gitignored and will NOT be present when a new session
   clones this repo. Each new session/machine needs credentials supplied
   separately (not via git) — see docs/PROJECT_CONTEXT.md.
-- Repo write access for a Claude session is granted via a GitHub
-  fine-grained PAT (Contents: read/write, this repo only), supplied by
-  the project owner via a plaintext file (`gittoken.md`). This has been
-  flagged as exposed across multiple sessions now — still not rotated as
-  of this session.
-- **Login is now real multi-user accounts, not one shared password** —
-  see Decision 004. Anyone who signs up gets full access to the shared
-  dashboard and all connected platforms; there's no invite gate or
-  per-user permission scoping.
-- Deleting an account (workspace) via the Accounts page is destructive
-  and immediate (no soft-delete/undo) — unrelated to the new user-login
-  accounts, don't conflate the two "accounts" concepts (see Decision 004).
+- **Login is real multi-user accounts** (Decision 004), and as of this
+  session **workspace accounts are per-user** too (Decision 006) — anyone
+  who signs up gets their own isolated default account, not access to
+  everyone else's. There's still no invite gate on signup itself and no
+  per-user permission scoping beyond account ownership.
+- Deleting a workspace account via the Accounts page is destructive and
+  immediate (no soft-delete/undo).
 - The sidebar's collapsed/expanded state and width are stored in the
   browser's `localStorage`, so they're per-browser, not per-account or
   server-synced.
+- A live GitHub fine-grained PAT is stored in plaintext in `gittoken.md`
+  and has been flagged as exposed across multiple prior sessions. Not
+  addressed this session (out of scope for this task; still worth
+  rotating separately).
 
 ## Next Step
-IMPORTANT for future sessions: server.py logic now lives under app/, and
-static/index.html is generated from frontend-src/ — read docs/DECISIONS.md
-005 and the "File architecture" section of docs/PROJECT_CONTEXT.md before
-editing either. Always run `python3 build.py` after touching
-frontend-src/ (CI does this too, but preview locally first).
-
-The split is already on `main` and deployed (see "Current Task" above —
-this was pushed by a different session than the one that wrote it,
-outside the original plan of waiting for review). Next: verify the
-login/signup flow once more on the live VM directly, confirm the
-`analytics_meta.py` fix from this session behaves the same against real
-Facebook/Instagram credentials (it was only verified here against a
-mocked Graph API, since this sandbox has no real credentials and can't
-reach graph.facebook.com), and glance at the real Analytics video list
-once a YouTube account with actual upload history is available to
-confirm the row-alignment fix looks right outside of mocked data too.
+1. **Review and decide whether to commit/push this session's changes.**
+   They're currently uncommitted local changes only — `git diff` shows
+   exactly what changed across `app/db.py`, `app/auth.py`,
+   `app/credentials.py`, `app/routes/*.py`, `server.py`, and
+   `docs/DECISIONS.md`. Pushing to `main` will trigger a live deploy (see
+   `.github/workflows/deploy.yml`) and will run the `user_id` migration +
+   backfill against the real production DB on next boot — recommend
+   confirming the backfill logic (assigns all pre-existing accounts to
+   the earliest-created user) matches what's actually wanted for the live
+   install before pushing, since that's a one-way data change.
+2. Once pushed and deployed, verify on the live VM directly: existing
+   login still reaches the same existing account/data as before, and a
+   fresh test signup gets its own separate, empty account rather than
+   access to the real one.
+3. After that, next candidates from TODO.md: the `SIGNUP_CODE` gate,
+   admin UI for user/account management, or the scheduler-at-scale
+   question.
 
 ## Security Note
-A live GitHub fine-grained PAT stored in plaintext in `gittoken.md` has
-been used across multiple sessions now, including this one (once the
-push is confirmed). Still recommend rotating it and moving to a secrets
-manager or per-session token — this has been flagged repeatedly without
-being addressed.
-
-Separately, worth being explicit about: this session's change means
-anyone who can reach this app's URL can now create their own account and
-get full publishing access to every connected platform. That's an
-explicit, confirmed choice by the project owner (not a bug), but it
-raises the stakes on network-level access control (firewall / who can
-reach the VM) compared to before, when only people who already knew a
-single shared password could get in.
+Unchanged from prior sessions: the GitHub PAT in `gittoken.md` is still
+plaintext and still not rotated. Not touched this session — flagged again
+for whoever picks this up next.
 
 ## Known Issues
 See "Not Completed / things noticed but NOT fixed" above.

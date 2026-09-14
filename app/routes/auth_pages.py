@@ -18,7 +18,8 @@ from app.auth import (
     verify_password,
 )
 from app.config import STATIC_DIR
-from app.db import get_db
+from app.credentials import account_cred_dir
+from app.db import create_workspace_account, get_db
 
 router = APIRouter()
 
@@ -58,6 +59,14 @@ def api_signup(request: Request, username: str = Form(...), password: str = Form
         )
         user_id = cur.lastrowid
 
+    # Per-user data isolation (docs/DECISIONS.md 006) means a brand-new user
+    # owns zero workspace accounts by default — give them one right away so
+    # the account switcher/Platforms/Upload pages have somewhere to work
+    # with immediately, same as Account 1 was seeded for the original
+    # single-tenant install (docs/DECISIONS.md 003).
+    new_account_id = create_workspace_account(f"{username}'s account", user_id)
+    account_cred_dir(new_account_id)
+
     token = create_session(user_id)
     resp = JSONResponse({"ok": True, "username": username})
     set_session_cookie(resp, request, token)
@@ -88,6 +97,6 @@ def api_logout(request: Request):
 
 
 @router.get("/api/auth/me")
-def api_me(user: str = Depends(require_login)):
-    return {"username": user}
+def api_me(user: dict = Depends(require_login)):
+    return {"username": user["username"]}
 

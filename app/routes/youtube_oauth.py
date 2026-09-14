@@ -21,8 +21,8 @@ _pending_oauth_flows: dict = {}  # state -> (Flow, account_id), cleared once the
 
 
 @router.get("/api/connect/youtube")
-def connect_youtube(request: Request, account_id: int = 1, user: str = Depends(require_login)):
-    get_account_or_404(account_id)
+def connect_youtube(request: Request, account_id: int = 1, user: dict = Depends(require_login)):
+    get_account_or_404(account_id, user["id"])
     secret_path = client_secret_path(account_id)
     if not secret_path.exists():
         raise HTTPException(
@@ -78,7 +78,11 @@ def oauth2callback_youtube(request: Request):
 
 
 @router.post("/api/disconnect/youtube")
-def disconnect_youtube(account_id: int = 1, user: str = Depends(require_login)):
+def disconnect_youtube(account_id: int = 1, user: dict = Depends(require_login)):
+    # Also fixes a pre-existing gap (see TODO.md): this previously never
+    # validated the account existed/was yours, silently no-op'ing on a bad
+    # account_id instead of 404ing.
+    get_account_or_404(account_id, user["id"])
     path = token_path(account_id)
     if path.exists():
         path.unlink()
