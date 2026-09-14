@@ -4,10 +4,10 @@
 2026-09-14
 
 ## Current Task
-Split server.py and static/index.html into per-concern files (backend:
-app/ package with routers; frontend: frontend-src/ with a build.py step),
-so future edits touch only the relevant file. Verified with a real
-regression test before this write-up — see docs/DECISIONS.md 005.
+Bug audit of the file-architecture split (server.py → app/ package;
+static/index.html → frontend-src/ + build.py), requested after that
+split was pushed to `main` by a different session/account than the one
+that wrote it. See docs/DECISIONS.md 005 for the split itself.
 
 Context: this repo briefly had a diverged main (another session/account
 pushed 16 commits, including this login/signup work, while a separate
@@ -18,11 +18,36 @@ you're a future session and something referenced here seems to contradict
 older history you find, this session's version is the one that was kept.
 
 ## Progress
-Not yet committed or pushed — this session's file-architecture split is
-done and verified locally, but deliberately left for the project owner to
-review before it goes anywhere near `main`, given the recent history
-issue above. See CHANGELOG.md's "2026-09-14 (backend + frontend
-file-architecture split)" entry for the full verification details.
+**Correction to the previous entry below:** it stated the file-architecture
+split was "not yet committed or pushed" and left for review. That was
+inaccurate as of this session — commit `0793280` ("Split server.py and
+static/index.html into per-concern files") is on `main` and already live.
+Since it was already deployed, this session treated it as production code
+needing a bug pass rather than a pending review.
+
+**Bug found and fixed (this session):** `app/routes/analytics_meta.py`
+used `datetime`, `timedelta`, and `timezone` (for the Facebook/Instagram
+analytics date-range math) but the split dropped the import that supplied
+them — present in the original monolithic `server.py`, missing from the
+new file. Any account with Facebook or Instagram actually connected would
+get a real response back from the Graph API and then hit an immediate
+`NameError` → 500 on both `/api/analytics/facebook` and
+`/api/analytics/instagram`. Fixed by restoring the import. Full
+verification details in CHANGELOG.md's "2026-09-14 (bug fix: missing
+datetime import in app/routes/analytics_meta.py)" entry — short version:
+`pyflakes` confirmed this was the *only* undefined-name issue anywhere in
+the split, and both endpoints were exercised end-to-end via `TestClient`
+with the Graph API mocked (this sandbox can't reach graph.facebook.com)
+to confirm 200s post-fix.
+
+**Why the split's own regression test missed this:** that test ran with
+no real Facebook Page credentials available, so both endpoints
+short-circuited to a clean 401 *before* the line that used `datetime` —
+the buggy code path only executes once real credentials are connected,
+which this dev environment has never had.
+
+Below is the original (now-corrected) write-up of the split itself, left
+intact for context:
 
 Everything from prior sessions (multi-user login, workspace accounts,
 dashboard interactivity, notifications drawer, resizable sidebar,
@@ -163,13 +188,16 @@ static/index.html is generated from frontend-src/ — read docs/DECISIONS.md
 editing either. Always run `python3 build.py` after touching
 frontend-src/ (CI does this too, but preview locally first).
 
-Before this split goes to `main`: get the project owner's go-ahead (it's
-sitting locally, fully verified, but not pushed — see "Current Task"
-above for why extra caution is warranted right now). After that: verify
-the login/signup flow once more on the live VM directly, and glance at
-the real Analytics video list once a YouTube account with actual upload
-history is available to confirm the row-alignment fix looks right outside
-of mocked data too.
+The split is already on `main` and deployed (see "Current Task" above —
+this was pushed by a different session than the one that wrote it,
+outside the original plan of waiting for review). Next: verify the
+login/signup flow once more on the live VM directly, confirm the
+`analytics_meta.py` fix from this session behaves the same against real
+Facebook/Instagram credentials (it was only verified here against a
+mocked Graph API, since this sandbox has no real credentials and can't
+reach graph.facebook.com), and glance at the real Analytics video list
+once a YouTube account with actual upload history is available to
+confirm the row-alignment fix looks right outside of mocked data too.
 
 ## Security Note
 A live GitHub fine-grained PAT stored in plaintext in `gittoken.md` has

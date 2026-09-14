@@ -65,6 +65,10 @@
 - [ ] Same for the new YouTube Analytics "Today" filter and per-video
       lifetime/period view counts — verify against a real connected
       YouTube channel with recent uploads.
+- [ ] The `analytics_meta.py` missing-import fix (2026-09-14) was only
+      verified against a mocked Graph API (this dev environment has no
+      real Facebook Page credentials and can't reach graph.facebook.com)
+      — worth a quick real-account check on the live VM to be thorough.
 - [ ] Facebook/Instagram Analytics still can't show "which posts got
       views today" the way YouTube now can — Meta's Graph API doesn't
       expose a per-day, per-video/media view breakdown, only lifetime
@@ -104,8 +108,12 @@
       titles (thumbnail/button misalignment from align-items:center
       against an unbounded-height title) — reported via live screenshot,
       fixed with 2-line title clamp + top-alignment (2026-09-12)
-- [ ] File-architecture split (server.py → app/ package + routers;
-      static/index.html → frontend-src/ + build.py) — done and
-      regression-verified locally, but not yet pushed to main pending
-      project owner review, given the recent diverged-history incident.
-      See docs/DECISIONS.md 005 and SESSION_HANDOFF.md (2026-09-14)
+- [x] File-architecture split (server.py → app/ package + routers;
+      static/index.html → frontend-src/ + build.py) — pushed to main and
+      live (was pushed by a different session/account than the one that
+      wrote it). See docs/DECISIONS.md 005 and SESSION_HANDOFF.md (2026-09-14)
+- [x] Fixed a real regression from that split: `app/routes/analytics_meta.py`
+      dropped the `datetime`/`timedelta`/`timezone` import the original
+      code had, causing a 500 on `/api/analytics/facebook` and
+      `/api/analytics/instagram` for any account with those platforms
+      actually connected. See CHANGELOG.md (2026-09-14)

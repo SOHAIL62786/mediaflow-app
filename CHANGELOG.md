@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026-09-14 (bug fix: missing datetime import in app/routes/analytics_meta.py)
+
+### Fixed
+- `app/routes/analytics_meta.py` — the file-architecture split earlier
+  today (commit "Split server.py and static/index.html into per-concern
+  files") moved the Facebook/Instagram analytics endpoints out of
+  `server.py` but dropped the `from datetime import datetime, timedelta,
+  timezone` import that the original monolithic file had. Both
+  `/api/analytics/facebook` and `/api/analytics/instagram` used
+  `datetime`/`timedelta`/`timezone` unconditionally right after their
+  first real Graph API call — so any account with Facebook/Instagram
+  actually connected would get a real response back from Meta and then
+  hit an immediate `NameError` (500) on every request to either
+  endpoint. Restored the import.
+
+### Why this wasn't caught before merging
+The split's own regression test (28/28 checks matched, per that
+commit's message) ran in this dev environment, which has no real
+Facebook Page credentials — `get_facebook_credentials()` returns `None`
+here, so both endpoints short-circuit to a 401 *before* ever reaching
+the line that uses `datetime`. The bug was invisible to any test that
+doesn't have a live Facebook/Instagram connection to exercise past that
+guard clause.
+
+### Verification
+- `python3 -m pyflakes app/ server.py build.py` — confirmed this was
+  the *only* undefined-name issue across the entire split (everything
+  else compiles clean).
+- `python3 -m py_compile` on every file under `app/` — all pass.
+- Diffed this commit (`0793280`, the split) against the prior
+  monolithic `server.py` to confirm the import genuinely existed before
+  and was dropped during the refactor, not a pre-existing bug.
+- Ran both endpoints end-to-end via FastAPI's `TestClient` with
+  `_graph_get` mocked to return realistic Facebook/Instagram Graph API
+  payloads (bypassing the sandbox's lack of real network access to
+  graph.facebook.com) — both returned `200` with correctly-shaped data
+  after the fix; both would have 500'd before it.
+- Rebuilt `static/index.html` via `build.py` and confirmed it's
+  byte-for-byte unchanged (this fix is backend-only).
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-12 (bug fix: video row layout breaking on long/mixed-script titles)
 
 ### Fixed

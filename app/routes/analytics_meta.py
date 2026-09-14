@@ -4,6 +4,8 @@ Instagram analytics via the Graph API. Kept in one file since both share
 the _graph_get/_insights_series/_insights_total helpers below.
 """
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 import requests
 
