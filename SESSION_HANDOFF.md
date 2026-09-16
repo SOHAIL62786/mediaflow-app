@@ -1,7 +1,86 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-14
+2026-09-17
+
+## Current Task
+Picked up a task from a different Claude session that hit its usage limit
+mid-request (project owner shared screenshots of that session's chat).
+Requested: fix Accounts-page mobile alignment, introduce real dark mode,
+fix the dark-mode toggle, general UI polish.
+
+## Progress
+Completed, committed, and pushed to `main` (commit `11d2017` — this
+triggers the live deploy per `.github/workflows/deploy.yml`, touches
+`static/**`):
+
+- Fixed `.account-row` (Accounts page): the Active pill + Rename/Delete
+  buttons had no wrap/stacking behavior and were overlapping the account
+  name on narrow screens. Wrapped them in a new `.acc-row-actions`
+  container (`frontend-src/app.js`) that drops to its own full-width,
+  right-aligned row on `max-width:720px`.
+- Implemented actual dark mode — previously `#darkToggle` only changed its
+  own dot color and applied no theme anywhere. Added `html.dark-theme{...}`
+  variable overrides in `frontend-src/style.css`, converted ~15
+  hardcoded `#fff`/`#f5f6fa`-family surfaces to those variables so dark
+  mode actually reaches them, wired the toggle to flip the class and
+  persist via `localStorage` (`mf-dark-theme`), and added a pre-paint
+  inline script in `frontend-src/layout.html` so reload doesn't flash
+  light-then-dark.
+- Rebuilt `static/index.html` via `python3 build.py` and verified the
+  compiled output before committing (grepped for the new class names /
+  variable names / JS symbols to confirm they made it into the build, not
+  just the source files).
+- Checked Platforms/Scheduled/Published/Settings for the same
+  cramped-row pattern that broke Accounts — Platforms already has a
+  mobile grid fix from a prior session, Settings is a placeholder,
+  nothing else showed the bug. Scope was intentionally limited to what
+  was actually reported plus what a quick audit turned up, not a full
+  redesign pass.
+
+Full detail (exact CSS/JS diffs, which surfaces were converted and why) is
+in CHANGELOG.md's "2026-09-17 (fix: Accounts page mobile layout; feature:
+real dark mode)" entry — don't re-derive it from memory later.
+
+## Not Completed / noticed but NOT fixed
+- Small semantic-tinted badges (gain-pill, pub-pill.sched/.fail,
+  notif.warn) still use light-mode colors in dark mode — low visual
+  impact, left for later (see TODO.md).
+- Did not visually verify the fix in an actual mobile browser — this
+  session has no way to render/screenshot the built page. Worth a real
+  check on the live VM after deploy, same caveat as several prior
+  sessions' frontend changes.
+- Everything else in TODO.md is unchanged and still open.
+
+## Important Information (carried forward, still true)
+- `credentials/` is gitignored and will NOT be present when a new session
+  clones this repo. Each new session/machine needs credentials supplied
+  separately (not via git) — see docs/PROJECT_CONTEXT.md.
+- `static/index.html` is a generated file — edit `frontend-src/` and run
+  `python3 build.py`, never edit `static/index.html` directly (it says so
+  in a comment at the top, but worth restating here since it's an easy
+  mistake for a new session to make).
+- Pushing to `main` with changes touching `server.py`, `static/**`, or
+  `requirements.txt` auto-deploys to the live VM — see
+  `.github/workflows/deploy.yml`.
+- A live GitHub fine-grained PAT is stored in plaintext in `gittoken.md`
+  and has been flagged as exposed across multiple prior sessions — still
+  not rotated.
+
+## Next Step
+1. Confirm the GitHub Actions deploy for commit `11d2017` succeeded
+   (check the Actions tab), then verify on the live VM that the Accounts
+   page and dark mode toggle actually work as intended on a real mobile
+   device — this session couldn't visually confirm either.
+2. If the project owner wants the semantic-badge dark-mode gap closed,
+   or a fuller visual-redesign pass on pages other than Dashboard (older
+   open item, see TODO.md), that's the natural next task.
+3. Otherwise, next candidates from TODO.md: `SIGNUP_CODE` gate, admin UI
+   for user/account management, or the scheduler-at-scale question.
+
+---
+
+# Previous Session (2026-09-14)
 
 ## Current Task
 Per-user data isolation for workspace accounts — the biggest open item in

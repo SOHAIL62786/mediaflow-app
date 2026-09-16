@@ -25,6 +25,12 @@
       scheduled publish, instead of failing permanently on first error
 
 ## Low Priority
+- [ ] Dark mode (2026-09-17) covers all major surfaces (cards, topbar,
+      dropdowns, notif drawer, modal, buttons) via theme variables, but
+      small semantic-tinted badges (gain-pill, pub-pill.sched/.fail,
+      notif.warn) were deliberately left with their light-mode colors —
+      they'll look slightly washed out on a dark card. Low visual impact,
+      not fixed yet.
 - [ ] Consider a "dry run" / preview mode before a scheduled post fires
 - [ ] `account_id` in the YouTube OAuth callback's redirect URL is never
       actually read by the frontend (only `page` is) — works today only
@@ -57,6 +63,12 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Fixed Accounts page mobile layout: the Active pill + Rename/Delete
+      buttons were overlapping the account name on narrow screens (no
+      wrap/stacking behavior existed). Also implemented actual dark mode —
+      the toggle previously only changed its own dot color and did nothing
+      else; now applies a real dark theme, persists via localStorage, and
+      avoids a flash on reload (2026-09-17)
 - [x] Core FastAPI server with SQLite backend
 - [x] YouTube OAuth + upload + analytics
 - [x] Facebook publishing via Page Access Token

@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-09-17 (fix: Accounts page mobile layout; feature: real dark mode)
+
+### Fixed
+- `.account-row` (Accounts page) had no wrap/stacking behavior — icon,
+  name, "Active" pill, Rename button, and Delete button were all forced
+  onto one unbreakable flex line. On narrow screens this overlapped and
+  wrapped mid-word (reported via live screenshots from a session that hit
+  its usage limit mid-task). Fix: wrapped the pill + buttons in a new
+  `.acc-row-actions` container (`frontend-src/app.js`) so it can be
+  targeted independently in CSS; on `max-width:720px` it now drops to its
+  own full-width, right-aligned row under the icon+name, with a divider
+  between account rows.
+
+### Added
+- Real dark mode. Previously `#darkToggle`'s click handler only changed
+  the toggle's own dot color — no theme was ever applied anywhere.
+  - Added `html.dark-theme{...}` in `frontend-src/style.css` overriding
+    the existing theme CSS variables (`--page-bg`, `--card-bg`,
+    `--border`, `--text-dark/mid/light`, plus new `--hover-bg`,
+    `--active-bg`, `--danger-hover-bg`).
+  - Converted ~15 previously-hardcoded `#fff`/`#f5f6fa`/`#f1f2f6`/etc
+    surfaces (topbar, account dropdown panel, notifications drawer, video
+    metrics modal, Accounts page buttons, Analytics pill/select controls)
+    to use those variables — without this, dark mode would only have
+    reached the small subset of elements already using `var(--card-bg)`.
+  - `frontend-src/app.js`: `darkToggle` now toggles a `dark-theme` class
+    on `<html>` (not `<body>` — chosen so the flash-prevention script
+    below can run before `<body>` exists) and persists the choice to
+    `localStorage` under `mf-dark-theme`. Also removed a dead, never-called
+    `paint()` function that was left over in the same toggle-wiring block.
+  - `frontend-src/layout.html`: added a small inline script as the first
+    thing in `<head>` (ahead of the stylesheet) that applies the saved
+    class before first paint, so reloading in dark mode doesn't flash
+    light-then-dark.
+
+### Known limitation (see TODO.md)
+- Small semantic-tinted badges (gain-pill, pub-pill.sched/.fail,
+  notif.warn) still use their light-mode colors in dark mode — low visual
+  impact, not addressed this session.
+
+Modified By:
+Claude (via chat session, continuing from a different session that hit
+its usage limit mid-task — see screenshots referenced above)
+
+---
+
 ## 2026-09-14 (feature: per-user data isolation for workspace accounts)
 
 ### Added
