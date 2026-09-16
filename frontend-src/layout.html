@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediaFlow - New Upload</title>
+<script>
+// Applies the saved dark-theme preference to <html> before the page
+// paints, so there's no flash of the light theme on reload. Kept as the
+// very first thing in <head>, ahead of the stylesheet — see the darkToggle
+// wiring in app.js and the html.dark-theme block in style.css.
+(function(){
+  try{
+    if(localStorage.getItem('mf-dark-theme') === '1'){
+      document.documentElement.classList.add('dark-theme');
+    }
+  }catch(e){}
+})();
+</script>
 <style>
 {{CSS}}</style>
 </head>

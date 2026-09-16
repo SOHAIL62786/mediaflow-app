@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediaFlow - New Upload</title>
 <!-- GENERATED FILE — do not edit directly. Edit frontend-src/ and run `python3 build.py`. -->
+<script>
+// Applies the saved dark-theme preference to <html> before the page
+// paints, so there's no flash of the light theme on reload. Kept as the
+// very first thing in <head>, ahead of the stylesheet — see the darkToggle
+// wiring in app.js and the html.dark-theme block in style.css.
+(function(){
+  try{
+    if(localStorage.getItem('mf-dark-theme') === '1'){
+      document.documentElement.classList.add('dark-theme');
+    }
+  }catch(e){}
+})();
+</script>
 <style>
   :root{
     --indigo:#5b5bf0;
@@ -19,6 +32,30 @@
     --text-light:#9a9ea8;
     --green:#16a34a;
     --green-bg:#e8f8ee;
+    --hover-bg:#f5f6fa;
+    --active-bg:#eef1ff;
+    --danger-hover-bg:#fef2f2;
+  }
+  /* Dark theme — toggled via #darkToggle, applied to <html> (not body) and
+     persisted to localStorage under 'mf-dark-theme'. A small inline script
+     at the top of <head> (see layout.html) applies this class before first
+     paint so there's no light-theme flash on reload. Overriding the
+     variables here is enough to re-theme every surface that already uses
+     var(--card-bg)/var(--border)/etc — see workflow-and-gotchas.md for the
+     handful of previously-hardcoded #fff/#f5f6fa surfaces that were
+     converted to these variables specifically so dark mode would reach them. */
+  html.dark-theme{
+    --sidebar-bg:#0e0e22;
+    --page-bg:#0f0f1e;
+    --card-bg:#1a1a30;
+    --border:#2c2c48;
+    --text-dark:#eef0fa;
+    --text-mid:#a3a6c2;
+    --text-light:#787bab;
+    --green-bg:#0f2e1e;
+    --hover-bg:#26264a;
+    --active-bg:#252552;
+    --danger-hover-bg:#3a1e26;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
@@ -128,7 +165,7 @@
   .main{flex:1;display:flex;flex-direction:column;min-width:0;}
   .topbar{
     display:flex;align-items:center;justify-content:space-between;
-    padding:20px 32px;background:#fff;border-bottom:1px solid var(--border);
+    padding:20px 32px;background:var(--card-bg);border-bottom:1px solid var(--border);
   }
   .topbar h1{font-size:22px;font-weight:700;}
   .topbar-right{display:flex;align-items:center;gap:18px;}
@@ -139,18 +176,18 @@
     display:flex;align-items:center;justify-content:center;
   }
   .admin-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-dark);cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:24px;padding:5px 14px 5px 5px;transition:border-color .15s,background .15s;}
-  .admin-pill:hover{border-color:var(--indigo);background:#f8f8ff;}
+  .admin-pill:hover{border-color:var(--indigo);background:var(--hover-bg);}
   .admin-pill .avatar{width:30px;height:30px;font-size:12px;}
   .account-dd-wrap{position:relative;}
-  .account-dd-panel{display:none;position:absolute;top:calc(100% + 10px);right:0;min-width:200px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;z-index:50;}
+  .account-dd-panel{display:none;position:absolute;top:calc(100% + 10px);right:0;min-width:200px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;z-index:50;}
   .account-dd-wrap.open .account-dd-panel{display:block;}
   .account-dd-list{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto;}
   .account-dd-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-dark);}
-  .account-dd-item:hover{background:#f5f6fa;}
-  .account-dd-item.active{background:#eef1ff;font-weight:600;}
+  .account-dd-item:hover{background:var(--hover-bg);}
+  .account-dd-item.active{background:var(--active-bg);font-weight:600;}
   .account-dd-item .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--primary,#5b5fef);color:#fff;font-weight:700;flex-shrink:0;}
   .account-dd-add{margin-top:8px;width:100%;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:none;cursor:pointer;font-size:13px;color:var(--text-mid);text-align:left;}
-  .account-dd-add:hover{background:#f5f6fa;color:var(--text-dark);}
+  .account-dd-add:hover{background:var(--hover-bg);color:var(--text-dark);}
 
   /* Notifications drawer (right-side slide-in panel) */
   .bell{cursor:pointer;}
@@ -160,7 +197,7 @@
   .notif-backdrop.open{display:block;}
   .notif-drawer{
     position:fixed;top:0;right:0;bottom:0;width:360px;max-width:90vw;
-    background:#fff;z-index:300;box-shadow:-8px 0 30px rgba(0,0,0,.15);
+    background:var(--card-bg);z-index:300;box-shadow:-8px 0 30px rgba(0,0,0,.15);
     display:flex;flex-direction:column;
     transform:translateX(100%);transition:transform .25s ease;
   }
@@ -171,12 +208,12 @@
   }
   .notif-drawer-header h3{font-size:16px;font-weight:700;}
   .notif-close-btn{background:none;border:none;color:var(--text-mid);cursor:pointer;padding:4px;border-radius:6px;display:flex;}
-  .notif-close-btn:hover{background:#f1f2f6;color:var(--text-dark);}
+  .notif-close-btn:hover{background:var(--hover-bg);color:var(--text-dark);}
   .notif-drawer-body{flex:1;overflow-y:auto;padding:8px 12px;}
   .notif-item{
     display:flex;gap:12px;align-items:flex-start;padding:12px 8px;border-radius:10px;cursor:pointer;
   }
-  .notif-item:hover{background:#f5f6fa;}
+  .notif-item:hover{background:var(--hover-bg);}
   .notif-item.warn .notif-title{color:#dc2626;}
   .notif-icon{font-size:18px;flex-shrink:0;line-height:1.3;}
   .notif-text{min-width:0;}
@@ -299,11 +336,12 @@
 
   /* Right column */
   .accounts-list{display:flex;flex-direction:column;gap:14px;margin-bottom:16px;}
-  .account-row{display:flex;align-items:center;gap:12px;}
+  .account-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .acc-icon{width:38px;height:38px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
   .acc-info{flex:1;min-width:0;}
-  .acc-info .n{font-size:14px;font-weight:600;}
+  .acc-info .n{font-size:14px;font-weight:600;overflow-wrap:anywhere;}
   .acc-info .h{font-size:12px;color:var(--text-mid);}
+  .acc-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;}
   .connected-pill{
     background:var(--green-bg);color:var(--green);font-size:11px;font-weight:700;
     padding:4px 10px;border-radius:20px;white-space:nowrap;
@@ -398,42 +436,42 @@
 
   /* Accounts page action buttons */
   .acc-btn{
-    border:1px solid var(--indigo);color:var(--indigo);background:#fff;
+    border:1px solid var(--indigo);color:var(--indigo);background:var(--card-bg);
     padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
     white-space:nowrap;text-decoration:none;display:inline-block;
   }
-  .acc-btn:hover{background:#f6f6ff;}
+  .acc-btn:hover{background:var(--hover-bg);}
   .acc-btn.danger{border-color:#ef4444;color:#ef4444;}
-  .acc-btn.danger:hover{background:#fef2f2;}
-  .acc-btn.disabled{border-color:var(--border);color:var(--text-light);cursor:not-allowed;background:#fafafa;}
-  .acc-btn.disabled:hover{background:#fafafa;}
+  .acc-btn.danger:hover{background:var(--danger-hover-bg);}
+  .acc-btn.disabled{border-color:var(--border);color:var(--text-light);cursor:not-allowed;background:var(--page-bg);}
+  .acc-btn.disabled:hover{background:var(--page-bg);}
 
   /* Analytics page */
   .analytics-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
-  .day-toggle{display:flex;gap:6px;background:#f1f2f6;border-radius:9px;padding:4px;}
+  .day-toggle{display:flex;gap:6px;background:var(--hover-bg);border-radius:9px;padding:4px;}
   .pill-btn{
     border:none;background:transparent;color:var(--text-mid);font-size:13px;font-weight:600;
     padding:6px 14px;border-radius:7px;cursor:pointer;
   }
-  .pill-btn.active{background:#fff;color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+  .pill-btn.active{background:var(--card-bg);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
   .bar-chart{display:flex;align-items:flex-end;gap:4px;height:140px;padding-top:10px;}
   .bar-wrap{flex:1;display:flex;align-items:flex-end;height:100%;min-width:2px;}
   .bar-wrap .bar{width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;min-height:2px;}
-  .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:#f1f2f6;flex-shrink:0;}
+  .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */
   .video-filters{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:12px 0 14px;}
   .sort-select{
     border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;
-    font-family:inherit;color:var(--text-dark);background:#fff;cursor:pointer;
+    font-family:inherit;color:var(--text-dark);background:var(--card-bg);cursor:pointer;
   }
   .lib-row{cursor:default;}
   .metrics-btn{
-    border:1px solid var(--indigo);color:var(--indigo);background:#fff;
+    border:1px solid var(--indigo);color:var(--indigo);background:var(--card-bg);
     padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
     white-space:nowrap;flex-shrink:0;
   }
-  .metrics-btn:hover{background:#f6f6ff;}
+  .metrics-btn:hover{background:var(--hover-bg);}
 
   /* Video metrics modal */
   .modal-overlay{
@@ -442,15 +480,15 @@
   }
   .modal-overlay.show{display:flex;}
   .modal-card{
-    background:#fff;border-radius:16px;padding:28px;max-width:600px;width:100%;
+    background:var(--card-bg);border-radius:16px;padding:28px;max-width:600px;width:100%;
     max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);
   }
   .modal-close{
-    position:absolute;top:16px;right:16px;border:none;background:#f1f2f6;color:var(--text-mid);
+    position:absolute;top:16px;right:16px;border:none;background:var(--hover-bg);color:var(--text-mid);
     width:30px;height:30px;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;
   }
-  .modal-close:hover{background:#e3e5ee;}
-  .modal-note{font-size:12px;color:var(--text-mid);background:#f6f6fb;border-radius:8px;padding:10px 12px;margin-top:14px;}
+  .modal-close:hover{background:var(--border);}
+  .modal-note{font-size:12px;color:var(--text-mid);background:var(--hover-bg);border-radius:8px;padding:10px 12px;margin-top:14px;}
 
   /* Video modal auto-refresh bar */
   .modal-refresh-bar{
@@ -495,6 +533,16 @@
     body.sidebar-open .sidebar-backdrop{display:block;}
     .account-dd-panel{right:0;left:auto;max-width:calc(100vw - 32px);}
     .modal-overlay{padding:12px;}
+
+    /* Accounts page: icon+name no longer has room to share a line with the
+       Active pill and Rename/Delete buttons (was overlapping/wrapping
+       mid-word — see CHANGELOG for the exact bug report). Icon+name keep
+       their row; actions drop to their own full-width row underneath,
+       right-aligned, with a divider between account rows since there's no
+       longer a single tidy line to imply separation. */
+    .account-row{padding:12px 0;border-bottom:1px solid var(--border);}
+    .account-row:last-child{border-bottom:none;}
+    .acc-row-actions{flex-basis:100%;justify-content:flex-end;margin-top:2px;}
   }
 </style>
 </head>
@@ -1158,12 +1206,14 @@
 
   // Toggles
   document.querySelectorAll('.toggle').forEach(t=>{
-    let on = t.id === 'customizeToggle';
-    const paint = ()=>{
-      t.style.background = on ? 'var(--indigo)' : (t.id==='darkToggle' ? '#33335c' : '#c9cbe0');
-      t.style.setProperty('--pos', on ? '18px':'2px');
-      t.querySelector ? null : null;
-    };
+    const isDarkToggle = t.id === 'darkToggle';
+    // Dark theme's actual on/off is the class an inline script in <head>
+    // already applied (before first paint, reading localStorage) — this
+    // toggle just needs to reflect and then change that. Every other
+    // toggle keeps its old purely-visual behavior.
+    let on = isDarkToggle
+      ? document.documentElement.classList.contains('dark-theme')
+      : t.id === 'customizeToggle';
     t.style.position='relative';
     const setDot = ()=>{
       t.style.setProperty('transition','background .15s');
@@ -1175,7 +1225,14 @@
       t.appendChild(dot);
     };
     setDot();
-    t.addEventListener('click', ()=>{ on = !on; setDot(); });
+    t.addEventListener('click', ()=>{
+      on = !on;
+      setDot();
+      if(isDarkToggle){
+        document.documentElement.classList.toggle('dark-theme', on);
+        try{ localStorage.setItem('mf-dark-theme', on ? '1' : '0'); }catch(e){}
+      }
+    });
   });
 
   // Char count
@@ -1584,9 +1641,11 @@
           <div class="n">${escapeHtml(a.name)}</div>
           <div class="h">${a.id === currentAccountId ? 'Current account' : 'Tap to switch to this account'}</div>
         </div>
-        ${a.id === currentAccountId ? '<div class="connected-pill">Active</div>' : ''}
-        <button class="acc-btn" data-action="rename-account">Rename</button>
-        <button class="acc-btn danger" data-action="delete-account" ${accountsCache.length <= 1 ? 'disabled' : ''}>Delete</button>
+        <div class="acc-row-actions">
+          ${a.id === currentAccountId ? '<div class="connected-pill">Active</div>' : ''}
+          <button class="acc-btn" data-action="rename-account">Rename</button>
+          <button class="acc-btn danger" data-action="delete-account" ${accountsCache.length <= 1 ? 'disabled' : ''}>Delete</button>
+        </div>
       </div>
     `).join('');
   }

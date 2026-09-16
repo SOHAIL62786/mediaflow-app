@@ -211,12 +211,14 @@
 
   // Toggles
   document.querySelectorAll('.toggle').forEach(t=>{
-    let on = t.id === 'customizeToggle';
-    const paint = ()=>{
-      t.style.background = on ? 'var(--indigo)' : (t.id==='darkToggle' ? '#33335c' : '#c9cbe0');
-      t.style.setProperty('--pos', on ? '18px':'2px');
-      t.querySelector ? null : null;
-    };
+    const isDarkToggle = t.id === 'darkToggle';
+    // Dark theme's actual on/off is the class an inline script in <head>
+    // already applied (before first paint, reading localStorage) — this
+    // toggle just needs to reflect and then change that. Every other
+    // toggle keeps its old purely-visual behavior.
+    let on = isDarkToggle
+      ? document.documentElement.classList.contains('dark-theme')
+      : t.id === 'customizeToggle';
     t.style.position='relative';
     const setDot = ()=>{
       t.style.setProperty('transition','background .15s');
@@ -228,7 +230,14 @@
       t.appendChild(dot);
     };
     setDot();
-    t.addEventListener('click', ()=>{ on = !on; setDot(); });
+    t.addEventListener('click', ()=>{
+      on = !on;
+      setDot();
+      if(isDarkToggle){
+        document.documentElement.classList.toggle('dark-theme', on);
+        try{ localStorage.setItem('mf-dark-theme', on ? '1' : '0'); }catch(e){}
+      }
+    });
   });
 
   // Char count
@@ -637,9 +646,11 @@
           <div class="n">${escapeHtml(a.name)}</div>
           <div class="h">${a.id === currentAccountId ? 'Current account' : 'Tap to switch to this account'}</div>
         </div>
-        ${a.id === currentAccountId ? '<div class="connected-pill">Active</div>' : ''}
-        <button class="acc-btn" data-action="rename-account">Rename</button>
-        <button class="acc-btn danger" data-action="delete-account" ${accountsCache.length <= 1 ? 'disabled' : ''}>Delete</button>
+        <div class="acc-row-actions">
+          ${a.id === currentAccountId ? '<div class="connected-pill">Active</div>' : ''}
+          <button class="acc-btn" data-action="rename-account">Rename</button>
+          <button class="acc-btn danger" data-action="delete-account" ${accountsCache.length <= 1 ? 'disabled' : ''}>Delete</button>
+        </div>
       </div>
     `).join('');
   }
