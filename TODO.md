@@ -1,6 +1,15 @@
 # TODO
 
 ## High Priority
+- [ ] **Check the `users` table for anyone who signed up between**
+      **2026-09-12 and 2026-09-14** (before per-user isolation shipped)
+      **and verify they don't need data recovered.** The isolation
+      migration would have assigned any pre-existing shared account
+      solely to the earliest-created user; a fix on 2026-09-17 stops
+      anyone from being left with zero accounts going forward (see
+      docs/DECISIONS.md 007), but can only give a second person a fresh
+      empty account, not their old data back. Needs a human to check —
+      not resolvable by looking at the code.
 - [ ] Sign-up is fully open to anyone who reaches the URL (project
       owner's explicit choice) — if that turns out to be too permissive,
       add an optional `SIGNUP_CODE` env var gate: if set, require a
@@ -63,6 +72,15 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Fixed a real bug in the 2026-09-14 per-user isolation change: any
+      user who ended up owning zero accounts (possible for anyone who'd
+      already signed up in the two-day window before isolation shipped)
+      would hit a fully broken app — every page 404ing via the frontend's
+      account_id=1 fallback. `require_login` now guarantees every
+      authenticated request has a user with ≥1 account, self-healing even
+      an already-active session. See docs/DECISIONS.md 007. Flagged a
+      High Priority item above for the project owner to manually check
+      whether anyone was actually affected (2026-09-17)
 - [x] Fixed Accounts page mobile layout: the Active pill + Rename/Delete
       buttons were overlapping the account name on narrow screens (no
       wrap/stacking behavior existed). Also implemented actual dark mode —

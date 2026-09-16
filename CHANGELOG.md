@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-09-17 (bug fix: users could be left with zero workspace accounts after per-user isolation)
+
+### Fixed
+- **Real risk of users being locked out of a fully broken app.** Auditing
+  the 2026-09-14 per-user isolation commit (`55f798d`) found that its
+  one-time `backfill_account_ownership()` migration assigns every
+  pre-existing (orphaned) workspace account to a single earliest-created
+  user. Multi-user login (Decision 004) had been live for two days before
+  isolation (Decision 006) shipped — if a second real person had already
+  signed up in that window and was using the shared account, the
+  migration would have left them owning zero accounts. That's worse than
+  a missing feature: `frontend-src/app.js`'s account switcher falls back
+  to `account_id=1` when its cache is empty, so that person's dashboard,
+  library, platforms, and upload pages would all 404 on every request,
+  since account 1 now belongs to someone else.
+- Added `ensure_user_has_account(user_id, username)` (`app/auth.py`),
+  called from `require_login` on every authenticated request (not just
+  login/signup), so any user who somehow ends up owning zero accounts —
+  now or in the future — gets a fresh one automatically on their very
+  next request. This self-heals an already-active session too; it
+  doesn't require the person to log out and back in.
+- `POST /api/auth/signup` now calls this same helper instead of
+  duplicating the "create a starter account" logic inline.
+- Fixed a stale module docstring in `app/auth.py` left over from before
+  Decision 006 — it still described workspace accounts as shared across
+  every logged-in user with "no per-user restriction," which has been
+  false since the isolation commit.
+
+### Note for the project owner
+If a second person actually did sign up between 2026-09-12 (Decision 004)
+and 2026-09-14 (Decision 006) and was relying on access to the original
+shared account, this fix gives them a working app again on their next
+request, but with a **fresh, empty account** — it does not and cannot
+restore their access to the original account's history, since there's no
+record of who was using it under the old shared model. Worth checking
+your `users` table for any account created in that window that you don't
+recognize, and manually reviewing whether they need anything recovered
+from the original account (currently only possible via direct DB access
+— see the open TODO item for an admin UI to reassign account ownership).
+
+### Verified
+- `pyflakes app/ server.py` — clean.
+- Reproduced the exact failure: simulated two users who already existed
+  before the isolation migration ran (one shared account), confirmed the
+  second user got `[]` from `/api/accounts` pre-fix, then confirmed
+  post-fix that same user's very next request (no fresh login) returns a
+  new account of their own and `/api/dashboard/summary` for it returns
+  200 — while the original owner's account and access are unaffected.
+- Re-ran the full 2026-09-14 isolation regression suite (two-user cross-
+  access, delete-last-account guard, publish/library smoke test) — still
+  all passing.
+
 ## 2026-09-17 (fix: Accounts page mobile layout; feature: real dark mode)
 
 ### Fixed

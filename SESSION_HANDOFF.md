@@ -4,6 +4,119 @@
 2026-09-17
 
 ## Current Task
+Asked to check the previous per-user-isolation commit (`55f798d`,
+2026-09-14, Decision 006) for bugs it may have caused, and fix them.
+
+## Progress
+Completed, tested, committed, and pushed to `main` (commit — see `git log`
+for the exact hash of "Fix: guarantee every user owns at least one
+workspace account"; this touches `app/**` so it triggers a live deploy
+per `.github/workflows/deploy.yml`):
+
+- **Found a real, reproducible bug.** `55f798d`'s one-time
+  `backfill_account_ownership()` migration assigns every pre-existing
+  workspace account to a single earliest-created user. Multi-user login
+  (Decision 004) had been live for two days before per-user isolation
+  (Decision 006) shipped — if a second real person had already signed up
+  in that window and was using the shared account, the migration would
+  leave them owning zero accounts. Confirmed this isn't just a missing
+  feature but a fully broken app for that person:
+  `frontend-src/app.js`'s account switcher falls back to `account_id=1`
+  when its account list is empty, and account 1 now belongs to someone
+  else — every page (dashboard, library, platforms, upload) would 404.
+  Reproduced it directly: hand-built a DB with two pre-existing users and
+  one shared account, ran the real startup migration, confirmed the
+  second user got `[]` back from `/api/accounts`.
+- **Fixed it**: `app/auth.py` gets a new `ensure_user_has_account(user_id,
+  username)`, called from `require_login` on *every* authenticated
+  request (not only login/signup), so anyone who ends up owning zero
+  accounts — now or from some future edge case — gets a fresh one on
+  their very next request. This self-heals an already-active session too
+  (no need to log out and back in). Signup now calls this same helper
+  instead of duplicating the logic inline.
+- **Also fixed a stale docstring** in `app/auth.py` left over from before
+  Decision 006 — it still described workspace accounts as shared with "no
+  per-user restriction," which stopped being true once isolation shipped.
+- Wrote up docs/DECISIONS.md 007 with the full reasoning, alternatives
+  considered, and — important — the limits of this fix (see below).
+- Flagged a new High Priority TODO item: **the project owner should check
+  the real `users` table for anyone who signed up between 2026-09-12 and
+  2026-09-14**, since that's the exact window where someone could have
+  been affected. This fix makes their app work again going forward, but
+  it can only give them a *fresh, empty* account — there's no record of
+  who was using the original shared account under the old model, so any
+  actual prior history for that person can't be automatically recovered.
+  This needs a human to check; it's not something resolvable by reading
+  the code further.
+- Audited the rest of `55f798d` beyond this: re-checked every
+  `account_id`-taking endpoint (`grep`, not just re-reading my own
+  summary) to confirm none were missed, checked the OAuth callback flows
+  specifically since they're not directly login-gated (confirmed safe —
+  ownership is verified at connect-time, before the account_id ever
+  reaches the callback), and confirmed the newer, unrelated commits
+  already on `main` (`11d2017`, `569dd0c` — mobile layout + dark mode)
+  don't touch or interact with any of this.
+
+Testing done (FastAPI `TestClient`):
+- Reproduced the exact failure pre-fix, then confirmed post-fix: the
+  previously-locked-out user's very next request (same session, no fresh
+  login) returns a new account of their own, and that account works
+  normally (200 on `/api/dashboard/summary`) — while the original owner's
+  account and access are completely unaffected.
+- Re-ran the full 2026-09-14 isolation regression suite (two-user
+  cross-account 404s, delete-last-account guard, publish/library smoke
+  test) against the fixed code — still all passing.
+- `pyflakes app/ server.py` — clean.
+
+Full detail is in docs/DECISIONS.md 007 and CHANGELOG.md's "2026-09-17
+(bug fix: users could be left with zero workspace accounts after
+per-user isolation)" entry.
+
+## Not Completed / noticed but NOT fixed
+- **The `users`-table check above is not done** — it requires looking at
+  the real production database, which this session can't reach. This is
+  the most important open item right now, ranked accordingly in TODO.md.
+- Everything else in TODO.md is unchanged and still open.
+
+## Important Information (carried forward, still true)
+- `credentials/` is gitignored and will NOT be present when a new session
+  clones this repo. Each new session/machine needs credentials supplied
+  separately (not via git) — see docs/PROJECT_CONTEXT.md.
+- **Login is real multi-user accounts** (Decision 004), **workspace
+  accounts are per-user** (Decision 006), and as of this session **every
+  authenticated request guarantees the user owns at least one account**
+  (Decision 007) — but see the unresolved TODO item above about possible
+  pre-existing users caught by the original migration.
+- Pushing to `main` with changes touching `server.py`, `static/**`, `app/**`,
+  or `requirements.txt` auto-deploys to the live VM — see
+  `.github/workflows/deploy.yml`.
+- A live GitHub fine-grained PAT is stored in plaintext in `gittoken.md`
+  and has been flagged as exposed across multiple prior sessions — still
+  not rotated.
+
+## Next Step
+1. **Project owner: check the real `users` table** for anyone created
+   2026-09-12 through 2026-09-14 who isn't you — see the High Priority
+   TODO item and docs/DECISIONS.md 007's "Status" note for what to look
+   for and why.
+2. Confirm this session's deploy succeeded (Actions tab), then verify on
+   the live VM that login still works normally for the existing user.
+3. Otherwise, next candidates from TODO.md: `SIGNUP_CODE` gate, admin UI
+   for user/account management, or the scheduler-at-scale question.
+
+## Security Note
+Unchanged from prior sessions: the GitHub PAT in `gittoken.md` is still
+plaintext and still not rotated. Not touched this session — flagged again
+for whoever picks this up next.
+
+## Known Issues
+See "Not Completed / noticed but NOT fixed" above.
+
+---
+
+# Previous Session (2026-09-17, mobile layout / dark mode)
+
+## Current Task
 Picked up a task from a different Claude session that hit its usage limit
 mid-request (project owner shared screenshots of that session's chat).
 Requested: fix Accounts-page mobile alignment, introduce real dark mode,

@@ -11,6 +11,7 @@ from app.auth import (
     SESSION_COOKIE_NAME,
     create_session,
     delete_session,
+    ensure_user_has_account,
     get_user_from_session,
     hash_password,
     require_login,
@@ -18,8 +19,7 @@ from app.auth import (
     verify_password,
 )
 from app.config import STATIC_DIR
-from app.credentials import account_cred_dir
-from app.db import create_workspace_account, get_db
+from app.db import get_db
 
 router = APIRouter()
 
@@ -64,8 +64,7 @@ def api_signup(request: Request, username: str = Form(...), password: str = Form
     # the account switcher/Platforms/Upload pages have somewhere to work
     # with immediately, same as Account 1 was seeded for the original
     # single-tenant install (docs/DECISIONS.md 003).
-    new_account_id = create_workspace_account(f"{username}'s account", user_id)
-    account_cred_dir(new_account_id)
+    ensure_user_has_account(user_id, username)
 
     token = create_session(user_id)
     resp = JSONResponse({"ok": True, "username": username})

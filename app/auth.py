@@ -3,10 +3,9 @@ Multi-user login (see docs/DECISIONS.md 004).
 
 Replaces the old single shared HTTP Basic Auth password with real per-user
 accounts: hashed passwords, session-cookie identity, and custom Sign In /
-Sign Up pages. Unrelated to the *workspace* accounts feature in
-app/credentials.py / app/routes/accounts.py (docs/DECISIONS.md 003) — every
-logged-in user can see and switch between all workspaces, there's no
-per-user restriction on which ones they can access.
+Sign Up pages. As of docs/DECISIONS.md 006, this is also where each user's
+workspace-account ownership (app/credentials.py / app/routes/accounts.py,
+Decision 003) is enforced from — see ensure_user_has_account() below.
 """
 
 import hashlib
@@ -17,7 +16,8 @@ from typing import Optional
 from fastapi import HTTPException, Request
 
 from app.config import APP_PASSWORD, APP_USERNAME
-from app.db import get_db
+from app.credentials import account_cred_dir
+from app.db import create_workspace_account, get_db
 
 SESSION_COOKIE_NAME = "mf_session"
 SESSION_LIFETIME_DAYS = 30
@@ -117,6 +117,28 @@ def set_session_cookie(response, request: Request, token: str):
     )
 
 
+def ensure_user_has_account(user_id: int, username: str) -> None:
+    """Safety net for per-user data isolation (docs/DECISIONS.md 006): a
+    logged-in user should always own at least one workspace account, or
+    the frontend's account switcher falls back to account_id=1 (see
+    frontend-src/app.js) which now 404s on every page for anyone who
+    doesn't own it — a fully broken app, not just a missing account.
+
+    This can happen to someone who isn't a brand-new signup: multi-user
+    login (Decision 004) was live for two days before per-user isolation
+    (Decision 006) shipped, so any second person who'd already signed up
+    in that window had the pre-existing shared account backfilled to only
+    the single earliest-created user, not to them — leaving them with
+    zero accounts. Checked on every authenticated request (not just
+    login/signup) so it also repairs anyone already mid-session, not only
+    people logging in fresh."""
+    with get_db() as conn:
+        if conn.execute("SELECT 1 FROM accounts WHERE user_id = ? LIMIT 1", (user_id,)).fetchone():
+            return
+    new_id = create_workspace_account(f"{username}'s account", user_id)
+    account_cred_dir(new_id)
+
+
 def require_login(request: Request) -> dict:
     """FastAPI dependency used across the API. Returns {"id", "username"} —
     previously returned just the username, but per-user data isolation
@@ -128,4 +150,5 @@ def require_login(request: Request) -> dict:
     user = get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME))
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
+    ensure_user_has_account(user["id"], user["username"])
     return {"id": user["id"], "username": user["username"]}

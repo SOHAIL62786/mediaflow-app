@@ -298,3 +298,59 @@ account's owner (would need direct DB access today, same gap as Decision
 first-created user's account is later deleted while orphaned accounts
 still reference it (edge case, not currently possible via the API since
 users can't be deleted at all yet).
+
+---
+
+## Decision 007
+
+Date: 2026-09-17
+
+Decision:
+Guarantee every logged-in user owns at least one workspace account at all
+times, checked on every authenticated request — not just at signup — as a
+follow-up fix to Decision 006 (per-user data isolation).
+
+Reason:
+Auditing commit `55f798d` (Decision 006) for bugs found a real gap: its
+`backfill_account_ownership()` migration assigns every pre-existing
+account to a single earliest-created user. Multi-user login (Decision
+004) had been live for two days before Decision 006 shipped, so if a
+second real person had already signed up in that window and was using
+the shared account, the migration would leave them owning zero accounts
+— and the frontend's account switcher falls back to `account_id=1` when
+its list is empty, which now belongs to someone else, so every page
+would 404 for them. Reproduced this exact scenario with a test (two
+pre-existing users, one shared account) before fixing it.
+
+Implementation:
+- `app/auth.py`: new `ensure_user_has_account(user_id, username)`,
+  creates a workspace account for the user if they don't already own one.
+  Called from `require_login` itself (runs on every authenticated
+  request), not only at login or signup, so it also repairs anyone
+  already mid-session on an existing cookie rather than requiring them to
+  log out and back in.
+- `POST /api/auth/signup` now calls this same helper instead of
+  duplicating the "create a starter account" logic inline.
+- Fixed a stale docstring in `app/auth.py` from before Decision 006 that
+  still described workspace accounts as shared with no per-user
+  restriction.
+
+Alternatives Considered:
+- Only checking at login (rejected — doesn't repair a session that's
+  already active on a stale cookie; someone locked out today would stay
+  locked out until their 30-day session happened to expire)
+- A one-off manual data-repair script instead of a standing safety check
+  (rejected — doesn't protect against the same zero-account state
+  recurring for some other reason later; a standing invariant is cheaper
+  than re-auditing for this specific failure mode every time)
+
+Status:
+Accepted. Important caveat, not fixable in code: if someone really was
+locked out by the Decision 006 migration, this gives them a working app
+again but with a **fresh, empty** account, not their old data back —
+there's no record of who was using the original shared account under the
+pre-isolation model, so their prior history can't be automatically
+recovered. Flagged to the project owner to check the `users` table for
+any account created between 2026-09-12 and 2026-09-14 that needs a
+closer look (manual recovery would need direct DB access — same
+admin-tooling gap noted in Decision 006).
