@@ -116,10 +116,6 @@
   .toggle{
     width:36px;height:20px;background:#33335c;border-radius:20px;position:relative;cursor:pointer;
   }
-  .toggle::after{
-    content:"";position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;
-    top:2px;left:2px;transition:transform .15s;
-  }
 
   .user-card{
     display:flex;align-items:center;gap:10px;

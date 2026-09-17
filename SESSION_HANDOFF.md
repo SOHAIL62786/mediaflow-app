@@ -4,10 +4,29 @@
 2026-09-17
 
 ## Current Task
-Asked to check the previous per-user-isolation commit (`55f798d`,
-2026-09-14, Decision 006) for bugs it may have caused, and fix them.
+Two things this session: (1) asked to check the previous
+per-user-isolation commit (`55f798d`, 2026-09-14, Decision 006) for bugs
+it may have caused, and fix them; (2) project owner then reported (with a
+screenshot) that toggle switches show two dots when on, asked whether
+that's correct.
 
-## Progress
+## Progress — toggle double-dot fix
+Completed, committed, and pushed to `main` (touches `static/**`, so
+triggers a live deploy). Every `.toggle` (dark-mode toggle, Upload page's
+"customize" toggle) was showing two overlapping white dots when on: a
+dead CSS `.toggle::after` pseudo-element was permanently pinned at the
+left/off position while a separate, real JS-created `<span class="dot">`
+(`frontend-src/app.js`'s `setDot()`) correctly slid right on "on" — so
+you'd see both at once. Predates the recent dark-mode work; not something
+that commit introduced. Fix: removed the dead CSS rule, since the JS dot
+already fully owns the toggle's visuals. Rebuilt `static/index.html` via
+`python3 build.py`, confirmed the removed rule isn't in the compiled
+output. **Could not visually verify in an actual browser — no browser
+tooling in this environment.** Worth a real check on the live VM. Full
+detail in CHANGELOG.md's "2026-09-17 (bug fix: toggle switches showing
+two dots when on)" entry.
+
+## Progress — per-user isolation bug audit
 Completed, tested, committed, and pushed to `main` (commit — see `git log`
 for the exact hash of "Fix: guarantee every user owns at least one
 workspace account"; this touches `app/**` so it triggers a live deploy
@@ -99,8 +118,9 @@ per-user isolation)" entry.
    2026-09-12 through 2026-09-14 who isn't you — see the High Priority
    TODO item and docs/DECISIONS.md 007's "Status" note for what to look
    for and why.
-2. Confirm this session's deploy succeeded (Actions tab), then verify on
-   the live VM that login still works normally for the existing user.
+2. Confirm this session's deploys succeeded (Actions tab), then verify on
+   the live VM that login still works normally for the existing user, and
+   that the dark-mode/customize toggles now show one dot, not two.
 3. Otherwise, next candidates from TODO.md: `SIGNUP_CODE` gate, admin UI
    for user/account management, or the scheduler-at-scale question.
 

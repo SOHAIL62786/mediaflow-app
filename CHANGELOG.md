@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-09-17 (bug fix: toggle switches showing two dots when on)
+
+### Fixed
+- Every `.toggle` switch (dark-mode toggle, the Upload page's "customize"
+  toggle) showed two overlapping white dots instead of one whenever it
+  was on. Reported by the project owner with a screenshot. Cause: two
+  separate things were drawing a dot — a CSS `.toggle::after`
+  pseudo-element permanently pinned at the left/off position, and a real
+  `<span class="dot">` element that `frontend-src/app.js`'s `setDot()`
+  creates and actually slides left/right on click. When off, both sat on
+  top of each other on the left and looked like one dot; when on, the JS
+  dot correctly moved right but the CSS pseudo-element was left behind on
+  the left. Predates the recent dark-mode work — not something that
+  commit introduced, just apparently not noticed until now.
+- Fix: removed the dead `.toggle::after` rule from `frontend-src/style.css`
+  (the JS-managed `span.dot` already owns 100% of the toggle's visuals —
+  position, color, and transition — so nothing else needed to change).
+  Rebuilt `static/index.html` via `python3 build.py` and confirmed the
+  removed rule doesn't appear in the compiled output.
+
+### Note
+Couldn't render/screenshot the fix in an actual browser from this
+environment (no browser tooling available here) — worth a quick visual
+check on the live VM after deploy, same caveat as the mobile-layout/
+dark-mode session's changes.
+
 ## 2026-09-17 (bug fix: users could be left with zero workspace accounts after per-user isolation)
 
 ### Fixed

@@ -72,6 +72,11 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Fixed toggle switches (dark-mode toggle, Upload page's customize
+      toggle) showing two overlapping dots when on — a dead CSS
+      `::after` pseudo-element was left drawing a static dot on top of
+      the real JS-managed one. Reported by project owner with a
+      screenshot (2026-09-17)
 - [x] Fixed a real bug in the 2026-09-14 per-user isolation change: any
       user who ended up owning zero accounts (possible for anyone who'd
       already signed up in the two-day window before isolation shipped)
