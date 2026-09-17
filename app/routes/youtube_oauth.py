@@ -74,7 +74,7 @@ def oauth2callback_youtube(request: Request):
     with open(token_path(account_id), "w") as f:
         json.dump(token_data, f, indent=2)
 
-    return RedirectResponse(f"/?page=platforms&account_id={account_id}")
+    return RedirectResponse("/platforms")
 
 
 @router.post("/api/disconnect/youtube")
