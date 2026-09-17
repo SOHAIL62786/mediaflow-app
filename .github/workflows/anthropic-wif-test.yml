@@ -3,7 +3,7 @@ name: anthropic-wif-test
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '15 11 * * *'   # 08:00 UTC daily — adjust if you want IST instead (08:00 IST = 02:30 UTC)
+    - cron: '20 11 * * *'   # 08:00 UTC daily — adjust if you want IST instead (08:00 IST = 02:30 UTC)
 
 permissions:
   id-token: write
