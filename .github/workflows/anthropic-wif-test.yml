@@ -30,6 +30,8 @@ jobs:
             Reply with exactly:
 
             CLAUDE_WIF_SUCCESS
+          
+          show_full_output: true
 
           anthropic_federation_rule_id: fdrl_016bp96oSQnAsdMkerbVZaDu
           anthropic_organization_id: 02f4c357-08f0-4472-b078-9aa4232e6650
