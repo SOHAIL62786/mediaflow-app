@@ -4,11 +4,28 @@
 2026-09-17
 
 ## Current Task
-Two things this session: (1) asked to check the previous
+Three things this session: (1) asked to check the previous
 per-user-isolation commit (`55f798d`, 2026-09-14, Decision 006) for bugs
 it may have caused, and fix them; (2) project owner then reported (with a
 screenshot) that toggle switches show two dots when on, asked whether
-that's correct.
+that's correct; (3) project owner asked to switch page URLs from
+`?page=xxx` to real paths like `/dashboard`.
+
+## Progress — path-based page URLs
+Completed, tested, committed, and pushed to `main` (touches `server.py`
+and `static/**`, triggers a live deploy). `frontend-src/app.js` now sets
+the address bar to `/dashboard`, `/accounts`, etc. instead of
+`/?page=dashboard`; old `?page=xxx` links still work once and get
+normalized to the new form. `server.py` gained one real route per known
+page (all serving the same `index.html`, same login gate as `/`) since a
+hard refresh/bookmark/shared link on any page besides `/` would otherwise
+404 — the SPA's routing only runs client-side after the page has already
+loaded. Full detail, alternatives considered, and exactly what was/wasn't
+verified are in docs/DECISIONS.md 008 and CHANGELOG.md's matching entry.
+**Important**: `_SPA_PAGES` in `server.py` and `PAGE_TITLES` in
+`frontend-src/app.js` must be kept in sync — if a future session adds a
+new page, both need the new key or the new page's direct URL will 404 on
+refresh even though clicking to it in-app still works.
 
 ## Progress — toggle double-dot fix
 Completed, committed, and pushed to `main` (touches `static/**`, so

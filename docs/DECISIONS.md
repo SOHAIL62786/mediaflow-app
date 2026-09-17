@@ -354,3 +354,58 @@ recovered. Flagged to the project owner to check the `users` table for
 any account created between 2026-09-12 and 2026-09-14 that needs a
 closer look (manual recovery would need direct DB access — same
 admin-tooling gap noted in Decision 006).
+
+---
+
+## Decision 008
+
+Date: 2026-09-17
+
+Decision:
+Switch the single-page app's client-side routing from a query string
+(`/?page=dashboard`) to real paths (`/dashboard`, `/accounts`, ...).
+
+Reason:
+Requested by the project owner — shareable/bookmarked links looked
+awkward as `?page=xxx` and cleaner as `/xxx`.
+
+Implementation:
+- `frontend-src/app.js`: `showPage()` and `goToNeedsAttention()` now call
+  `history.replaceState(null, '', '/' + name)` instead of `'?page=' +
+  name`. On initial load, `initialPageFromLocation()` reads
+  `location.pathname` first; if it's not a recognized page it falls back
+  to the old `?page=` query param once (so existing bookmarks/shared
+  links don't just break) and immediately normalizes the URL to the new
+  path form; if neither is present/recognized, defaults to `dashboard`.
+- `server.py`: this is still one single-page app (one `index.html`,
+  `build.py`) — the browser's URL changing doesn't by itself make
+  `/accounts` a real server route, so a hard refresh, bookmark, or shared
+  link on anything but `/` would 404 without a matching route. Added an
+  explicit `_SPA_PAGES` list (must be kept in sync with
+  `frontend-src/app.js`'s `PAGE_TITLES` keys) and registered each one via
+  `app.add_api_route`, all serving the same `index.html` through the same
+  login-gated `_serve_spa()` used by `/` — the client-side JS figures out
+  which page to actually show once it loads. Deliberately did *not* add a
+  catch-all for arbitrary unknown paths — those still correctly 404.
+
+Alternatives Considered:
+- A single generic `/{page_name}` path-parameter route instead of one
+  explicit route per known page (rejected — would either need its own
+  validation logic to reject unknown page names and 404 properly, or
+  silently serve the SPA for any typo'd URL; an explicit list is simpler
+  and keeps unknown-path 404s working exactly as before)
+- `history.pushState` instead of `replaceState` (kept `replaceState`,
+  unchanged from before this decision — this was only about the URL's
+  *shape*, not about adding browser back/forward support for in-app
+  navigation, which wasn't asked for and is a separate, bigger change to
+  how the SPA tracks state)
+
+Status:
+Accepted. Verified: every `_SPA_PAGES` path returns the app for a
+logged-in user and redirects to `/login` for a logged-out one (matching
+`/`'s existing behavior); an unrelated/unknown path still 404s; existing
+`/api/*` routes are unaffected (no shadowing); the JS's page-detection
+logic was unit-tested directly (path-based, legacy query-based, bare `/`,
+and garbage-path cases). Not verified: actual browser back/forward button
+behavior and a real visual check on the live VM — no browser tooling in
+this environment, same caveat as recent frontend-only sessions.

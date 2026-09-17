@@ -1366,8 +1366,7 @@
     document.querySelectorAll('#navList li').forEach(li => li.classList.toggle('active', li.dataset.page === name));
     document.getElementById('pageTitle').textContent = PAGE_TITLES[name];
     document.title = 'MediaFlow - ' + PAGE_TITLES[name];
-    history.replaceState(null, '', '?page=' + name);
-
+    history.replaceState(null, '', '/' + name);
     if(name === 'dashboard') loadDashboard();
     if(name === 'accounts') renderAcctMgmtPage();
     if(name === 'platforms') loadPlatformsPage();
@@ -1393,7 +1392,7 @@
     document.querySelectorAll('#navList li').forEach(li => li.classList.toggle('active', li.dataset.page === 'published'));
     document.getElementById('pageTitle').textContent = 'Needs Attention';
     document.title = 'MediaFlow - Needs Attention';
-    history.replaceState(null, '', '?page=published');
+    history.replaceState(null, '', '/published');
     loadLibrary('failed');
     closeMobileSidebar();
   }
@@ -2475,7 +2474,22 @@
   loadCurrentUser();
 
   // ================= Initial route =================
-  const initialPage = new URLSearchParams(location.search).get('page') || 'dashboard';
+  // Path-based URLs (e.g. /dashboard) are now canonical (see
+  // docs/DECISIONS.md) — server.py serves this same index.html at each
+  // known page path. Old ?page=xxx bookmarks/links still work once: read
+  // the query string as a fallback and normalize the URL to the new path
+  // form so it doesn't keep showing the old style.
+  function initialPageFromLocation(){
+    const pathPage = location.pathname.replace(/^\/+|\/+$/g, '');
+    if (pathPage && PAGE_TITLES[pathPage]) return pathPage;
+    const legacyPage = new URLSearchParams(location.search).get('page');
+    if (legacyPage && PAGE_TITLES[legacyPage]) {
+      history.replaceState(null, '', '/' + legacyPage);
+      return legacyPage;
+    }
+    return 'dashboard';
+  }
+  const initialPage = initialPageFromLocation();
   showPage(initialPage);
 </script>
 

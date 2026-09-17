@@ -76,11 +76,33 @@ async def _start_scheduler():
 
 # ---------- Static frontend ----------
 
-@app.get("/")
-def index(request: Request):
+# The frontend is one single-page app (see build.py) whose JS shows/hides
+# a <div class="page"> per section and, since the URL-scheme change (see
+# docs/DECISIONS.md), keeps the browser's address bar on a matching path
+# like /dashboard or /accounts instead of a ?page= query string. Every one
+# of those paths needs its own real server route serving the exact same
+# index.html, or a hard refresh / bookmark / shared link on any page other
+# than "/" would 404 — the SPA's client-side routing only kicks in once
+# index.html has already loaded and run.
+_SPA_PAGES = [
+    "dashboard", "accounts", "platforms", "upload",
+    "scheduled", "published", "analytics", "settings", "help",
+]
+
+
+def _serve_spa(request: Request):
     if not get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME)):
         return RedirectResponse("/login")
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/")
+def index(request: Request):
+    return _serve_spa(request)
+
+
+for _page in _SPA_PAGES:
+    app.add_api_route(f"/{_page}", _serve_spa, methods=["GET"])
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

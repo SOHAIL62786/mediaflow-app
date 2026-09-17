@@ -72,6 +72,11 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Switched page URLs from `?page=xxx` query strings to real paths
+      (`/dashboard`, `/accounts`, etc.) — each now a real server route so
+      a hard refresh/bookmark/shared link works; old `?page=xxx` links
+      still work once and self-normalize. See docs/DECISIONS.md 008
+      (2026-09-17)
 - [x] Fixed toggle switches (dark-mode toggle, Upload page's customize
       toggle) showing two overlapping dots when on — a dead CSS
       `::after` pseudo-element was left drawing a static dot on top of

@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-09-17 (feature: path-based page URLs instead of ?page= query string)
+
+### Added
+- `server.py`: `/dashboard`, `/accounts`, `/platforms`, `/upload`,
+  `/scheduled`, `/published`, `/analytics`, `/settings`, and `/help` are
+  now real routes, each serving the same login-gated `index.html` as `/`
+  always has. Needed because the SPA's client-side routing only runs
+  after `index.html` has loaded — without a matching server route, a
+  hard refresh, bookmark, or shared link on any page but `/` would 404.
+
+### Changed
+- `frontend-src/app.js`: the address bar now shows `/dashboard`,
+  `/accounts`, etc. instead of `/?page=dashboard`, `/?page=accounts`.
+  Old `?page=xxx` links still work once and get normalized to the new
+  `/xxx` form automatically. See docs/DECISIONS.md 008 for full detail.
+
+### Verified
+- Every new page path returns 200 for a logged-in user and a 307 to
+  `/login` for a logged-out one; an unrelated/unknown path still 404s;
+  existing `/api/*` routes unaffected. Unit-tested the JS's
+  page-detection logic directly (path-based, legacy-query fallback, bare
+  `/`, and garbage-path cases) via Node. `pyflakes` clean.
+- Not verified: real browser back/forward behavior, or a visual check on
+  the live VM — no browser tooling in this environment.
+
 ## 2026-09-17 (bug fix: toggle switches showing two dots when on)
 
 ### Fixed
