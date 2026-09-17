@@ -386,6 +386,14 @@
   .dash-platform-tile:hover{box-shadow:0 6px 18px rgba(20,20,50,.08);border-color:var(--indigo);}
   .dash-platform-count{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--text-light);white-space:nowrap;}
   .dash-platform-tile.connected .dash-platform-count{color:var(--text-mid);}
+  .count-skeleton{
+    display:inline-block;width:54px;height:11px;border-radius:4px;vertical-align:middle;
+    background:linear-gradient(90deg,var(--hover-bg) 25%,var(--border) 50%,var(--hover-bg) 75%);
+    background-size:200% 100%;
+    animation:count-skeleton-shimmer 1.3s ease-in-out infinite;
+  }
+  @keyframes count-skeleton-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  @media (prefers-reduced-motion:reduce){.count-skeleton{animation:none;}}
   .dash-platform-tile .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-light);margin-left:8px;flex-shrink:0;}
   .dash-platform-tile.connected .status-dot{background:var(--green);}
   .dash-platform-tile:not(.connected){color:var(--text-mid);}

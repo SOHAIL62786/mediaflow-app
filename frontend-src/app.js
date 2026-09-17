@@ -630,7 +630,12 @@
         }
       });
     }catch(err){
-      // leave tiles in their default (disconnected-looking) state
+      // Fetch failed — stop the skeletons from shimmering forever; leave
+      // tiles in their default (disconnected-looking) state otherwise.
+      ['youtube','facebook','instagram'].forEach(p=>{
+        const countEl = document.getElementById(`dashPlatformCount-${p}`);
+        if(countEl) countEl.textContent = '';
+      });
     }
   }
 
