@@ -409,3 +409,66 @@ logic was unit-tested directly (path-based, legacy query-based, bare `/`,
 and garbage-path cases). Not verified: actual browser back/forward button
 behavior and a real visual check on the live VM — no browser tooling in
 this environment, same caveat as recent frontend-only sessions.
+
+---
+
+## Decision 009
+
+Date: 2026-09-18
+
+Decision:
+Add an optional `SIGNUP_CODE` env var that gates `/api/auth/signup`
+behind a shared invite code. Unset (the default) keeps signup exactly as
+open as it's always been — this is additive, not a change to current
+behavior unless the project owner opts in.
+
+Reason:
+Flagged in TODO.md since Decision 006: signup is fully open by design,
+with this as the pre-agreed escape hatch if it ever turns out to be too
+permissive. Picked as the next actionable High Priority item (the other
+open items either need a human to check production data or a product
+decision from the owner first).
+
+Implementation:
+- `app/config.py`: `SIGNUP_CODE = os.environ.get("SIGNUP_CODE", "")`.
+- `app/routes/auth_pages.py`: `POST /api/auth/signup` takes an optional
+  `signup_code` form field; if `SIGNUP_CODE` is set, compares it with
+  `secrets.compare_digest` (constant-time, same care as password
+  verification elsewhere in this file) and 403s on mismatch *before*
+  touching the DB — a rejected attempt never creates a user row, so a
+  wrong code can't be used to enumerate/reserve usernames. New public
+  `GET /api/auth/signup-config` returns only `{"require_code": bool}` —
+  never the code itself — so the signup page can decide whether to show
+  the field without needing to guess or hardcode it.
+- `static/signup.html`: the invite-code field is hidden by default and
+  only shown (and marked required) if `signup-config` says it's needed —
+  most installs will never see it. If that fetch fails for any reason,
+  the field stays hidden but the server-side check still runs, so
+  nothing is bypassed either way.
+- Also fixed a stale claim on the signup page while in this file: the
+  brand-panel note still said "everyone who signs up shares the same
+  MediaFlow dashboard and connected accounts," which stopped being true
+  once per-user isolation shipped (Decision 006) — actively misleading a
+  new signup about how their data is scoped. Replaced with an accurate
+  line about each account being private.
+
+Alternatives Considered:
+- Always showing the invite-code field, letting the backend silently
+  ignore it when unset (rejected — permanently adds visible friction/
+  confusion to the common case, which is staying fully open, just to
+  avoid one small `GET` request)
+- A single shared password for all new signups baked into a build step
+  instead of an env var (rejected — env var is consistent with how
+  `APP_USERNAME`/`APP_PASSWORD` and `PUBLIC_BASE_URL` are already
+  configured for this project, no new configuration mechanism needed)
+
+Status:
+Accepted, but not yet turned on for the live install — `SIGNUP_CODE` is
+unset by default, so nothing changes unless/until the project owner sets
+it. Verified: gate off behaves identically to before (any or no code
+accepted); gate on rejects a missing or wrong code with 403 and creates
+no user row either way, accepts the correct code, and the resulting user
+is fully functional (owns an account, etc.); `signup-config` reports the
+right state in both cases. `pyflakes` clean. Not verified: the
+conditional show/hide of the field in an actual browser — no browser
+tooling in this environment.

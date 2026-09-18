@@ -1,7 +1,95 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-17
+2026-09-18
+
+## Current Task
+Asked to check TODO.md and work on a feature. Picked the next actionable
+High Priority item (`SIGNUP_CODE` invite-gate) — the other open items
+either need a human to check production data, or a product decision from
+the project owner first (admin UI scope, scheduler scaling, TikTok).
+
+## Progress
+Completed, tested, committed, and pushed to `main` (touches `app/**` and
+`static/signup.html`, triggers a live deploy):
+
+- Built the optional `SIGNUP_CODE` env var gate for `POST
+  /api/auth/signup` (unset by default — nothing changes for the live
+  install unless the project owner sets it). New public `GET
+  /api/auth/signup-config` lets the signup page know whether to show the
+  invite-code field, without exposing the code itself. A rejected
+  attempt (missing/wrong code) 403s before touching the DB, so it can't
+  be used to reserve a username.
+- While in `static/signup.html`, noticed and fixed a stale, actively
+  misleading claim left over from before per-user isolation shipped: the
+  brand-panel note still said "everyone who signs up shares the same
+  MediaFlow dashboard and connected accounts." Replaced with an accurate
+  line.
+- Reconciliation: found two commits already on `main`
+  (`6f58833`, `7d53e80`) from a different session that were pushed
+  without CHANGELOG/TODO/SESSION_HANDOFF updates at the time. Backfilled
+  CHANGELOG.md entries for them and fixed a TODO.md item that was still
+  listed as open even though `6f58833` had already fixed it (the YouTube
+  OAuth callback's stale `account_id` param).
+- Also noted, separately from my own work: the project owner made a
+  batch of unrelated commits directly (GitHub Actions/cron-schedule
+  experiments, `anthropic-wif-test.yml`) — not a security concern, just
+  flagging that not everything in `git log` is session work.
+
+Full detail and alternatives considered: docs/DECISIONS.md 009.
+CHANGELOG.md's "2026-09-18 (feature: optional SIGNUP_CODE invite-gate for
+signup)" entry has the verification list.
+
+## Not Completed / noticed but NOT fixed
+- **The `users`-table check from the previous session is still not
+  done** — still requires a human looking at the real production
+  database (see TODO.md High Priority, unchanged).
+- The other three High Priority TODO items (admin UI, scheduler scaling,
+  TikTok) are product/scope decisions for the project owner, not picked
+  up this session.
+- Didn't verify the invite-code field's show/hide behavior in an actual
+  browser — no browser tooling in this environment.
+- Everything else in TODO.md is unchanged and still open.
+
+## Important Information (carried forward, still true)
+- `credentials/` is gitignored and will NOT be present when a new session
+  clones this repo. Each new session/machine needs credentials supplied
+  separately (not via git) — see docs/PROJECT_CONTEXT.md.
+- **Login is real multi-user accounts** (Decision 004), **workspace
+  accounts are per-user** (Decision 006) with a self-healing guarantee
+  every authenticated user owns ≥1 account (Decision 007), and **page
+  URLs are path-based** (`/dashboard`, not `?page=dashboard`, Decision
+  008). Signup can now optionally be gated behind an invite code via
+  `SIGNUP_CODE` (Decision 009), but isn't by default.
+- Pushing to `main` with changes touching `server.py`, `static/**`, `app/**`,
+  or `requirements.txt` auto-deploys to the live VM — see
+  `.github/workflows/deploy.yml`.
+- A live GitHub fine-grained PAT is stored in plaintext in `gittoken.md`
+  and has been flagged as exposed across multiple prior sessions — still
+  not rotated.
+
+## Next Step
+1. **Project owner: check the real `users` table** for anyone created
+   2026-09-12 through 2026-09-14 who isn't you — see the High Priority
+   TODO item and docs/DECISIONS.md 007's "Status" note for what to look
+   for and why. Still the top open item.
+2. Confirm this session's deploy succeeded (Actions tab), then verify on
+   the live VM that signup still works normally (gate is off by default,
+   so should look unchanged unless `SIGNUP_CODE` is set).
+3. Otherwise, next candidates from TODO.md: admin UI for user/account
+   management, or the scheduler-at-scale/TikTok decisions.
+
+## Security Note
+Unchanged from prior sessions: the GitHub PAT in `gittoken.md` is still
+plaintext and still not rotated. Not touched this session — flagged again
+for whoever picks this up next.
+
+## Known Issues
+See "Not Completed / noticed but NOT fixed" above.
+
+---
+
+# Previous Session (2026-09-17, isolation bug-audit + toggle fix + URL routing)
 
 ## Current Task
 Three things this session: (1) asked to check the previous

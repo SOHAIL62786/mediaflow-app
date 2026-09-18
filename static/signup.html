@@ -106,7 +106,7 @@
     <div class="brand-copy">
       <h1>Create your account.</h1>
       <p>One dashboard for scheduling and publishing video across YouTube, Facebook, and Instagram.</p>
-      <div class="brand-note">Everyone who signs up shares the same MediaFlow dashboard and connected accounts — this just gives you your own login.</div>
+      <div class="brand-note">Your own private workspace — connected platforms, scheduled posts, and analytics are yours alone, not shared with other users.</div>
     </div>
     <div class="brand-foot">Self-hosted &amp; under your control.</div>
   </div>
@@ -119,6 +119,10 @@
       <div class="error-banner" id="errorBanner"></div>
 
       <form id="signupForm">
+        <div class="field" id="codeField" style="display:none;">
+          <label for="signupCode">Invite code</label>
+          <input type="text" id="signupCode" name="signup_code" autocomplete="off">
+        </div>
         <div class="field">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" autocomplete="username" minlength="3" maxlength="32" required autofocus>
@@ -146,6 +150,24 @@
   const passwordEl = document.getElementById('password');
   const confirmEl = document.getElementById('confirmPassword');
   const matchHint = document.getElementById('matchHint');
+  const codeField = document.getElementById('codeField');
+  const codeInput = document.getElementById('signupCode');
+
+  // Sign-up is open by default; the project owner can gate it behind a
+  // shared invite code via the SIGNUP_CODE env var (docs/DECISIONS.md
+  // 009). Ask the server whether that's on right now, rather than always
+  // showing the field — most installs will never need it.
+  fetch('/api/auth/signup-config')
+    .then(res => res.json())
+    .then(cfg => {
+      if (cfg && cfg.require_code) {
+        codeField.style.display = '';
+        codeInput.setAttribute('required', '');
+      }
+    })
+    .catch(() => { /* if this fails, leave the field hidden — signup itself
+                       will still correctly reject a missing code if one
+                       turns out to be required */ });
 
   function showError(msg){
     errorBanner.textContent = msg;
@@ -183,6 +205,7 @@
       const body = new URLSearchParams();
       body.set('username', fd.get('username'));
       body.set('password', fd.get('password'));
+      body.set('signup_code', fd.get('signup_code') || '');
       const res = await fetch('/api/auth/signup', { method: 'POST', body });
       const data = await res.json().catch(() => ({}));
       if(!res.ok){

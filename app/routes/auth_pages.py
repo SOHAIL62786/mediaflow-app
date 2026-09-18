@@ -2,6 +2,7 @@
 Login/signup pages and the auth API (see docs/DECISIONS.md 004).
 """
 
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -18,7 +19,7 @@ from app.auth import (
     set_session_cookie,
     verify_password,
 )
-from app.config import STATIC_DIR
+from app.config import SIGNUP_CODE, STATIC_DIR
 from app.db import get_db
 
 router = APIRouter()
@@ -40,8 +41,28 @@ def signup_page(request: Request):
     return FileResponse(STATIC_DIR / "signup.html")
 
 
+@router.get("/api/auth/signup-config")
+def api_signup_config():
+    # Public (no login) — the signup page itself needs this before anyone
+    # has an account. Only says WHETHER a code is required, never the code
+    # itself (docs/DECISIONS.md 009).
+    return {"require_code": bool(SIGNUP_CODE)}
+
+
 @router.post("/api/auth/signup")
-def api_signup(request: Request, username: str = Form(...), password: str = Form(...)):
+def api_signup(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    signup_code: str = Form(""),
+):
+    # Sign-up is fully open by default (project owner's explicit choice).
+    # SIGNUP_CODE, if set, gates it behind a shared invite code — see
+    # docs/DECISIONS.md 009. Checked before touching the DB so a wrong
+    # code never even gets to the username-taken/validation checks below.
+    if SIGNUP_CODE and not secrets.compare_digest(signup_code, SIGNUP_CODE):
+        raise HTTPException(status_code=403, detail="Invalid or missing invite code.")
+
     username = username.strip()
     if len(username) < 3 or len(username) > 32:
         raise HTTPException(status_code=400, detail="Username must be 3-32 characters.")

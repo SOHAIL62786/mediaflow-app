@@ -45,6 +45,13 @@ YOUTUBE_SCOPES = [
 APP_USERNAME = os.environ.get("APP_USERNAME", "")
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
+# ---------- Optional signup invite-code gate ----------
+# Sign-up is fully open by default (project owner's explicit choice — see
+# docs/DECISIONS.md). Setting this env var requires anyone signing up to
+# enter a matching code; leaving it unset (the default) keeps signup open
+# exactly as before. See docs/DECISIONS.md 009.
+SIGNUP_CODE = os.environ.get("SIGNUP_CODE", "")
+
 # ---------- Public base URL (needed by the background scheduler) ----------
 # Interactive requests can build a public URL from the incoming request
 # itself (request.base_url) — but the background scheduler that publishes

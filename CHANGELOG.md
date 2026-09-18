@@ -1,5 +1,74 @@
 # Changelog
 
+## 2026-09-18 (feature: optional SIGNUP_CODE invite-gate for signup)
+
+### Added
+- Optional `SIGNUP_CODE` env var (`app/config.py`). Unset by default —
+  signup stays exactly as open as it's always been. If set, `POST
+  /api/auth/signup` requires a matching `signup_code` field (checked with
+  `secrets.compare_digest`, before any DB write, so a wrong attempt
+  doesn't create a user row or let someone reserve a username).
+- New public `GET /api/auth/signup-config` → `{"require_code": bool}`, so
+  the signup page can decide whether to show the invite-code field
+  without hardcoding or guessing the server's configuration. Never
+  exposes the code itself.
+- `static/signup.html`: invite-code field, hidden by default, shown (and
+  marked required) only when `signup-config` says it's needed.
+
+### Fixed
+- The signup page's brand-panel note still said "everyone who signs up
+  shares the same MediaFlow dashboard and connected accounts" — true
+  before Decision 006, false and actively misleading since per-user
+  isolation shipped. Replaced with an accurate line about each account
+  being private.
+
+### Verified
+- Gate off: identical behavior to before, any/no code accepted.
+- Gate on: missing or wrong code → 403, no user row created either way;
+  correct code → 200, resulting user is fully functional (owns their own
+  account, etc.). `signup-config` reports the right state in both modes.
+- Re-ran the full isolation + path-routing regression suite — still
+  passing. `pyflakes` clean.
+- Not verified: the field's show/hide behavior in an actual browser — no
+  browser tooling in this environment.
+
+Full design detail and alternatives considered: docs/DECISIONS.md 009.
+
+## 2026-09-17 (reconciliation note)
+
+The two entries below (`6f58833`, `7d53e80`) were pushed directly by a
+different session without CHANGELOG/TODO/SESSION_HANDOFF updates at the
+time — added retroactively here for the record, since TODO.md still
+listed one of them as unfixed.
+
+## 2026-09-17 (bug fix: dark-mode + stale OAuth redirect, from audit)
+
+### Fixed
+- `.manage-btn` (Accounts page "Add account", Upload page "Manage
+  Platforms") was still hardcoded to `background:#fff`, missed in the
+  earlier dark-mode conversion pass — now uses `var(--card-bg)`/
+  `var(--hover-bg)`.
+- YouTube OAuth callback redirected to the old
+  `/?page=platforms&account_id=X` scheme instead of the new `/platforms`
+  path from the routing change (Decision 008). The `account_id` query
+  param was already dead — the frontend reads the active account from
+  `localStorage`, not the URL — so it was simply dropped rather than
+  ported forward.
+
+## 2026-09-17 (feature: loading skeleton for dashboard platform counts)
+
+### Added
+- The dashboard's platform subscriber/follower count spans (e.g. "144
+  subscribers") stayed blank with no indication anything was loading
+  while `/api/status` was in flight — reported via screenshot. Added a
+  shimmering skeleton placeholder shown until the real count (or the
+  empty/disconnected state) replaces it.
+
+### Fixed
+- The fetch-failure path previously left that skeleton shimmering
+  forever if the request errored — now resolves to an error/empty state
+  instead.
+
 ## 2026-09-17 (feature: path-based page URLs instead of ?page= query string)
 
 ### Added

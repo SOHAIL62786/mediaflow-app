@@ -11,10 +11,10 @@
       empty account, not their old data back. Needs a human to check —
       not resolvable by looking at the code.
 - [ ] Sign-up is fully open to anyone who reaches the URL (project
-      owner's explicit choice) — if that turns out to be too permissive,
-      add an optional `SIGNUP_CODE` env var gate: if set, require a
-      matching invite code on the signup form; if unset, stays fully
-      open as it is now. Not built since it wasn't requested.
+      owner's explicit choice). An optional `SIGNUP_CODE` env var gate is
+      now built and ready if that ever turns out to be too permissive —
+      unset by default (nothing changes unless you opt in). See
+      docs/DECISIONS.md 009 for how to turn it on.
 - [ ] No admin UI yet to list/remove users, force a password reset, or
       manually reassign a workspace account's owner — currently needs
       direct DB access (`users`/`sessions`/`accounts` tables). Consider a
@@ -41,10 +41,6 @@
       they'll look slightly washed out on a dark card. Low visual impact,
       not fixed yet.
 - [ ] Consider a "dry run" / preview mode before a scheduled post fires
-- [ ] `account_id` in the YouTube OAuth callback's redirect URL is never
-      actually read by the frontend (only `page` is) — works today only
-      because localStorage already holds the right account before the
-      redirect; make this explicit/robust instead of relying on that
 - [ ] Notifications drawer is populated from the dashboard-summary fetch
       only (failed uploads + recent activity) — there's no dedicated
       notifications endpoint/read-state, so it always shows the same
@@ -72,6 +68,25 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Built the optional `SIGNUP_CODE` invite-gate for signup (env var,
+      unset by default so nothing changes unless the project owner opts
+      in) — see docs/DECISIONS.md 009. Also fixed a stale claim on the
+      signup page ("everyone shares the same dashboard") left over from
+      before per-user isolation shipped (2026-09-18)
+- [x] Fixed two bugs found in an audit (undocumented at the time by the
+      session that made them — reconciled here): `.manage-btn` (Accounts
+      "Add account", Upload "Manage Platforms") was still hardcoded white
+      in dark mode, missed in the earlier dark-mode pass; and the YouTube
+      OAuth callback redirected to the old `/?page=platforms&account_id=X`
+      scheme instead of the new `/platforms` path — the `account_id` param
+      was already dead (frontend reads the active account from
+      `localStorage`, not the URL) so it was simply dropped. Commit
+      `6f58833` (2026-09-17)
+- [x] Added a loading skeleton for the dashboard's platform
+      subscriber/follower counts, which previously stayed blank with no
+      indication anything was loading; also fixed the fetch-failure path,
+      which left the skeleton shimmering forever on error. Commit
+      `7d53e80` (2026-09-17)
 - [x] Switched page URLs from `?page=xxx` query strings to real paths
       (`/dashboard`, `/accounts`, etc.) — each now a real server route so
       a hard refresh/bookmark/shared link works; old `?page=xxx` links
