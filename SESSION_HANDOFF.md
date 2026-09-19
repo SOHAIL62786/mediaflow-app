@@ -1,7 +1,93 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-18
+2026-09-19
+
+## Current Task
+Small, targeted ask from a screenshot: the Analytics page just shows
+plain "Loading…" text with no visual indicator while data fetches — add
+a progress bar.
+
+## Progress
+Completed, tested, committed, and pushed to `main` (touches
+`frontend-src/**` + the generated `static/index.html`, triggers a live
+deploy):
+- Added an indeterminate, animated progress bar
+  (`.analytics-progress-track` / `.analytics-progress-fill`,
+  `frontend-src/style.css`) shown above the existing "Loading…" text in
+  `#analyticsBody` while `loadAnalytics()` (`frontend-src/app.js`) is
+  fetching.
+- Indeterminate rather than a real percentage: it's a single `fetch()`
+  call with no meaningful step-by-step progress to report, so a sweeping
+  bar (visually consistent with the existing `.mini-spinner` used in the
+  video modal, just bar-shaped instead of a spinner) is accurate; a fake
+  percentage would not be.
+- Ran `python3 build.py` after the `frontend-src/` edit, per
+  docs/PROJECT_CONTEXT.md's file-architecture rule. Verified: JS syntax
+  (`node --check` on the extracted `<script>` block — note `static/
+  index.html` now has *two* `<script>` blocks, so a non-greedy regex
+  matching all of them and taking the last one is required, not a single
+  greedy match across both), Python syntax on `server.py` and every
+  `app/**/*.py` file, and confirmed the new CSS/markup actually landed in
+  the built `static/index.html` before committing. GitHub Actions "Deploy
+  to VM" confirmed successful for this commit.
+
+Currently Working On:
+- Nothing else this session — this was a single small, self-contained ask.
+
+Not Completed:
+- Only the main Analytics-page load got the progress bar, matching
+  exactly what was asked (and shown in the screenshot). There are a few
+  other "Loading…" spots in the same page (the video-list panel inside
+  analytics, the video detail modal) that still show plain text only —
+  worth doing for consistency if wanted, not done here since it wasn't
+  what was asked.
+- Everything listed as open in prior sessions' handoffs (see "Previous
+  Session" blocks below) is unchanged: the `users`-table production
+  check, scheduler-at-scale, TikTok decision, GitHub PAT rotation, etc.
+
+## Important Information (carried forward, still true)
+- `credentials/` is gitignored and will NOT be present when a new session
+  clones this repo. Each new session/machine needs credentials supplied
+  separately (not via git) — see docs/PROJECT_CONTEXT.md.
+- Frontend is edited under `frontend-src/` (`layout.html`, `style.css`,
+  `app.js`, `pages/*.html`), then built into `static/index.html` via
+  `python3 build.py` — never edit the generated file directly (per
+  CLAUDE_INSTRUCTIONS.md / docs/DECISIONS.md 005). `static/login.html`
+  and `static/signup.html` are standalone, edited directly.
+- **Login is real multi-user accounts** (Decision 004), **workspace
+  accounts are per-user** (Decision 006) with a self-healing guarantee
+  every authenticated user owns ≥1 account (Decision 007), and **page
+  URLs are path-based** (Decision 008). Signup can optionally be gated
+  behind an invite code via `SIGNUP_CODE` (Decision 009). **An admin
+  role and panel are live** (Decision 010) — the earliest-created user
+  is admin by default; see Settings for the panel.
+- Pushing to `main` with changes touching `server.py`, `static/**`,
+  `app/**`, or `requirements.txt` auto-deploys to the live VM — see
+  `.github/workflows/deploy.yml`.
+- A live GitHub fine-grained PAT is stored in plaintext in `gittoken.md`
+  and has been flagged as exposed across multiple prior sessions — still
+  not rotated.
+
+## Next Step
+Nothing this task specifically requires next. From TODO.md, the
+longest-standing open items are still: checking the real `users` table
+for anyone created 2026-09-12 through 2026-09-14 who isn't the project
+owner (Decision 007's Status note — now a two-click fix via the admin
+panel once found), and the scheduler-at-scale / TikTok product
+decisions.
+
+## Security Note
+Unchanged from prior sessions: the GitHub PAT in `gittoken.md` is still
+plaintext and still not rotated. Not touched this session — flagged
+again for whoever picks this up next.
+
+## Known Issues
+See "Not Completed" above.
+
+---
+
+# Previous Session (2026-09-18, SIGNUP_CODE invite-gate + admin panel)
 
 ## Current Task
 Asked to check TODO.md and work on a feature. Picked the next actionable

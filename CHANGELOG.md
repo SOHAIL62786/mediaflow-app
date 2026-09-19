@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-19 (small feature: Analytics loading progress bar)
+
+### Added
+- `frontend-src/style.css` / `frontend-src/app.js` — while the Analytics
+  page's data is fetching, `#analyticsBody` now shows a slim animated
+  progress bar (`.analytics-progress-track` / `.analytics-progress-fill`,
+  `@keyframes mf-analytics-progress`) above the existing "Loading…" text,
+  instead of the text alone.
+
+Indeterminate, not a real percentage: there's a single `fetch()` call
+behind this with no meaningful multi-step progress to surface, so an
+animated sweeping bar (same idea as the existing `.mini-spinner`, just
+styled as a bar) is what's actually accurate here, not a fake percentage.
+
+Reason:
+Directly requested, from a screenshot of the Analytics page stuck on
+plain "Loading…" text with no visual indicator.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-18 (feature: admin panel)
 
 ### Added
