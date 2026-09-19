@@ -515,6 +515,22 @@
   .retention-chart-wrap svg{width:100%;height:150px;display:block;}
   .retention-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-mid);margin-top:4px;}
 
+  /* Analytics loading progress bar — indeterminate, since a single
+     fetch has no real byte-level progress to report */
+  .analytics-progress-track{
+    height:4px;border-radius:2px;overflow:hidden;
+    background:#e3e5ee;margin-bottom:16px;
+  }
+  .analytics-progress-fill{
+    height:100%;width:40%;border-radius:2px;
+    background:var(--indigo);
+    animation:mf-analytics-progress 1.1s ease-in-out infinite;
+  }
+  @keyframes mf-analytics-progress{
+    0%{transform:translateX(-100%);}
+    100%{transform:translateX(350%);}
+  }
+
   @media (max-width:1080px){
     .content{grid-template-columns:1fr;}
     .platform-grid{grid-template-columns:repeat(2,1fr);}
@@ -2588,7 +2604,7 @@
     currentAnalyticsDays = days || currentAnalyticsDays;
     const cfg = analyticsConfig[currentAnalyticsPlatform];
     const body = document.getElementById('analyticsBody');
-    body.innerHTML = '<div class="empty-state">Loading…</div>';
+    body.innerHTML = '<div class="analytics-progress-track"><div class="analytics-progress-fill"></div></div><div class="empty-state">Loading…</div>';
     try{
       const res = await fetch(withAccount(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`));
       if(res.status === 401){

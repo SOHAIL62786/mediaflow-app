@@ -1573,7 +1573,7 @@
     currentAnalyticsDays = days || currentAnalyticsDays;
     const cfg = analyticsConfig[currentAnalyticsPlatform];
     const body = document.getElementById('analyticsBody');
-    body.innerHTML = '<div class="empty-state">Loading…</div>';
+    body.innerHTML = '<div class="analytics-progress-track"><div class="analytics-progress-fill"></div></div><div class="empty-state">Loading…</div>';
     try{
       const res = await fetch(withAccount(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`));
       if(res.status === 401){
