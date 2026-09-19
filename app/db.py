@@ -98,10 +98,17 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        # Migration for databases created before the admin role existed (see
+        # docs/DECISIONS.md 010) — same ALTER-TABLE-if-missing pattern as
+        # accounts.user_id above.
+        users_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+        if "is_admin" not in users_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sessions (
@@ -130,6 +137,26 @@ def backfill_account_ownership():
         if not first_user:
             return
         conn.execute("UPDATE accounts SET user_id = ? WHERE user_id IS NULL", (first_user["id"],))
+
+
+def backfill_admin_flag():
+    """One-time migration step (see docs/DECISIONS.md 010): if no user is
+    marked admin yet, grant it to the single earliest-created user — the
+    same "original owner" this codebase already treats specially in
+    backfill_account_ownership() above. Deliberately does NOT grant it to
+    every pre-existing user: the whole point of an admin role is to limit
+    who can see every user's data and reassign account ownership, and we
+    can't distinguish "the real owner" from "someone who happened to sign
+    up early" for anyone past the very first row. A no-op once any admin
+    exists, so it never overrides a deliberate later change (e.g. an admin
+    promoting someone else, or demoting themselves)."""
+    with get_db() as conn:
+        if conn.execute("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").fetchone():
+            return
+        first_user = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        if not first_user:
+            return
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first_user["id"],))
 
 
 def create_workspace_account(name: str, user_id: int) -> int:

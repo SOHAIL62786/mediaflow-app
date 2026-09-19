@@ -15,10 +15,6 @@
       now built and ready if that ever turns out to be too permissive —
       unset by default (nothing changes unless you opt in). See
       docs/DECISIONS.md 009 for how to turn it on.
-- [ ] No admin UI yet to list/remove users, force a password reset, or
-      manually reassign a workspace account's owner — currently needs
-      direct DB access (`users`/`sessions`/`accounts` tables). Consider a
-      simple Settings-page panel. (See docs/DECISIONS.md 004 and 006.)
 - [ ] Decide how the background scheduler should scale once there are many
       accounts with due posts — currently iterates every due row across all
       accounts each poll; untested at scale
@@ -68,6 +64,12 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Admin panel: an admin can list users, force a password reset,
+      promote/demote admins, delete a user (once they own no accounts),
+      and reassign a workspace account's owner. `is_admin` granted only
+      to the single earliest-created user by default. Reviewed and
+      approved by the project owner before push. See docs/DECISIONS.md
+      010 (2026-09-18)
 - [x] Built the optional `SIGNUP_CODE` invite-gate for signup (env var,
       unset by default so nothing changes unless the project owner opts
       in) — see docs/DECISIONS.md 009. Also fixed a stale claim on the

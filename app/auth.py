@@ -84,7 +84,7 @@ def get_user_from_session(token: Optional[str]):
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT users.id, users.username, sessions.expires_at
+            SELECT users.id, users.username, users.is_admin, sessions.expires_at
             FROM sessions JOIN users ON users.id = sessions.user_id
             WHERE sessions.token = ?
             """,
@@ -140,15 +140,27 @@ def ensure_user_has_account(user_id: int, username: str) -> None:
 
 
 def require_login(request: Request) -> dict:
-    """FastAPI dependency used across the API. Returns {"id", "username"} —
-    previously returned just the username, but per-user data isolation
-    (see docs/DECISIONS.md 006) needs the numeric id to check which
-    workspace accounts a user actually owns. Route bodies that only cared
-    about gating access (the vast majority) don't need any other change;
-    the few that display the username (e.g. GET /api/auth/me) now read
-    user["username"] instead."""
+    """FastAPI dependency used across the API. Returns {"id", "username",
+    "is_admin"} — previously just {"id", "username"}, but the admin panel
+    (docs/DECISIONS.md 010) needs to know this on every request without a
+    second DB round-trip. Route bodies that only cared about gating access
+    (the vast majority) don't need any other change; the few that display
+    the username (e.g. GET /api/auth/me) still read user["username"]."""
     user = get_user_from_session(request.cookies.get(SESSION_COOKIE_NAME))
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
     ensure_user_has_account(user["id"], user["username"])
-    return {"id": user["id"], "username": user["username"]}
+    return {"id": user["id"], "username": user["username"], "is_admin": bool(user["is_admin"])}
+
+
+def require_admin(request: Request) -> dict:
+    """FastAPI dependency for the admin panel (docs/DECISIONS.md 010) —
+    everything an admin can do (see every user, reassign any account's
+    ownership, reset anyone's password) is real per-user data outside
+    their own, so this must be its own explicit gate, never inferred from
+    require_login succeeding. 403s (not 404) since admin routes aren't
+    per-account resources someone could otherwise legitimately hit."""
+    user = require_login(request)
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return user

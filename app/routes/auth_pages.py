@@ -118,5 +118,5 @@ def api_logout(request: Request):
 
 @router.get("/api/auth/me")
 def api_me(user: dict = Depends(require_login)):
-    return {"username": user["username"]}
+    return {"username": user["username"], "is_admin": user["is_admin"]}
 

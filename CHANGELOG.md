@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-09-18 (feature: admin panel)
+
+### Added
+- Admin role: `users.is_admin`, granted by migration to the single
+  earliest-created user only (never every pre-existing user — same
+  reasoning as the Decision 007 backfill). New `require_admin` dependency,
+  separate from `require_login`, gating a new `app/routes/admin.py`:
+  list users, list every workspace account with its owner, reassign an
+  account's owner, force a password reset (invalidates that user's
+  existing sessions), promote/demote admins, delete a user.
+- Delete-user safety guards mirroring the existing "last account" pattern:
+  can't delete yourself, can't delete a user who still owns accounts,
+  can't demote/delete the last remaining admin.
+- Settings page: two new panels (Users, Workspace accounts), visible only
+  to an admin, reusing the existing Accounts-page row/button styling.
+
+### Note for the project owner
+Unlike the SIGNUP_CODE gate (safe by default, opt-in), this decides who
+gets elevated access over other users' accounts — held for your review
+before pushing, and pushed once you gave the go-ahead. Full reasoning,
+every alternative considered, and the exact verification list are in
+docs/DECISIONS.md 010.
+
 ## 2026-09-18 (feature: optional SIGNUP_CODE invite-gate for signup)
 
 ### Added

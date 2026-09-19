@@ -5,11 +5,12 @@
 
 ## Current Task
 Asked to check TODO.md and work on a feature. Picked the next actionable
-High Priority item (`SIGNUP_CODE` invite-gate) — the other open items
-either need a human to check production data, or a product decision from
-the project owner first (admin UI scope, scheduler scaling, TikTok).
+High Priority item (`SIGNUP_CODE` invite-gate), then continued to the
+next one after that (admin panel) — the remaining open items either need
+a human to check production data, or a product decision from the project
+owner first (scheduler scaling, TikTok).
 
-## Progress
+## Progress — SIGNUP_CODE invite-gate (pushed, live)
 Completed, tested, committed, and pushed to `main` (touches `app/**` and
 `static/signup.html`, triggers a live deploy):
 
@@ -40,15 +41,47 @@ Full detail and alternatives considered: docs/DECISIONS.md 009.
 CHANGELOG.md's "2026-09-18 (feature: optional SIGNUP_CODE invite-gate for
 signup)" entry has the verification list.
 
+## Progress — Admin panel (reviewed, approved, pushed)
+Introduces a real privilege distinction (who's an admin) that didn't
+exist before — treated with the same caution as the original per-user
+isolation migration (Decision 006): built and tested first, held for
+explicit project-owner review before pushing (unlike SIGNUP_CODE, which
+was safe-by-default), and pushed once approved.
+
+- New `users.is_admin` column. Migration grants it to the single
+  earliest-created user only (never every pre-existing user — same
+  reasoning as Decision 007's backfill: can't tell "the real owner" apart
+  from "someone who signed up early" for anyone past the first row).
+- New `require_admin` dependency (separate from `require_login`) gating a
+  new `app/routes/admin.py`: list users, list every workspace account +
+  owner, reassign an account's owner, force a password reset (also
+  invalidates that user's existing sessions), promote/demote admins,
+  delete a user.
+- Delete-user guards mirroring the existing "last account" pattern:
+  can't delete yourself, can't delete someone who still owns accounts,
+  can't demote/delete the last remaining admin.
+- Settings page gets two new panels (Users, Workspace accounts), hidden
+  unless `is_admin` is true, reusing the existing Accounts-page styling.
+
+Full design, every alternative considered, and the exact verification
+list (access control, reassignment, forced password reset + session
+invalidation, promote/demote including the last-admin guard, delete-user
+guards, full regression suite re-run alongside) are in
+docs/DECISIONS.md 010 and CHANGELOG.md's "2026-09-18 (feature: admin
+panel)" entry — read those rather than re-deriving from memory.
+
 ## Not Completed / noticed but NOT fixed
-- **The `users`-table check from the previous session is still not
-  done** — still requires a human looking at the real production
-  database (see TODO.md High Priority, unchanged).
-- The other three High Priority TODO items (admin UI, scheduler scaling,
-  TikTok) are product/scope decisions for the project owner, not picked
-  up this session.
-- Didn't verify the invite-code field's show/hide behavior in an actual
-  browser — no browser tooling in this environment.
+- **The `users`-table check from two sessions ago is still not done** —
+  still requires a human looking at the real production database (see
+  TODO.md High Priority, unchanged). Now that the admin panel is live,
+  fixing anyone found is a two-click reassign from Settings instead of
+  direct DB access.
+- The remaining High Priority TODO items (scheduler scaling, TikTok) are
+  product/scope decisions for the project owner, not picked up this
+  session.
+- Didn't verify the invite-code field's show/hide behavior, or the new
+  admin panel UI, in an actual browser — no browser tooling in this
+  environment. Worth a real look on the live VM.
 - Everything else in TODO.md is unchanged and still open.
 
 ## Important Information (carried forward, still true)
@@ -60,7 +93,9 @@ signup)" entry has the verification list.
   every authenticated user owns ≥1 account (Decision 007), and **page
   URLs are path-based** (`/dashboard`, not `?page=dashboard`, Decision
   008). Signup can now optionally be gated behind an invite code via
-  `SIGNUP_CODE` (Decision 009), but isn't by default.
+  `SIGNUP_CODE` (Decision 009), but isn't by default. **An admin role and
+  panel are live** (Decision 010) — the earliest-created user is admin by
+  default; see Settings for the panel, `app/routes/admin.py` for the API.
 - Pushing to `main` with changes touching `server.py`, `static/**`, `app/**`,
   or `requirements.txt` auto-deploys to the live VM — see
   `.github/workflows/deploy.yml`.
@@ -69,15 +104,19 @@ signup)" entry has the verification list.
   not rotated.
 
 ## Next Step
-1. **Project owner: check the real `users` table** for anyone created
-   2026-09-12 through 2026-09-14 who isn't you — see the High Priority
-   TODO item and docs/DECISIONS.md 007's "Status" note for what to look
-   for and why. Still the top open item.
-2. Confirm this session's deploy succeeded (Actions tab), then verify on
-   the live VM that signup still works normally (gate is off by default,
-   so should look unchanged unless `SIGNUP_CODE` is set).
-3. Otherwise, next candidates from TODO.md: admin UI for user/account
-   management, or the scheduler-at-scale/TikTok decisions.
+1. **Verify on the live VM that the admin panel actually works as
+   intended** — no browser tooling in this environment, so this was only
+   verified via API-level tests, never visually. Log in as the account
+   that should now be admin and confirm the Settings page shows the new
+   panels.
+2. **Check the real `users` table** for anyone created 2026-09-12 through
+   2026-09-14 who isn't you — see docs/DECISIONS.md 007's "Status" note.
+   With the admin panel now live, fixing anyone found is a two-click
+   reassign from Settings instead of direct DB access.
+3. Confirm the SIGNUP_CODE deploy is still healthy (Actions tab) — it
+   should be, nothing since has touched it.
+4. Otherwise, next candidates from TODO.md: the scheduler-at-scale or
+   TikTok decisions.
 
 ## Security Note
 Unchanged from prior sessions: the GitHub PAT in `gittoken.md` is still

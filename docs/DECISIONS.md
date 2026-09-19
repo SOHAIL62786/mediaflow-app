@@ -472,3 +472,105 @@ is fully functional (owns an account, etc.); `signup-config` reports the
 right state in both cases. `pyflakes` clean. Not verified: the
 conditional show/hide of the field in an actual browser — no browser
 tooling in this environment.
+
+---
+
+## Decision 010
+
+Date: 2026-09-18
+
+Decision:
+Add an admin role and a Settings-page admin panel: list every user, force
+a password reset, promote/demote admins, delete a user (once they own no
+accounts), and reassign a workspace account's owner. Requested item from
+TODO.md High Priority.
+
+This introduces a real privilege distinction that didn't exist before —
+every user has been equal since Decision 004. Treated with the same
+caution as Decision 006 (schema-changing, security-relevant, one-way
+migration): built and tested locally, held for explicit project-owner
+review before pushing, not auto-deployed the way the SIGNUP_CODE feature
+(Decision 009) was, since that one was opt-in-safe by construction and
+this one is not — it decides who gets elevated access.
+
+Reason:
+The recent isolation work (Decision 006/007) made this gap sharper: fixing
+a locked-out user or reassigning an account previously meant direct DB
+access. This closes that gap with a real UI, and distributes admin
+access across more than one account if desired, rather than leaving a
+single admin as the only person who could ever fix anything.
+
+Implementation:
+- `users.is_admin INTEGER NOT NULL DEFAULT 0` (migration: `ALTER TABLE`
+  if missing, same pattern as `accounts.user_id`).
+- `app/db.py`: `backfill_admin_flag()` — if no user is marked admin yet,
+  grants it to the single earliest-created user only, never to every
+  pre-existing user. Deliberately narrower than
+  `backfill_account_ownership()`'s reasoning would allow, because the
+  entire point of an admin role is to limit who has it — we can tell
+  "the very first user" apart from everyone else, but can't tell "the
+  real owner" apart from "someone who happened to sign up early" for
+  anyone past that first row. Idempotent (a no-op once any admin exists),
+  so it never overrides a deliberate later promotion/demotion. Run at
+  startup after `seed_legacy_user_if_none_exist()` (needs ≥1 user).
+- `app/auth.py`: `get_user_from_session` and `require_login` now also
+  return `is_admin`. New `require_admin` dependency — wraps
+  `require_login`, 403s if not admin. Every route in the new
+  `app/routes/admin.py` uses `require_admin`, never `require_login`, since
+  every one of them exposes or changes another user's data by design —
+  exactly what Decision 006 otherwise exists to prevent, so this needed
+  its own explicit, separate gate rather than being layered onto an
+  existing one.
+- New routes: `GET /api/admin/users` (id, username, created_at, is_admin,
+  account_count), `GET /api/admin/accounts` (every account + owner,
+  cross-user by design here), `POST .../accounts/{id}/reassign`, `POST
+  .../users/{id}/set-password` (also deletes that user's sessions —
+  otherwise a changed password wouldn't invalidate a session issued under
+  the old one), `POST .../users/{id}/set-admin`, `DELETE
+  .../users/{id}`.
+- Delete-user guards, mirroring the existing "can't delete your last
+  account" pattern in `app/routes/accounts.py`: can't delete yourself
+  (log in as another admin instead), can't delete a user who still owns
+  ≥1 account (reassign first — avoids silently orphaning their data or
+  quietly deleting it as a side effect), can't demote or delete the last
+  remaining admin (would need direct DB access to recover from).
+- `GET /api/auth/me` now also returns `is_admin`, so the frontend knows
+  whether to render the panel at all.
+- `frontend-src/pages/settings.html` + `frontend-src/app.js`: two new
+  cards (Users, Workspace accounts) on the Settings page, hidden unless
+  `is_admin` is true. Reuses the existing account-row/button CSS classes
+  from the Accounts page rather than introducing new ones. Reassignment
+  is a `<select>` per account row (all users as options); everything else
+  follows the same `prompt()`/`confirm()`/`showToast()` pattern already
+  used for renaming/deleting a workspace account.
+
+Alternatives Considered:
+- Granting admin to every user who existed before this migration
+  (rejected — same reasoning as Decision 007's backfill: we can't
+  distinguish the real owner from an early signup for anyone past the
+  first row, and granting admin too broadly defeats the purpose of
+  having the role at all)
+- Cascading a deleted user's accounts to another user automatically
+  instead of blocking the delete (rejected — silently moving someone's
+  platform connections/posts as a side effect of an unrelated action is
+  the kind of surprising behavior this project has been actively fixing
+  all session; requiring an explicit reassign first makes the data
+  movement its own visible, intentional step)
+- No "last admin" guard (rejected — would allow a mistake to lock the
+  project owner out of their own admin panel with no recovery path
+  short of direct DB access again, defeating a chunk of this feature's
+  purpose)
+
+Status:
+Accepted, reviewed and approved by the project owner, pushed to `main`.
+Verified locally before push: access control (non-admin 403s on every
+`/api/admin/*` route); listing; reassignment (ownership actually moves,
+previous owner self-heals a new account per Decision 007's guarantee);
+forced password reset (old sessions invalidated, new password works);
+promote/demote (including the last-admin guard, tested by demoting down
+to one admin and confirming the final demotion is blocked); delete-user
+(self-delete blocked, blocked while they own accounts, works once
+reassigned, session invalidated). Full isolation + routing + signup-gate
+regression suite re-run alongside — still passing. `pyflakes` and `node
+--check` clean. Not verified: the UI in an actual browser — no browser
+tooling in this environment.

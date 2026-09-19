@@ -448,6 +448,10 @@
     border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;
     font-family:inherit;color:var(--text-dark);background:var(--card-bg);cursor:pointer;
   }
+  .reassign-select{
+    border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;
+    font-family:inherit;color:var(--text-dark);background:var(--card-bg);cursor:pointer;max-width:160px;
+  }
   .lib-row{cursor:default;}
   .metrics-btn{
     border:1px solid var(--indigo);color:var(--indigo);background:var(--card-bg);

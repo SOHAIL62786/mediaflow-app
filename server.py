@@ -30,9 +30,10 @@ from fastapi.staticfiles import StaticFiles
 from app.auth import get_user_from_session, seed_legacy_user_if_none_exist, SESSION_COOKIE_NAME
 from app.config import STATIC_DIR
 from app.credentials import migrate_legacy_credentials_to_account_1
-from app.db import backfill_account_ownership, init_db
+from app.db import backfill_account_ownership, backfill_admin_flag, init_db
 from app.routes import (
     accounts,
+    admin,
     analytics_meta,
     analytics_youtube,
     auth_pages,
@@ -57,10 +58,12 @@ init_db()
 migrate_legacy_credentials_to_account_1()
 seed_legacy_user_if_none_exist()
 backfill_account_ownership()
+backfill_admin_flag()
 
 app.include_router(status_publish.router)
 app.include_router(library.router)
 app.include_router(accounts.router)
+app.include_router(admin.router)
 app.include_router(analytics_youtube.router)
 app.include_router(analytics_meta.router)
 app.include_router(youtube_oauth.router)

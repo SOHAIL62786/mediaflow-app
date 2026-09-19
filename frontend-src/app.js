@@ -382,6 +382,7 @@
     if(name === 'scheduled') loadLibrary('scheduled');
     if(name === 'published') loadLibrary('published');
     if(name === 'analytics') loadAnalytics();
+    if(name === 'settings') loadSettingsPage();
   }
 
   document.querySelectorAll('#navList li[data-page]').forEach(li=>{
@@ -717,6 +718,150 @@
   document.getElementById('acctMgmtAddBtn').addEventListener('click', async ()=>{
     await promptCreateAccount();
     renderAcctMgmtPage();
+  });
+
+  // ================= Admin panel (Settings page) =================
+  // Only visible to an admin (see docs/DECISIONS.md 010) — hidden by
+  // default for everyone else, and every underlying /api/admin/* call is
+  // independently gated server-side regardless of what the UI shows.
+  let adminUsersCache = [];
+  let adminAccountsCache = [];
+
+  async function loadSettingsPage(){
+    const usersCard = document.getElementById('adminUsersCard');
+    const accountsCard = document.getElementById('adminAccountsCard');
+    try{
+      const me = await (await fetch('/api/auth/me')).json();
+      if(!me.is_admin){
+        usersCard.style.display = 'none';
+        accountsCard.style.display = 'none';
+        return;
+      }
+      usersCard.style.display = '';
+      accountsCard.style.display = '';
+      const [users, accts] = await Promise.all([
+        fetch('/api/admin/users').then(r => r.json()),
+        fetch('/api/admin/accounts').then(r => r.json()),
+      ]);
+      adminUsersCache = users;
+      adminAccountsCache = accts;
+      renderAdminUsers();
+      renderAdminAccounts();
+    }catch(err){
+      showToast('Could not load admin panel — is the server running?');
+    }
+  }
+
+  function renderAdminUsers(){
+    const list = document.getElementById('adminUsersList');
+    if(!list) return;
+    list.innerHTML = adminUsersCache.map(u => `
+      <div class="account-row" data-user-id="${u.id}">
+        <div class="acc-icon" style="background:var(--indigo);color:#fff;font-weight:700;font-size:15px;border-radius:50%;">${escapeHtml((u.username[0]||'?').toUpperCase())}</div>
+        <div class="acc-info">
+          <div class="n">${escapeHtml(u.username)}</div>
+          <div class="h">${u.account_count} account${u.account_count === 1 ? '' : 's'}</div>
+        </div>
+        <div class="acc-row-actions">
+          ${u.is_admin ? '<div class="connected-pill">Admin</div>' : ''}
+          <button class="acc-btn" data-action="reset-password">Reset password</button>
+          <button class="acc-btn" data-action="toggle-admin">${u.is_admin ? 'Remove admin' : 'Make admin'}</button>
+          <button class="acc-btn danger" data-action="delete-user" ${u.account_count > 0 ? 'disabled title="Reassign their accounts first"' : ''}>Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderAdminAccounts(){
+    const list = document.getElementById('adminAccountsList');
+    if(!list) return;
+    const userOptions = u => adminUsersCache.map(usr =>
+      `<option value="${usr.id}" ${usr.id === u ? 'selected' : ''}>${escapeHtml(usr.username)}</option>`
+    ).join('');
+    list.innerHTML = adminAccountsCache.map(a => `
+      <div class="account-row" data-account-id="${a.id}">
+        <div class="acc-icon" style="background:var(--indigo);color:#fff;font-weight:700;font-size:15px;border-radius:50%;">${escapeHtml((a.name[0]||'?').toUpperCase())}</div>
+        <div class="acc-info">
+          <div class="n">${escapeHtml(a.name)}</div>
+          <div class="h">Owned by ${escapeHtml(a.owner_username || 'nobody (orphaned)')}</div>
+        </div>
+        <div class="acc-row-actions">
+          <select class="reassign-select" data-action="reassign-select">${userOptions(a.user_id)}</select>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('adminUsersList').addEventListener('click', async (e)=>{
+    const row = e.target.closest('[data-user-id]');
+    if(!row) return;
+    const id = parseInt(row.dataset.userId, 10);
+    const u = adminUsersCache.find(x => x.id === id);
+    const btn = e.target.closest('[data-action]');
+    if(!btn || btn.disabled) return;
+
+    if(btn.dataset.action === 'reset-password'){
+      const newPassword = prompt(`New password for "${u.username}" (at least 8 characters):`);
+      if(!newPassword) return;
+      if(newPassword.length < 8){ showToast('Password must be at least 8 characters.'); return; }
+      try{
+        const fd = new FormData(); fd.append('new_password', newPassword);
+        const res = await fetch(`/api/admin/users/${id}/set-password`, { method: 'POST', body: fd });
+        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Failed.');
+        showToast(`Password reset for "${u.username}". They've been logged out everywhere.`, 5000);
+      }catch(err){ showToast('Could not reset password: ' + err.message, 5000); }
+      return;
+    }
+
+    if(btn.dataset.action === 'toggle-admin'){
+      const makeAdmin = !u.is_admin;
+      const verb = makeAdmin ? 'give admin access to' : 'remove admin access from';
+      if(!confirm(`Are you sure you want to ${verb} "${u.username}"?`)) return;
+      try{
+        const fd = new FormData(); fd.append('is_admin', makeAdmin ? 'true' : 'false');
+        const res = await fetch(`/api/admin/users/${id}/set-admin`, { method: 'POST', body: fd });
+        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Failed.');
+        await loadSettingsPage();
+        showToast(makeAdmin ? `"${u.username}" is now an admin.` : `Removed admin access from "${u.username}".`);
+      }catch(err){ showToast('Could not update admin status: ' + err.message, 5000); }
+      return;
+    }
+
+    if(btn.dataset.action === 'delete-user'){
+      if(!confirm(`Delete the user "${u.username}"? This can't be undone.`)) return;
+      try{
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Failed.');
+        await loadSettingsPage();
+        showToast(`Deleted user "${u.username}".`);
+      }catch(err){ showToast('Could not delete user: ' + err.message, 5000); }
+      return;
+    }
+  });
+
+  document.getElementById('adminAccountsList').addEventListener('change', async (e)=>{
+    const select = e.target.closest('[data-action="reassign-select"]');
+    if(!select) return;
+    const row = e.target.closest('[data-account-id]');
+    const accountId = parseInt(row.dataset.accountId, 10);
+    const acc = adminAccountsCache.find(a => a.id === accountId);
+    const newUserId = parseInt(select.value, 10);
+    if(newUserId === acc.user_id) return;
+    const newOwner = adminUsersCache.find(u => u.id === newUserId);
+    if(!confirm(`Move "${acc.name}" to ${newOwner ? newOwner.username : 'this user'}? Its platform connections, posts, and analytics go with it.`)){
+      select.value = acc.user_id;
+      return;
+    }
+    try{
+      const fd = new FormData(); fd.append('new_user_id', newUserId);
+      const res = await fetch(`/api/admin/accounts/${accountId}/reassign`, { method: 'POST', body: fd });
+      if(!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Failed.');
+      await loadSettingsPage();
+      showToast(`Reassigned "${acc.name}".`);
+    }catch(err){
+      select.value = acc.user_id;
+      showToast('Could not reassign account: ' + err.message, 5000);
+    }
   });
 
   // ================= Platforms page =================
