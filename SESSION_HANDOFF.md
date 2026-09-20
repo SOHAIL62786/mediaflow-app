@@ -1,9 +1,39 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-20 (even later same day — three dated sections below cover one
-day: an outage, then an Instagram diagnosis, then this fix built on top
-of that diagnosis)
+2026-09-20 (even later still — four dated sections below cover one day:
+an outage, then an Instagram diagnosis, then a fix built on that
+diagnosis, then this feature)
+
+## 2026-09-20 (latest): Live upload progress panel with cancel
+Worked from TODO.md's own High Priority #1, written by an earlier session
+today. Full detail in CHANGELOG.md's matching entry and TODO.md's
+Completed section — summary here.
+
+Publish Now now opens a slide-in panel (reuses the notifications drawer's
+shell) with a step per selected platform, live pending/active/done/failed
+state, and a real per-platform error shown inline on failure — not just
+one toast at the end. Backend switched from one blocking request to an
+in-memory job registry (`app/publish_jobs.py`, new) the frontend polls;
+each platform upload now runs via `asyncio.to_thread()` rather than
+blocking the event loop directly, which was necessary for polling to see
+live progress at all, and incidentally fixes the "whole server blocks
+during any publish" issue an earlier audit session had flagged but not
+fixed. Scheduling ("Publish later") is untouched, still fully synchronous.
+
+Cancel is cooperative, not forceful, by design — it stops the job before
+the next not-yet-started platform step, but can't interrupt an upload
+already in flight (Facebook/Instagram's Graph API is effectively
+all-or-nothing once started). True mid-upload cancel is a new Medium
+Priority TODO item, not attempted this session.
+
+Verified: the job registry's actual logic (create/ownership isolation/
+step updates/cancel/cancel-by-wrong-user/finish) exercised directly,
+all pass. `pyflakes` clean across `app/`, `node --check` clean on
+`app.js`, clean rebuild. **Not verified: an actual real-account publish
+through the UI in a browser** — no browser or real platform credentials
+in this environment, same limitation as most frontend work here. Flagged
+as a new Low Priority TODO item.
 
 ## 2026-09-20 (even later): Instagram re-encode-and-retry fallback
 Direct follow-on to the "Instagram publish failure diagnosis" entry

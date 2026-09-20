@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-09-20 (feature: live upload progress panel with cancel)
+
+### Added
+- Clicking **Publish Now** opens a slide-in progress panel (reuses the
+  notifications drawer's shell/animation) showing each selected platform
+  as its own step — pending → active (spinner) → done/failed — instead of
+  one final toast after everything finishes. Failed steps show the real
+  per-platform error inline. Scheduling ("Publish later") is unchanged,
+  still synchronous with a toast — this only changes the immediate-publish
+  path.
+- A **Cancel** button, separate from closing the panel: closing (X /
+  backdrop / Escape) only hides the panel, the job keeps running
+  server-side; Cancel actually requests the job stop. Cancel is
+  cooperative, not forceful — see Known limitation below.
+- Backend (`app/publish_jobs.py`, new file): an in-memory job registry.
+  `POST /api/publish` (immediate-publish path only) now returns
+  `{"job_id": ...}` right away instead of blocking until every platform
+  finishes; `GET /api/publish/jobs/{job_id}` returns live per-step status
+  for the frontend to poll (every 1.5s); `POST
+  /api/publish/jobs/{job_id}/cancel` requests cancellation. In-memory
+  (not a DB table) because this is ephemeral progress state, not a
+  record anyone needs afterward — the final outcome still goes through
+  `record_upload()` into the `uploads` table exactly as before. Jobs
+  aren't tied to one browser tab/session beyond ownership (`user_id`
+  check, same not-found-vs-not-yours ambiguity as `get_account_or_404`)
+  — closing the tab and reopening the app wouldn't currently reattach to
+  an in-flight job's panel, only a fresh publish would (not addressed
+  this session).
+- Each platform upload (`_upload_to_youtube`/`_upload_to_facebook`/
+  `_upload_to_instagram`) now runs via `asyncio.to_thread()` inside the
+  background job, instead of blocking directly on the request's event
+  loop. This was necessary for polling to actually receive live updates
+  while an upload is in flight — and incidentally fixes a pre-existing
+  issue flagged in an earlier audit session, where the entire server was
+  blocked for the full duration of any publish call.
+
+### Known limitation
+- Cancel is cooperative: it stops the job before the *next* platform
+  step starts, but can't interrupt a platform upload already in flight.
+  Facebook/Instagram's Graph API publish calls are effectively
+  all-or-nothing once started; true mid-upload cancellation (at least for
+  YouTube's resumable upload) is a bigger change, tracked as a follow-up
+  in TODO.md rather than attempted this session.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-20 (Instagram re-encode-and-retry fallback)
 
 ### Added

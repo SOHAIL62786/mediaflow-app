@@ -1,26 +1,6 @@
 # TODO
 
 ## High Priority
-- [ ] **Live upload progress panel with cancel.** Requested by project
-      owner (2026-09-20): clicking Publish should open a side panel next
-      to the app (same slide-in style as the existing notifications
-      drawer), showing the upload as a step-by-step list — e.g. "Uploading
-      file" → "Publishing to YouTube" → "Publishing to Facebook" →
-      "Publishing to Instagram" — with each step's own
-      pending/complete/failed state as it happens, not just one final
-      success/fail toast at the end. Needs a **Cancel** button that
-      actually aborts the in-progress upload (not just closes the panel).
-      Design questions to resolve before starting: the backend upload
-      endpoint currently runs synchronously to completion (or the
-      scheduler does, for a scheduled post) — showing live per-step
-      progress needs either (a) a way for the frontend to poll upload
-      status mid-flight, or (b) a push channel (SSE/WebSocket) from
-      server to browser; a true "Cancel" needs a way to actually
-      interrupt a publish call already in flight per platform (YouTube's
-      resumable upload API supports this; Facebook/Instagram's Graph API
-      publish calls are more likely all-or-nothing once started — worth
-      checking before promising cancel actually stops a live platform
-      upload vs. just abandoning the local wait for it).
 - [ ] **Save as Draft / Save as Template for the upload form.** Requested
       by project owner (2026-09-20): if the upload form is filled out but
       the user isn't ready to publish or schedule yet, let them save it
@@ -64,6 +44,13 @@
       OAuth connect route + DB fields now so UI/schema don't need retrofitting
 
 ## Medium Priority
+- [ ] True mid-upload cancel (2026-09-20 follow-up). The new publish
+      progress panel's Cancel is cooperative only — it stops the job
+      before the *next* platform step starts, but can't interrupt a
+      platform upload already in flight. YouTube's resumable upload API
+      could support real interruption; Facebook/Instagram's Graph API
+      publish calls are likely all-or-nothing once started — worth
+      confirming before promising more than "abandon the local wait."
 - [ ] Lock down CORS (`allow_origins=["*"]`) to the actual frontend origin
       before any public-VM deployment
 - [ ] Add cleanup sweep on startup for orphaned files in the temp media dir
@@ -72,6 +59,13 @@
       scheduled publish, instead of failing permanently on first error
 
 ## Low Priority
+- [ ] The new live publish progress panel (2026-09-20) was only verified
+      by exercising the job registry logic directly (create/ownership/
+      step updates/cancel/finish, all pass) and a clean rebuild — not an
+      actual real-account publish through the UI in a browser. Check on
+      the live VM: panel opens on Publish Now, steps update live, Cancel
+      actually stops the next not-yet-started step, panel Close doesn't
+      kill the job.
 - [ ] Dark mode (2026-09-17) covers all major surfaces (cards, topbar,
       dropdowns, notif drawer, modal, buttons) via theme variables, but
       small semantic-tinted badges (gain-pill, pub-pill.sched/.fail,
@@ -115,6 +109,17 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Live upload progress panel with cancel — Publish Now opens a
+      slide-in panel with a step per selected platform
+      (pending → active → done/failed, real per-platform error shown
+      inline). Backend: `/api/publish` now returns a `job_id` immediately
+      instead of blocking, via an in-memory job registry
+      (`app/publish_jobs.py`); `GET /api/publish/jobs/{id}` polls status,
+      `POST .../cancel` requests cancellation (cooperative — see Medium
+      Priority follow-up above). Each platform upload now runs via
+      `asyncio.to_thread()`, which also fixes a pre-existing issue where
+      the whole server blocked for the full duration of any publish call.
+      Commit `b88e9c8` (2026-09-20)
 - [x] Instagram publishing (immediate and scheduled) now automatically
       re-encodes with ffmpeg and retries once when Instagram's own
       processing step rejects a video (undocumented error, e.g. code
