@@ -165,7 +165,16 @@
   }
   document.getElementById('addAccountBtn').addEventListener('click', promptCreateAccount);
 
-  loadAccounts();
+  // loadStatus() and the initial page load both need currentAccountId to
+  // already be validated/corrected (see loadAccounts() above) before they
+  // fire — otherwise, on any page load where localStorage's mf_account_id
+  // points at an account this user no longer owns (e.g. it was reassigned
+  // or deleted), they'll fire one request each with the stale id and 404,
+  // before loadAccounts()'s correction even lands. Chaining both off the
+  // same loadAccounts() promise (instead of each calling it separately,
+  // or not waiting on it at all) fixes the race without changing when
+  // anything else on the page sets up.
+  const accountsReady = loadAccounts();
 
   async function loadStatus(){
     try{
@@ -207,9 +216,7 @@
       showToast('Could not reach the local server — is it running?');
     }
   }
-  loadStatus();
-
-  // Toggles
+  accountsReady.then(loadStatus);
   document.querySelectorAll('.toggle').forEach(t=>{
     const isDarkToggle = t.id === 'darkToggle';
     // Dark theme's actual on/off is the class an inline script in <head>
@@ -1649,4 +1656,4 @@
     return 'dashboard';
   }
   const initialPage = initialPageFromLocation();
-  showPage(initialPage);
+  accountsReady.then(() => showPage(initialPage));
