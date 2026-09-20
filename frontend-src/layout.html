@@ -101,6 +101,24 @@
     </div>
   </aside>
 
+  <!-- Live publish progress panel: opened when Publish Now is clicked.
+       Closing it (X) only hides it — the job keeps running server-side.
+       Cancel is a separate, explicit action (see publish-panel-cancel-btn
+       below) with cooperative semantics — see app/publish_jobs.py. -->
+  <div class="notif-backdrop" id="publishBackdrop"></div>
+  <aside class="notif-drawer" id="publishPanel">
+    <div class="notif-drawer-header">
+      <h3 id="publishPanelTitle">Publishing…</h3>
+      <button class="notif-close-btn" id="publishPanelCloseBtn" aria-label="Close panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="notif-drawer-body" id="publishPanelBody"></div>
+    <div class="publish-panel-footer" id="publishPanelFooter">
+      <button class="acc-btn danger" id="publishPanelCancelBtn">Cancel</button>
+    </div>
+  </aside>
+
   <!-- DASHBOARD -->
 {{PAGES}}</div>
 

@@ -314,20 +314,26 @@
         const err = await res.json().catch(()=>({detail: res.statusText}));
         throw new Error(err.detail || 'Upload failed');
       }
-      const results = await res.json();
+      const body = await res.json();
 
-      const lines = Object.entries(results).map(([platform, r])=>{
-        if(r.ok){
-          if(r.queued){
+      if(isLater){
+        const lines = Object.entries(body).map(([platform, r])=>{
+          if(r.ok){
             const when = new Date(r.scheduled_for).toLocaleString();
             return `${platform}: queued — will publish at ${when}`;
           }
-          return `${platform}: published${r.url ? ' — ' + r.url : ''}`;
-        }
-        return `${platform}: failed — ${r.error}`;
-      });
-      showToast(lines.join('  |  '), 6000);
-      loadDashboard();
+          return `${platform}: failed — ${r.error}`;
+        });
+        showToast(lines.join('  |  '), 6000);
+        loadDashboard();
+      } else {
+        // Immediate publish now runs as a background job — open the
+        // progress panel and poll it instead of waiting on one big
+        // request/response.
+        renderPublishSteps(platforms.map(p => ({ key: p, label: `Publishing to ${p[0].toUpperCase()}${p.slice(1)}`, status: 'pending' })));
+        openPublishPanel();
+        pollPublishJob(body.job_id);
+      }
     }catch(err){
       showToast('Upload failed: ' + err.message, 5000);
     }finally{
@@ -543,6 +549,97 @@
   document.getElementById('notifCloseBtn').addEventListener('click', closeNotifDrawer);
   notifBackdrop.addEventListener('click', closeNotifDrawer);
   document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeNotifDrawer(); });
+
+  // ---- Publish progress panel ----
+  // Closing (X / backdrop / Escape) only hides the panel — the job keeps
+  // running server-side either way. Cancel is the only thing that
+  // actually stops it, and even then only cooperatively: it won't
+  // interrupt a platform upload already in flight, only steps that
+  // haven't started yet (see app/publish_jobs.py).
+  const publishPanel = document.getElementById('publishPanel');
+  const publishBackdrop = document.getElementById('publishBackdrop');
+  const publishPanelBody = document.getElementById('publishPanelBody');
+  const publishPanelTitle = document.getElementById('publishPanelTitle');
+  const publishPanelFooter = document.getElementById('publishPanelFooter');
+  const publishPanelCancelBtn = document.getElementById('publishPanelCancelBtn');
+  let currentPublishJobId = null;
+  let publishPollTimer = null;
+
+  const STEP_ICON = { pending: '', active: '', done: '✓', failed: '✕', cancelled: '–' };
+
+  function renderPublishSteps(steps){
+    publishPanelBody.innerHTML = steps.map(s => {
+      const platformLabel = s.label;
+      let sub = '';
+      if(s.status === 'failed' && s.error) sub = `<div class="publish-step-sub error">${escapeHtml(s.error)}</div>`;
+      else if(s.status === 'cancelled') sub = `<div class="publish-step-sub">Cancelled — didn't start.</div>`;
+      else if(s.status === 'active') sub = `<div class="publish-step-sub">In progress…</div>`;
+      else if(s.status === 'done') sub = `<div class="publish-step-sub success">Published.</div>`;
+      return `
+        <div class="publish-step">
+          <div class="publish-step-icon ${s.status}">${STEP_ICON[s.status] || ''}</div>
+          <div class="publish-step-text">
+            <div class="publish-step-label">${escapeHtml(platformLabel)}</div>
+            ${sub}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function openPublishPanel(){
+    publishPanel.classList.add('open');
+    publishBackdrop.classList.add('open');
+  }
+  function closePublishPanel(){
+    publishPanel.classList.remove('open');
+    publishBackdrop.classList.remove('open');
+  }
+
+  async function pollPublishJob(jobId){
+    currentPublishJobId = jobId;
+    publishPanelTitle.textContent = 'Publishing…';
+    publishPanelFooter.classList.remove('hidden');
+    publishPanelCancelBtn.disabled = false;
+    publishPanelCancelBtn.textContent = 'Cancel';
+
+    clearInterval(publishPollTimer);
+    const poll = async () => {
+      let data;
+      try{
+        const res = await fetch(withAccount(`${API}/api/publish/jobs/${jobId}`));
+        if(!res.ok) throw new Error();
+        data = await res.json();
+      }catch(err){
+        return; // transient network hiccup — try again next tick rather than giving up
+      }
+      renderPublishSteps(data.steps);
+      if(data.finished){
+        clearInterval(publishPollTimer);
+        currentPublishJobId = null;
+        publishPanelFooter.classList.add('hidden');
+        const anyFailed = data.steps.some(s => s.status === 'failed');
+        const anyCancelled = data.steps.some(s => s.status === 'cancelled');
+        publishPanelTitle.textContent = anyFailed ? 'Finished with errors'
+          : anyCancelled ? 'Cancelled' : 'Published';
+        loadDashboard();
+      }
+    };
+    await poll();
+    publishPollTimer = setInterval(poll, 1500);
+  }
+
+  publishPanelCancelBtn.addEventListener('click', async () => {
+    if(!currentPublishJobId) return;
+    publishPanelCancelBtn.disabled = true;
+    publishPanelCancelBtn.textContent = 'Cancelling…';
+    try{
+      await fetch(withAccount(`${API}/api/publish/jobs/${currentPublishJobId}/cancel`), { method: 'POST' });
+    }catch(err){ /* next poll will just keep showing steps in flight if this failed */ }
+  });
+
+  document.getElementById('publishPanelCloseBtn').addEventListener('click', closePublishPanel);
+  publishBackdrop.addEventListener('click', closePublishPanel);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && publishPanel.classList.contains('open')) closePublishPanel(); });
 
   // ================= Dashboard =================
   const PLATFORM_THUMB = {

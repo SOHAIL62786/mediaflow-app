@@ -206,6 +206,37 @@
   .notif-close-btn{background:none;border:none;color:var(--text-mid);cursor:pointer;padding:4px;border-radius:6px;display:flex;}
   .notif-close-btn:hover{background:var(--hover-bg);color:var(--text-dark);}
   .notif-drawer-body{flex:1;overflow-y:auto;padding:8px 12px;}
+
+  /* Publish progress panel — reuses .notif-drawer/.notif-backdrop for the
+     slide-in shell; these rules are specific to its step list + footer. */
+  .publish-panel-footer{
+    padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;
+    display:flex;justify-content:flex-end;
+  }
+  .publish-panel-footer.hidden{display:none;}
+  .publish-step{
+    display:flex;align-items:flex-start;gap:12px;padding:14px 8px;
+    border-bottom:1px solid var(--border);
+  }
+  .publish-step:last-child{border-bottom:none;}
+  .publish-step-icon{
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;
+  }
+  .publish-step-icon.pending{background:var(--hover-bg);border:1px solid var(--border);}
+  .publish-step-icon.active{
+    background:none;border:2px solid var(--border);border-top-color:var(--indigo);
+    animation:publish-step-spin .7s linear infinite;
+  }
+  .publish-step-icon.done{background:var(--green);}
+  .publish-step-icon.failed{background:#ef4444;}
+  .publish-step-icon.cancelled{background:var(--hover-bg);border:1px solid var(--border);}
+  @keyframes publish-step-spin{to{transform:rotate(360deg);}}
+  .publish-step-text{flex:1;min-width:0;}
+  .publish-step-label{font-size:13.5px;font-weight:600;color:var(--text-dark);}
+  .publish-step-sub{font-size:12px;color:var(--text-mid);margin-top:2px;}
+  .publish-step-sub.error{color:#ef4444;}
+  .publish-step-sub.success a{color:var(--indigo);}
   .notif-item{
     display:flex;gap:12px;align-items:flex-start;padding:12px 8px;border-radius:10px;cursor:pointer;
   }
@@ -649,6 +680,24 @@
     </div>
     <div class="notif-drawer-body" id="notifDrawerBody">
       <div class="empty-state">No notifications right now.</div>
+    </div>
+  </aside>
+
+  <!-- Live publish progress panel: opened when Publish Now is clicked.
+       Closing it (X) only hides it — the job keeps running server-side.
+       Cancel is a separate, explicit action (see publish-panel-cancel-btn
+       below) with cooperative semantics — see app/publish_jobs.py. -->
+  <div class="notif-backdrop" id="publishBackdrop"></div>
+  <aside class="notif-drawer" id="publishPanel">
+    <div class="notif-drawer-header">
+      <h3 id="publishPanelTitle">Publishing…</h3>
+      <button class="notif-close-btn" id="publishPanelCloseBtn" aria-label="Close panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="notif-drawer-body" id="publishPanelBody"></div>
+    <div class="publish-panel-footer" id="publishPanelFooter">
+      <button class="acc-btn danger" id="publishPanelCancelBtn">Cancel</button>
     </div>
   </aside>
 
@@ -1346,20 +1395,26 @@
         const err = await res.json().catch(()=>({detail: res.statusText}));
         throw new Error(err.detail || 'Upload failed');
       }
-      const results = await res.json();
+      const body = await res.json();
 
-      const lines = Object.entries(results).map(([platform, r])=>{
-        if(r.ok){
-          if(r.queued){
+      if(isLater){
+        const lines = Object.entries(body).map(([platform, r])=>{
+          if(r.ok){
             const when = new Date(r.scheduled_for).toLocaleString();
             return `${platform}: queued — will publish at ${when}`;
           }
-          return `${platform}: published${r.url ? ' — ' + r.url : ''}`;
-        }
-        return `${platform}: failed — ${r.error}`;
-      });
-      showToast(lines.join('  |  '), 6000);
-      loadDashboard();
+          return `${platform}: failed — ${r.error}`;
+        });
+        showToast(lines.join('  |  '), 6000);
+        loadDashboard();
+      } else {
+        // Immediate publish now runs as a background job — open the
+        // progress panel and poll it instead of waiting on one big
+        // request/response.
+        renderPublishSteps(platforms.map(p => ({ key: p, label: `Publishing to ${p[0].toUpperCase()}${p.slice(1)}`, status: 'pending' })));
+        openPublishPanel();
+        pollPublishJob(body.job_id);
+      }
     }catch(err){
       showToast('Upload failed: ' + err.message, 5000);
     }finally{
@@ -1575,6 +1630,97 @@
   document.getElementById('notifCloseBtn').addEventListener('click', closeNotifDrawer);
   notifBackdrop.addEventListener('click', closeNotifDrawer);
   document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeNotifDrawer(); });
+
+  // ---- Publish progress panel ----
+  // Closing (X / backdrop / Escape) only hides the panel — the job keeps
+  // running server-side either way. Cancel is the only thing that
+  // actually stops it, and even then only cooperatively: it won't
+  // interrupt a platform upload already in flight, only steps that
+  // haven't started yet (see app/publish_jobs.py).
+  const publishPanel = document.getElementById('publishPanel');
+  const publishBackdrop = document.getElementById('publishBackdrop');
+  const publishPanelBody = document.getElementById('publishPanelBody');
+  const publishPanelTitle = document.getElementById('publishPanelTitle');
+  const publishPanelFooter = document.getElementById('publishPanelFooter');
+  const publishPanelCancelBtn = document.getElementById('publishPanelCancelBtn');
+  let currentPublishJobId = null;
+  let publishPollTimer = null;
+
+  const STEP_ICON = { pending: '', active: '', done: '✓', failed: '✕', cancelled: '–' };
+
+  function renderPublishSteps(steps){
+    publishPanelBody.innerHTML = steps.map(s => {
+      const platformLabel = s.label;
+      let sub = '';
+      if(s.status === 'failed' && s.error) sub = `<div class="publish-step-sub error">${escapeHtml(s.error)}</div>`;
+      else if(s.status === 'cancelled') sub = `<div class="publish-step-sub">Cancelled — didn't start.</div>`;
+      else if(s.status === 'active') sub = `<div class="publish-step-sub">In progress…</div>`;
+      else if(s.status === 'done') sub = `<div class="publish-step-sub success">Published.</div>`;
+      return `
+        <div class="publish-step">
+          <div class="publish-step-icon ${s.status}">${STEP_ICON[s.status] || ''}</div>
+          <div class="publish-step-text">
+            <div class="publish-step-label">${escapeHtml(platformLabel)}</div>
+            ${sub}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function openPublishPanel(){
+    publishPanel.classList.add('open');
+    publishBackdrop.classList.add('open');
+  }
+  function closePublishPanel(){
+    publishPanel.classList.remove('open');
+    publishBackdrop.classList.remove('open');
+  }
+
+  async function pollPublishJob(jobId){
+    currentPublishJobId = jobId;
+    publishPanelTitle.textContent = 'Publishing…';
+    publishPanelFooter.classList.remove('hidden');
+    publishPanelCancelBtn.disabled = false;
+    publishPanelCancelBtn.textContent = 'Cancel';
+
+    clearInterval(publishPollTimer);
+    const poll = async () => {
+      let data;
+      try{
+        const res = await fetch(withAccount(`${API}/api/publish/jobs/${jobId}`));
+        if(!res.ok) throw new Error();
+        data = await res.json();
+      }catch(err){
+        return; // transient network hiccup — try again next tick rather than giving up
+      }
+      renderPublishSteps(data.steps);
+      if(data.finished){
+        clearInterval(publishPollTimer);
+        currentPublishJobId = null;
+        publishPanelFooter.classList.add('hidden');
+        const anyFailed = data.steps.some(s => s.status === 'failed');
+        const anyCancelled = data.steps.some(s => s.status === 'cancelled');
+        publishPanelTitle.textContent = anyFailed ? 'Finished with errors'
+          : anyCancelled ? 'Cancelled' : 'Published';
+        loadDashboard();
+      }
+    };
+    await poll();
+    publishPollTimer = setInterval(poll, 1500);
+  }
+
+  publishPanelCancelBtn.addEventListener('click', async () => {
+    if(!currentPublishJobId) return;
+    publishPanelCancelBtn.disabled = true;
+    publishPanelCancelBtn.textContent = 'Cancelling…';
+    try{
+      await fetch(withAccount(`${API}/api/publish/jobs/${currentPublishJobId}/cancel`), { method: 'POST' });
+    }catch(err){ /* next poll will just keep showing steps in flight if this failed */ }
+  });
+
+  document.getElementById('publishPanelCloseBtn').addEventListener('click', closePublishPanel);
+  publishBackdrop.addEventListener('click', closePublishPanel);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && publishPanel.classList.contains('open')) closePublishPanel(); });
 
   // ================= Dashboard =================
   const PLATFORM_THUMB = {
