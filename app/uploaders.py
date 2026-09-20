@@ -131,7 +131,7 @@ def _upload_to_instagram(public_video_url: str, caption: str, fb_creds: dict) ->
         for _ in range(30):  # poll for up to ~5 minutes
             status_resp = requests.get(
                 f"{GRAPH_BASE}/{container_id}",
-                params={"fields": "status_code", "access_token": token},
+                params={"fields": "status_code,status", "access_token": token},
                 timeout=30,
             )
             status_data = status_resp.json()
@@ -139,7 +139,12 @@ def _upload_to_instagram(public_video_url: str, caption: str, fb_creds: dict) ->
             if code == "FINISHED":
                 break
             if code == "ERROR":
-                return {"ok": False, "error": "Instagram failed to process the video."}
+                # Graph API's "status" field has the actual reason (bad
+                # aspect ratio, duration, codec, file size, etc.) —
+                # "status_code" alone is just the enum. Surface both so a
+                # failure is actually diagnosable instead of a dead end.
+                detail = status_data.get("status") or "no further detail returned by Instagram."
+                return {"ok": False, "error": f"Instagram failed to process the video: {detail}"}
             time_module.sleep(10)
         else:
             return {

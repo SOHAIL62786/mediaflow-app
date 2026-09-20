@@ -927,3 +927,47 @@ pending review before push (see SESSION_HANDOFF.md).
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-20 (Instagram publish failure diagnosis + error surfacing)
+
+### Fixed
+- `app/uploaders.py` — `_upload_to_instagram()`'s processing-failure branch
+  only reported the generic `status_code == "ERROR"` and discarded Graph
+  API's actual `status` field, which carries the real reason (bad aspect
+  ratio, duration, codec, file size, etc.). Now requests and surfaces both,
+  so a future failure is actually diagnosable instead of a dead end.
+- `frontend-src/style.css` — the `.toast` error banner had no `max-width`,
+  so a longer error message (like the one above now produces) could
+  overflow the screen instead of wrapping. Added a bounded max-width and
+  word-wrapping.
+
+Reason:
+Project owner published a video that succeeded on YouTube and Facebook but
+failed on Instagram with only "Instagram failed to process the video." —
+not enough detail to know why. Traced the failure to Instagram's own
+processing step (the public-URL fetch itself succeeded, ruling out a
+network/nginx cause), but the code was throwing away the one piece of
+information that would explain it.
+
+Verified:
+- `python3 -m py_compile` on the changed file
+- `node --check` on the rebuilt static/index.html's JS
+- Confirmed via code inspection that this specific video's actual failure
+  reason can't be retroactively recovered (the temp file is deleted right
+  after each publish attempt) — flagged the common Reels rejection causes
+  (aspect ratio, duration, codec, file size) for the project owner to
+  check against that file directly
+
+Not fixed here (out of scope, just noted): two other minor issues found
+during an unrelated commit-comparison audit earlier this session
+(`.manage-btn` dark-mode background, a stale `?page=` OAuth redirect) had
+already been fixed by other work that landed in between — confirmed both
+are resolved in the current codebase, no action needed.
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy.
+
+Modified By:
+Claude (via chat session)

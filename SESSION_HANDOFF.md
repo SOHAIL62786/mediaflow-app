@@ -1,7 +1,29 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-20
+2026-09-20 (later same day — see dated section below; the outage
+narrative under "Current Task" is from earlier in the day)
+
+## 2026-09-20 (later): Instagram publish failure diagnosis
+Project owner published a video that succeeded on YouTube and Facebook
+but failed on Instagram with only "Instagram failed to process the
+video." — not enough detail to diagnose. Traced it to Instagram's own
+processing step (the public-URL fetch itself succeeded, ruling out a
+network/nginx cause — separate from the outage below). Fixed
+`app/uploaders.py` to surface Graph API's actual `status` detail instead
+of just the generic status_code, and fixed the error toast overflowing on
+long messages (`frontend-src/style.css`). Full detail in CHANGELOG.md's
+"Instagram publish failure diagnosis + error surfacing" entry.
+
+Not completed: the specific reason THIS video failed couldn't be
+recovered (temp file already deleted) — flagged as a TODO for the project
+owner to check the video against Reels' requirements directly. The next
+Instagram failure will show the real reason instead of a dead end.
+
+While auditing the last 3 commits before this (per a separate request
+this session), also found and confirmed already-fixed-by-other-work: a
+`.manage-btn` dark-mode background bug and a stale `?page=` OAuth redirect
+URL. No action needed on either.
 
 ## Current Task
 Started as a live bug report (console screenshot: 404s + a publish

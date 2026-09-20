@@ -185,3 +185,12 @@
       instead of per-user) and a pre-existing gap (`disconnect_youtube`/
       `disconnect_facebook` not validating `account_id`). See
       docs/DECISIONS.md 006 and CHANGELOG.md (2026-09-14)
+- [x] Instagram publish failure now surfaces Graph API's actual `status`
+      detail instead of just the generic "failed to process" message; also
+      fixed the error toast overflowing on long messages (2026-09-20)
+- [ ] Project owner to check the video that failed on Instagram against
+      Reels' actual requirements (vertical aspect ratio, duration limits,
+      H.264/AAC codec, ~1GB file size cap) — the specific failure reason
+      for that video couldn't be recovered since the temp file is deleted
+      right after each publish attempt; next failure will show the real
+      reason now (2026-09-20)
