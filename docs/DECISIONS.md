@@ -574,3 +574,46 @@ reassigned, session invalidated). Full isolation + routing + signup-gate
 regression suite re-run alongside — still passing. `pyflakes` and `node
 --check` clean. Not verified: the UI in an actual browser — no browser
 tooling in this environment.
+
+
+## Decision 011
+
+Date: 2026-09-20
+
+Incident:
+A ~30-minute HTTPS outage on sohailanalytics.online, caused by an assistant
+instruction, not by any code change. Debugging a real `ERR_CONNECTION_ABORTED`
+on video publish led to checking nginx's `client_max_body_size`; the fix
+instruction was `sudo cp mediaflow.nginx.conf /etc/nginx/sites-available/mediaflow`
+— copying the repo's version over the live one. The live file had a
+`server_name sohailanalytics.online` HTTPS server block that certbot had
+added directly on the VM at some earlier point, never captured in this
+repo (the repo's version only ever had the generic `server_name _;`
+placeholder). The copy silently deleted that block. HTTP kept working
+throughout (same `listen 80` block was still there), which is what made
+this slow to diagnose — several wrong theories (AWS Security Group,
+Cloudflare, Chrome's automatic HTTPS upgrade) were chased before the
+actual cause surfaced: `sudo certbot --nginx -d sohailanalytics.online`
+returned "Could not automatically find a matching server block," which
+is the actual root cause made visible — certbot could no longer find the
+`server_name` it had originally attached to.
+
+Fix:
+`mediaflow.nginx.conf` now pins `server_name sohailanalytics.online;`
+instead of the generic `_;` placeholder, so certbot's nginx plugin can
+find and re-attach to this exact block going forward, and re-running
+certbot re-adds the `listen 443 ssl` block and cert paths.
+
+Standing rule (see CLAUDE_INSTRUCTIONS.md):
+Never tell the project owner to copy `mediaflow.nginx.conf` (or
+`mediaflow.service`) onto the VM without first diffing it against what's
+actually live there. Live infra config can be edited directly on the VM
+(by certbot, or under time pressure) without that change ever reaching
+this repo — the repo copy is not guaranteed to be authoritative just
+because it's the one under version control.
+
+Status:
+Fixed and confirmed working by the project owner. The live VM's nginx
+config (with certbot's SSL block) has not yet been pulled back into this
+repo file — TODO.md tracks this as a follow-up so the repo stops being a
+stale/incomplete picture of the real config.

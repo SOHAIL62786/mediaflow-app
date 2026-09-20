@@ -1,7 +1,64 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-19
+2026-09-20
+
+## Current Task
+Started as a live bug report (console screenshot: 404s + a publish
+failure), ended up covering a real production outage this session itself
+caused. Full detail in CHANGELOG.md's 2026-09-20 entry and
+docs/DECISIONS.md 011 — this section is a summary, not the record of
+truth.
+
+## What happened, in order
+1. Fixed a real race condition: `loadStatus()` and the initial page load
+   fired before `loadAccounts()` (which validates/corrects a stale
+   `currentAccountId`) had resolved — explained the reported 404s.
+   Pushed, deployed, not yet re-confirmed fixed by the project owner.
+2. Investigating a separate real `ERR_CONNECTION_ABORTED` on video
+   publish, added missing `client_body_timeout`/`send_timeout` (both
+   defaulted to 60s) to `mediaflow.nginx.conf` — not confirmed as the
+   actual cause of that error before #3 below overtook the session.
+3. **Caused a ~30 minute HTTPS outage** by instructing
+   `sudo cp mediaflow.nginx.conf /etc/nginx/sites-available/mediaflow` —
+   this overwrote a certbot-managed HTTPS server block that existed live
+   on the VM but was never in this repo. Several wrong theories chased
+   before finding the real cause (AWS Security Group, Cloudflare, Chrome
+   auto-HTTPS-upgrade — none of them it). Root cause: the repo's
+   `server_name _;` placeholder didn't match what certbot had attached to.
+4. Fixed by pinning `server_name sohailanalytics.online;` in the repo
+   file, letting certbot re-find and re-attach its SSL block. **Confirmed
+   working by the project owner.**
+5. Documented the incident (docs/DECISIONS.md 011) and added a standing
+   rule to CLAUDE_INSTRUCTIONS.md: never copy `mediaflow.nginx.conf` or
+   `mediaflow.service` onto the VM without diffing against the live file
+   first — live infra config can drift from this repo silently (certbot,
+   or a manual fix under pressure) and the repo copy isn't automatically
+   authoritative.
+
+## Not completed / still open
+- The live VM's nginx config (with certbot's re-added SSL block) has
+  **not** been pulled back into this repo — see TODO.md, now High
+  Priority. Until that happens, `mediaflow.nginx.conf` here is still an
+  incomplete picture of the real config, same underlying gap that caused
+  the outage, just currently on the safe side of it (repo is missing
+  something live, not the other way around).
+- The `client_body_timeout`/`send_timeout` fix (#2 above) was never
+  actually confirmed to resolve the original `ERR_CONNECTION_ABORTED` —
+  the outage interrupted that investigation. Worth re-testing a real
+  publish now that HTTPS (and these timeouts) are both live.
+- The race-condition fix (#1) also hasn't had explicit before/after
+  confirmation beyond "the 404s stopped happening because of the outage
+  distraction" — worth a clean re-check.
+
+## Next Step
+Re-test a real video publish end-to-end now that the site is back up,
+to confirm both #1 and #2 above actually hold. Then close out the
+nginx-config-sync TODO item so this repo file matches live reality again.
+
+---
+
+# Previous Session (2026-09-19)
 
 ## Current Task
 Small, targeted ask from a screenshot: the Analytics page just shows

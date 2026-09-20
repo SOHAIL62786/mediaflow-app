@@ -1,6 +1,13 @@
 # TODO
 
 ## High Priority
+- [ ] **Pull the live VM's nginx config back into this repo.** After the
+      2026-09-20 HTTPS outage (docs/DECISIONS.md 011), certbot re-added
+      its `listen 443 ssl` block directly on the VM — that block still
+      isn't reflected in `mediaflow.nginx.conf` here. Run `diff
+      mediaflow.nginx.conf /etc/nginx/sites-available/mediaflow` on the VM
+      and fold the SSL block into this file, so the repo stops being an
+      incomplete picture of the real live config.
 - [ ] **Check the `users` table for anyone who signed up between**
       **2026-09-12 and 2026-09-14** (before per-user isolation shipped)
       **and verify they don't need data recovered.** The isolation

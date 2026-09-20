@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-09-20 (fix: HTTPS outage caused by overwriting a live-only nginx block; also: race-condition 404s, nginx upload timeouts)
+
+### Fixed
+- **Race condition causing stale-account 404s on page load.** `loadStatus()`
+  and the initial `showPage()` (which loads the dashboard) both fired
+  immediately on script load, before `loadAccounts()` — which validates
+  `currentAccountId` against accounts the user actually owns, and corrects
+  it if stale — had resolved. Anyone whose `localStorage` still pointed at
+  an account they no longer owned (reassigned or deleted) would get one
+  round of 404s on `/api/dashboard/summary` and `/api/status` before the
+  correction landed. Reported via console screenshot. Fix:
+  `frontend-src/app.js` — `loadAccounts()` now returns its promise
+  (`accountsReady`), and both calls chain off it instead of firing
+  independently.
+- **nginx `client_body_timeout`/`send_timeout` were never set** (default
+  60s) — too short for a large video over a slow/unstable connection.
+  Added both at 600s, matching the existing `proxy_read_timeout`/
+  `proxy_send_timeout` pair. Investigated as a possible cause of a
+  real `ERR_CONNECTION_ABORTED` during publish; not confirmed as the
+  actual cause before the incident below overtook the session, but a
+  real gap worth having fixed regardless.
+
+### Fixed — and caused, same session (see docs/DECISIONS.md 011)
+- **A ~30 minute HTTPS outage**, caused by an assistant instruction:
+  `sudo cp mediaflow.nginx.conf /etc/nginx/sites-available/mediaflow`
+  overwrote a certbot-managed HTTPS server block that existed live on the
+  VM but was never captured in this repo (the repo only ever had the
+  generic `server_name _;` placeholder). HTTP kept working throughout,
+  which made this a slow, confusing diagnosis — Security Group, Cloudflare,
+  and Chrome's automatic HTTPS upgrade were all incorrectly suspected
+  before the real cause surfaced. Fix: `mediaflow.nginx.conf` now pins
+  `server_name sohailanalytics.online;` so certbot can find and re-attach
+  to this exact block. A standing rule was added to CLAUDE_INSTRUCTIONS.md:
+  never copy this file (or `mediaflow.service`) onto the VM without first
+  diffing it against what's actually live there.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-19 (small feature: Analytics loading progress bar)
 
 ### Added
