@@ -1,6 +1,41 @@
 # TODO
 
 ## High Priority
+- [ ] **Live upload progress panel with cancel.** Requested by project
+      owner (2026-09-20): clicking Publish should open a side panel next
+      to the app (same slide-in style as the existing notifications
+      drawer), showing the upload as a step-by-step list — e.g. "Uploading
+      file" → "Publishing to YouTube" → "Publishing to Facebook" →
+      "Publishing to Instagram" — with each step's own
+      pending/complete/failed state as it happens, not just one final
+      success/fail toast at the end. Needs a **Cancel** button that
+      actually aborts the in-progress upload (not just closes the panel).
+      Design questions to resolve before starting: the backend upload
+      endpoint currently runs synchronously to completion (or the
+      scheduler does, for a scheduled post) — showing live per-step
+      progress needs either (a) a way for the frontend to poll upload
+      status mid-flight, or (b) a push channel (SSE/WebSocket) from
+      server to browser; a true "Cancel" needs a way to actually
+      interrupt a publish call already in flight per platform (YouTube's
+      resumable upload API supports this; Facebook/Instagram's Graph API
+      publish calls are more likely all-or-nothing once started — worth
+      checking before promising cancel actually stops a live platform
+      upload vs. just abandoning the local wait for it).
+- [ ] **Save as Draft / Save as Template for the upload form.** Requested
+      by project owner (2026-09-20): if the upload form is filled out but
+      the user isn't ready to publish or schedule yet, let them save it
+      instead — as a **Draft** (resume and finish later, one-off) or as a
+      **Template** (reusable starting point for future uploads — likely
+      title/caption/tags/platform-selection/settings but *not* the video
+      file itself or a schedule time). Needs: new DB table (or a
+      `status='draft'` row in the existing `uploads` table plus a
+      separate `templates` table since drafts and templates have
+      different lifecycles — a draft is consumed/deleted once published,
+      a template is reused indefinitely), a way to list/load/delete
+      saved drafts and templates from the Upload page, and a decision on
+      whether an in-progress video file upload for a draft is kept on
+      disk (counts against the orphaned-file cleanup item below) or the
+      user has to re-attach the file when they resume.
 - [ ] **Pull the live VM's nginx config back into this repo.** After the
       2026-09-20 HTTPS outage (docs/DECISIONS.md 011), certbot re-added
       its `listen 443 ssl` block directly on the VM — that block still
