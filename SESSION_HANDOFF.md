@@ -1,8 +1,39 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-20 (later same day — see dated section below; the outage
-narrative under "Current Task" is from earlier in the day)
+2026-09-20 (even later same day — three dated sections below cover one
+day: an outage, then an Instagram diagnosis, then this fix built on top
+of that diagnosis)
+
+## 2026-09-20 (even later): Instagram re-encode-and-retry fallback
+Direct follow-on to the "Instagram publish failure diagnosis" entry
+below — the project owner's initial guess (moov-atom/faststart, a common
+cause of this exact symptom) was tested directly against the real
+failing video and disproven: `ffmpeg -c copy -movflags +faststart`
+completed cleanly (confirmed moov moved to front) but Instagram still
+rejected it with the same error. The project owner then shared a working
+local script (`upload_reel.py`) that solves this for a different
+pipeline via a full ffmpeg re-encode fallback (H.264 Main profile,
+`yuv420p`, AAC, faststart) with a retry-once pattern.
+
+Ported that pattern into `app/uploaders.py`, used by both `/api/publish`
+and the scheduler. Only retries via re-encode for the specific failure
+mode it can fix (Instagram fetched the file but rejected it while
+processing) — not for auth errors or the 5-minute processing timeout,
+where re-encoding wouldn't help and would just add a long wait on top of
+an already-long one. `ffmpeg` is an optional system dependency; missing
+it degrades gracefully to the pre-existing behavior. Full reasoning in
+docs/DECISIONS.md 012, full changes in CHANGELOG.md's matching entry.
+
+Verified via a synthetic test video reproducing the real file's
+characteristics (H.264 High profile) and a mocked Graph API — confirmed
+the re-encode output is genuinely spec-correct, the retry fires only for
+the right failure mode, never loops more than once, and a missing-ffmpeg
+environment doesn't crash. **Not yet confirmed against the real
+Instagram account and the actual failing video on the live VM** — see
+TODO.md. Also added an ffmpeg install step to DEPLOYMENT_GUIDE.md /
+README.md, since this is a new (optional) system dependency the VM
+doesn't have unless installed.
 
 ## 2026-09-20 (later): Instagram publish failure diagnosis
 Project owner published a video that succeeded on YouTube and Facebook

@@ -34,8 +34,14 @@ ssh your_user@YOUR_VM_IP
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-venv python3-pip nginx ufw unzip
+sudo apt install -y python3 python3-venv python3-pip nginx ufw unzip ffmpeg
 ```
+
+`ffmpeg` is optional but recommended — MediaFlow uses it to automatically
+re-encode and retry a video Instagram rejects during its own processing
+step (see README.md's "How the Instagram re-encode fallback works").
+Instagram publishing still works fine without it, just without that
+automatic retry.
 
 ## 3. Copy the app onto the VM
 

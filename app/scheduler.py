@@ -76,7 +76,11 @@ def _execute_scheduled_upload(row: dict):
                     }
                 else:
                     public_url = f"{PUBLIC_BASE_URL}/media/{video_path.name}"
-                    results["instagram"] = _upload_to_instagram(public_url, row["caption"], fb_creds)
+                    results["instagram"] = _upload_to_instagram(
+                        public_url, row["caption"], fb_creds,
+                        local_file_path=video_path,
+                        build_media_url=lambda name: f"{PUBLIC_BASE_URL}/media/{name}",
+                    )
             else:
                 results[platform] = {"ok": False, "error": f"{platform} isn't wired up yet."}
 

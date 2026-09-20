@@ -233,8 +233,13 @@ async def publish(
                     # to fetch the video from — it can't accept a direct file
                     # upload. We serve the temp file at a short-lived public
                     # URL (random filename) and delete it right after.
-                    public_url = str(request.base_url) + f"media/{tmp_path.name}"
-                    results["instagram"] = _upload_to_instagram(public_url, caption, fb_creds)
+                    base_url = str(request.base_url)
+                    public_url = base_url + f"media/{tmp_path.name}"
+                    results["instagram"] = _upload_to_instagram(
+                        public_url, caption, fb_creds,
+                        local_file_path=tmp_path,
+                        build_media_url=lambda name: base_url + f"media/{name}",
+                    )
             else:
                 results[platform] = {
                     "ok": False,

@@ -1,5 +1,76 @@
 # Changelog
 
+## 2026-09-20 (Instagram re-encode-and-retry fallback)
+
+### Added
+- `app/uploaders.py` — Instagram publishing (both `/api/publish` and the
+  background scheduler) now automatically re-encodes and retries once
+  when Instagram's own processing step rejects a video
+  (`status_code: "ERROR"`, e.g. the undocumented "error code 2207077"
+  reported this session). Split the existing create/poll/publish logic
+  into `_attempt_instagram_publish()`, added `_reencode_for_instagram()`
+  (ffmpeg: H.264 Main profile, `yuv420p`, AAC, `+faststart`) and
+  `_ffmpeg_available()`, and wrapped both in `_upload_to_instagram()`,
+  which now takes optional `local_file_path` / `build_media_url` params.
+  `app/routes/status_publish.py` and `app/scheduler.py` updated to pass
+  both through — both already had the local file on disk at the right
+  moment, no file-lifecycle changes needed.
+- `README.md` — new "How the Instagram re-encode fallback works"
+  section, plus an ffmpeg install note next to the Python dependency
+  install step.
+- `DEPLOYMENT_GUIDE.md` — added `ffmpeg` to the VM's `apt install` step
+  (optional, publishing still works without it).
+- `docs/DECISIONS.md` — Decision 012, full reasoning and the specific
+  video that failed (CapCut export, H.264 High profile, ~15Mbps) that
+  led to this.
+
+### Root cause investigation (this session, before the fix)
+Initial theory was the MP4 moov-atom position (common cause of exactly
+this symptom elsewhere) — disproven empirically: the project owner ran
+`ffmpeg -c copy -movflags +faststart` on the actual failing video
+(confirmed via its own log: "Starting second pass: moving the moov atom
+to the beginning of the file") and it **still** failed with the same
+error. The project owner separately had a working local script
+(`upload_reel.py`) that solves this exact problem for a different
+pipeline (S3 + direct Graph API calls) via a full re-encode fallback —
+ported that pattern in rather than continuing to guess.
+
+### Deliberately NOT retried via re-encode
+A create-time failure (bad/expired token, malformed request) or
+Instagram's 5-minute processing timeout — re-encoding doesn't fix
+either, and retrying would only double an already-long wait. Only the
+specific "fetched fine, rejected during processing" failure mode
+triggers the fallback.
+
+### Verification
+No real Instagram credentials in this environment (same constraint noted
+in the `analytics_meta.py` fix). Verified instead by: generating a
+synthetic H.264 High-profile test video reproducing the failing file's
+characteristics and confirming the re-encode output is genuinely H.264
+Main profile / `yuv420p` / AAC / moov-atom-first (byte-scanned, not just
+trusted); running the full retry path end-to-end against a mocked Graph
+API for four scenarios — (1) raw fails, re-encode retry succeeds, (2)
+both fail, confirms exactly one retry and no runaway loop, (3) a
+create-time/auth error never triggers the fallback at all, (4) a
+missing-ffmpeg environment degrades to the old behavior instead of
+crashing; confirmed the re-encoded temp file is deleted in every case;
+`pyflakes`/`py_compile` clean across `app/`; existing
+status/library/dashboard endpoints still pass. Full details in
+docs/DECISIONS.md 012.
+
+### Known limitation
+Not yet confirmed against a real Instagram account and the project
+owner's actual failing video on the live VM — same "verified against a
+mock, not the real API" caveat as the `analytics_meta.py` fix. Also: a
+publish that needs this fallback can take up to ~10 minutes worst case
+(processing + re-encode + processing again) inside one blocking request
+— accepted tradeoff, see Decision 012.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-20 (fix: HTTPS outage caused by overwriting a live-only nginx block; also: race-condition 404s, nginx upload timeouts)
 
 ### Fixed

@@ -99,6 +99,15 @@
       verified against a mocked Graph API (this dev environment has no
       real Facebook Page credentials and can't reach graph.facebook.com)
       — worth a quick real-account check on the live VM to be thorough.
+- [ ] The Instagram ffmpeg re-encode-and-retry fallback (2026-09-20,
+      Decision 012) was only verified against a mocked Graph API and a
+      synthetic test video with the same characteristics as the real
+      failing one — needs confirming on the live VM: (1) `ffmpeg` is
+      actually installed there (`sudo apt install ffmpeg` per
+      DEPLOYMENT_GUIDE.md), (2) the specific video that was failing
+      (`0919.mp4`, CapCut export, H.264 High profile) actually publishes
+      successfully now via the app, not just via the standalone
+      `upload_reel.py` script.
 - [ ] Facebook/Instagram Analytics still can't show "which posts got
       views today" the way YouTube now can — Meta's Graph API doesn't
       expose a per-day, per-video/media view breakdown, only lifetime
@@ -106,6 +115,12 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Instagram publishing (immediate and scheduled) now automatically
+      re-encodes with ffmpeg and retries once when Instagram's own
+      processing step rejects a video (undocumented error, e.g. code
+      2207077) — but only for that specific failure mode, not for
+      auth errors or processing timeouts. See docs/DECISIONS.md 012
+      (2026-09-20)
 - [x] Admin panel: an admin can list users, force a password reset,
       promote/demote admins, delete a user (once they own no accounts),
       and reassign a workspace account's owner. `is_admin` granted only

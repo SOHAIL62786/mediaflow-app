@@ -617,3 +617,86 @@ Fixed and confirmed working by the project owner. The live VM's nginx
 config (with certbot's SSL block) has not yet been pulled back into this
 repo file — TODO.md tracks this as a follow-up so the repo stops being a
 stale/incomplete picture of the real config.
+
+
+---
+
+## Decision 012
+
+Date: 2026-09-20
+
+Decision:
+Add an automatic ffmpeg re-encode-and-retry fallback for Instagram
+publishing, in `app/uploaders.py`, used by both the immediate
+`/api/publish` flow and the background scheduler.
+
+Background:
+Instagram's Content Publishing API can accept a video, download it fine,
+and still reject it during its own processing step with an undocumented
+error code (`status_code: "ERROR"`, e.g. code 2207077) — Meta doesn't
+publish what these mean. Root-caused on a real failing video from a
+project-owner export (CapCut, H.264 High profile, 1080x1920, ~15Mbps,
+30fps): a `-c copy` remux with `+faststart` alone (fixing only moov-atom
+placement) did NOT resolve it, but a real re-encode down to H.264 Main
+profile + yuv420p + AAC did, per a working local script
+(`upload_reel.py`) the project owner had already validated by hand. That
+script's "raw first, ffmpeg re-encode only on failure, retry once"
+pattern is what got ported in, rather than always re-encoding (slow and
+lossy, unnecessary for the common case where the raw file is fine).
+
+Implementation:
+- `_attempt_instagram_publish()` (the pre-existing create -> poll ->
+  publish logic, unchanged) is called once with the original URL. On
+  `status_code == "ERROR"` specifically, it's tagged
+  `reencode_worth_trying: True`.
+- `_upload_to_instagram()` wraps that: if the first attempt fails AND is
+  tagged retryable AND the caller supplied the local file path plus a
+  `build_media_url` callback, it re-encodes
+  (`ffmpeg -c:v libx264 -profile:v main -pix_fmt yuv420p -c:a aac -b:a
+  128k -ar 44100 -movflags +faststart`) into a new file in `UPLOAD_DIR`
+  (so `/media/{filename}` can serve it) and retries exactly once.
+  Deliberately gated by that flag: a create-time failure (bad token,
+  malformed request) or the 5-minute processing timeout are NOT
+  retried this way, since re-encoding doesn't address either and would
+  only double an already-long wait.
+- `ffmpeg` is optional, checked via `shutil.which`. If missing, the
+  original error is returned with a note appended — publishing behaves
+  exactly as before this change, just without the automatic retry.
+- Both call sites (`app/routes/status_publish.py`'s immediate publish,
+  `app/scheduler.py`'s scheduled publish) already had the local file
+  on disk at the point Instagram is attempted (deletion only happens
+  after all platforms are tried), so no change to file-lifecycle timing
+  was needed — just threading `local_file_path` and `build_media_url`
+  through.
+
+Known tradeoff, accepted:
+A publish that needs this fallback can now take up to roughly 10 minutes
+worst case (up to 5 min Instagram processing + real ffmpeg re-encode +
+up to another 5 min processing on retry), all within one blocking
+`/api/publish` request. `mediaflow.nginx.conf`'s `proxy_read_timeout`/
+`proxy_send_timeout` are already 600s (set for large video uploads),
+which covers this, but it's a real, deliberately-accepted latency cost
+for the cases it applies to — not attempted for the failure modes
+(timeout, auth) where it wouldn't help, specifically to avoid making
+this worse than necessary.
+
+Verification:
+No real Instagram credentials available in this environment (same
+constraint as the `analytics_meta.py` fix), so verified via: a
+synthetic test video generated with the same H.264 High-profile
+characteristics as the project owner's actual failing file, confirming
+`_reencode_for_instagram()` produces H.264 Main profile / yuv420p / AAC
+/ moov-atom-first output; the full retry path exercised end-to-end with
+a mocked Graph API (raw attempt returns `ERROR` -> re-encode -> retry
+succeeds); confirmed exactly one retry is attempted (no runaway loop)
+when the retry also fails; confirmed create-time/auth errors never
+trigger the fallback; confirmed a missing-ffmpeg environment degrades
+to the pre-existing behavior instead of crashing; confirmed the
+re-encoded temp file is always cleaned up; `pyflakes`/`py_compile`
+clean across the whole `app/` package; full existing test suite
+(status/library/dashboard endpoints) still passes.
+
+Status:
+Accepted. Not yet confirmed against a real Instagram account/video on
+the live VM — TODO.md tracks this, same caveat as other Meta-API-facing
+changes in this environment.

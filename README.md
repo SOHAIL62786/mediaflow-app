@@ -47,6 +47,27 @@ source venv/bin/activate     (Mac/Linux)
 pip install -r requirements.txt
 ```
 
+### Optional: ffmpeg (for the Instagram re-encode fallback)
+
+Instagram sometimes rejects an otherwise-valid video during its own
+processing step — the file downloads fine but fails to encode, usually
+because of the codec profile, GOP structure, or bitrate the video was
+originally exported with (not something MediaFlow controls, and Instagram's
+own error for it is unhelpfully generic). If `ffmpeg` is installed and on
+your `PATH`, MediaFlow automatically re-encodes into a conservative,
+known-Instagram-safe format and retries **once** before giving up — see
+"How the Instagram re-encode fallback works" below.
+
+This is optional: if `ffmpeg` isn't installed, Instagram publishing still
+works exactly as before, just without the automatic retry.
+
+```
+# Debian/Ubuntu (including the deploy VM)
+sudo apt install ffmpeg
+
+# Windows/Mac: https://ffmpeg.org/download.html
+```
+
 ## 2. Connecting YouTube
 
 Your Google OAuth client goes in `credentials/client_secret.json` (shared
@@ -163,6 +184,39 @@ A few consequences of this design:
   click does, so it has to be told explicitly where the server is
   reachable from the internet. Scheduling YouTube/Facebook doesn't need
   this.
+
+## How the Instagram re-encode fallback works
+
+Instagram's Content Publishing API accepts a video, downloads it fine, and
+*then* can reject it while processing — with an error code Meta doesn't
+document. This almost always means the file's codec profile, GOP
+structure, or bitrate isn't something Instagram's transcoder handles
+cleanly, even when the file otherwise looks spec-compliant on paper
+(right resolution, right container, right duration, under the 100MB
+Reels cap).
+
+When that specific failure happens (Instagram's `status_code` comes back
+`ERROR`, meaning the file was fetched but rejected during processing) and
+`ffmpeg` is installed on the server, MediaFlow automatically:
+1. Re-encodes the original file into H.264 (Main profile), `yuv420p`,
+   AAC audio, with the MP4 index moved to the front of the file
+   (`-movflags +faststart`) — a conservative format known to work.
+2. Retries the publish **once** with the re-encoded file.
+3. Deletes the re-encoded copy afterward either way.
+
+This only happens for that one failure mode. It's deliberately **not**
+attempted for a bad/expired token, a malformed request, or Instagram
+just taking longer than 5 minutes to process — re-encoding doesn't fix
+any of those, and retrying would only add a long wait for nothing. If
+`ffmpeg` isn't installed, this step is skipped and you get the original
+(now more detailed, since a recent fix) Instagram error instead.
+
+Because the re-encode is slow (real transcoding, not just a fast remux)
+and Instagram's own processing can take up to 5 minutes per attempt, a
+publish that needs this fallback can take a while — nginx's
+`proxy_read_timeout`/`proxy_send_timeout` (`mediaflow.nginx.conf`) are
+already set generously (600s) to accommodate large video uploads, which
+also covers this.
 
 ## 4. Run the app
 
