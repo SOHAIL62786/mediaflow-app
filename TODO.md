@@ -44,6 +44,12 @@
       scheduled publish, instead of failing permanently on first error
 
 ## Low Priority
+- [ ] The new Instagram video-metrics additions (2026-09-22: reposts,
+      avg watch time, skip rate, computed engagement rates) — field
+      names verified against Meta's docs and the fallback/rate/
+      conversion logic exercised directly, but never against an actual
+      real Instagram Business account's response. Check on the live VM,
+      ideally against a real Reel (for the two Reels-only fields).
 - [ ] The new live publish progress panel (2026-09-20) was only verified
       by exercising the job registry logic directly (create/ownership/
       step updates/cancel/finish, all pass) and a clean rebuild — not an
