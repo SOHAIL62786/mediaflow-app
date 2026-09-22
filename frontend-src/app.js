@@ -1551,7 +1551,8 @@
       {value: 'comments', label: 'Comments'},
     ],
     instagram: [
-      {value: 'views', label: 'Engagement'},  // this field = likes+comments for IG, set server-side
+      {value: 'views', label: 'Views'},
+      {value: 'engagement', label: 'Engagement'},
       {value: 'likes', label: 'Likes'},
       {value: 'comments', label: 'Comments'},
     ],
@@ -1582,7 +1583,7 @@
         <img class="vid-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'">
         <div class="lib-info">
           <div class="n">${escapeHtml(v.title)}</div>
-          <div class="d">${fmtNum(v.likes)} likes • ${fmtNum(v.comments)} comments</div>
+          <div class="d">${fmtNum(v.views)} views • ${fmtNum(v.likes)} likes • ${fmtNum(v.comments)} comments</div>
         </div>
         <button class="metrics-btn" data-platform="instagram" data-video-id="${v.media_id}">Metrics</button>
       </div>`,
