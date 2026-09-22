@@ -64,34 +64,44 @@ def analytics_facebook(days: int = 28, account_id: int = 1, user: dict = Depends
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=max(1, days) - 1)
 
-    # NOTE: "page_media_view" only exists on Graph API v25.0+ (it's Meta's
-    # Nov 2025 replacement for "page_impressions"), but GRAPH_API_VERSION in
-    # app/config.py is pinned to v23.0 — requesting it there fails with
-    # "(#100) The value must be a valid insights metric". Using
-    # "page_impressions" instead since it's valid on v23.0. This is a
-    # stopgap, not a permanent fix: Meta has already flagged page_impressions
-    # for future deprecation too. The real fix is bumping GRAPH_API_VERSION
-    # to v25.0+ and switching back to page_media_view, but that needs a full
-    # pass over every other Graph call in this file (and youtube/facebook
-    # publishing code) to confirm nothing else breaks on the version bump.
-    insights = _graph_get(
-        f"{page_id}/insights",
-        {
-            "metric": "page_impressions,page_post_engagements,page_video_views",
-            "period": "day",
-            "since": start_date.isoformat(),
-            "until": (end_date + timedelta(days=1)).isoformat(),
-            "access_token": token,
-        },
-    )
+    # Meta has repeatedly renamed/deprecated these Page Insights metric names
+    # (page_impressions -> deprecated Nov 2025 "for all API versions" per
+    # Meta's own docs; page_media_view is the documented replacement, but
+    # this app is pinned to Graph API v23.0 in app/config.py and it's still
+    # unclear which of these metric names Meta actually accepts on that
+    # version right now). Rather than guess again and risk breaking the
+    # whole page over one bad metric name, each metric is fetched
+    # independently here: one failing metric degrades to 0 for that number
+    # instead of taking down the entire Analytics page. Whichever metric(s)
+    # fail get printed server-side (check the VM logs / journalctl) so it's
+    # obvious which name Meta has rejected this time.
+    def _fetch_metric(metric: str):
+        try:
+            resp = _graph_get(
+                f"{page_id}/insights",
+                {
+                    "metric": metric,
+                    "period": "day",
+                    "since": start_date.isoformat(),
+                    "until": (end_date + timedelta(days=1)).isoformat(),
+                    "access_token": token,
+                },
+            )
+            return _insights_series(resp, metric), _insights_total(resp, metric)
+        except HTTPException as e:
+            print(f"[analytics_facebook] metric '{metric}' failed, defaulting to 0: {e.detail}")
+            return [], 0
 
-    views_series = _insights_series(insights, "page_impressions")
+    views_series, views_total = _fetch_metric("page_media_view")
+    _, video_views_total = _fetch_metric("page_video_views")
+    _, engagements_total = _fetch_metric("page_post_engagements")
+
     daily = [{"date": d, "views": int(v)} for d, v in views_series]
 
     period_totals = {
-        "views": _insights_total(insights, "page_impressions"),
-        "video_views": _insights_total(insights, "page_video_views"),
-        "engagements": _insights_total(insights, "page_post_engagements"),
+        "views": views_total,
+        "video_views": video_views_total,
+        "engagements": engagements_total,
     }
 
     # Videos by total views — Page videos don't return view counts inline,
