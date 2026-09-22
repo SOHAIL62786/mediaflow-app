@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-09-22 (UX: progress ring on the metrics-modal Refresh button)
+
+### Changed
+- `frontend-src/style.css`, `frontend-src/app.js` — the video-metrics
+  modal's auto-refresh countdown ("Next refresh in Ns") is now a
+  progress ring drawn around the "Refresh now" button's own border,
+  instead of text. Fills clockwise as time elapses toward the next
+  auto-refresh, resets on a manual refresh, and disappears entirely when
+  auto-refresh is off. Ring color uses the same `--border`/`--indigo`
+  theme tokens as everything else, so it works in dark mode automatically.
+- Implementation: a `conic-gradient` masked into a ring shape via the
+  standard two-mask `mask-composite: exclude` gradient-border technique
+  (follows the button's actual rounded-rect shape, not a plain circle),
+  updated via a `--refresh-progress` CSS custom property ticked every
+  150ms in JS. Hit and fixed a real `z-index:-1` stacking-context bug
+  along the way — without an explicit `z-index:0` on the button itself,
+  the ring pseudo-element escaped behind the *page* background entirely
+  rather than just behind the button (reproduced and confirmed in an
+  isolated test file before fixing).
+
+### Verification
+Requested via a screenshot of the existing text countdown. Verified with
+a headless-browser walkthrough: progress percentage matches elapsed time
+at multiple points in a refresh cycle (28.5% at ~2.5s, 60% at ~5.5s of a
+10s interval), resets to ~0% on a manual "Refresh now" mid-countdown,
+fully disappears when auto-refresh is turned off, and renders correctly
+in dark mode — including a zoomed-in pixel-level check of the rendered
+ring at each stage, not just the underlying state values.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-21 (feature: Save as Draft / Save as Template on the Upload form)
 
 ### Added

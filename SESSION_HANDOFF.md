@@ -3,7 +3,42 @@
 ## Last Updated
 2026-09-22
 
-## 2026-09-22 (latest): Upload page cleanup + publish History
+## 2026-09-22 (latest): Progress ring on the metrics-modal Refresh button
+
+Project owner sent a screenshot of the Instagram video-metrics modal's
+auto-refresh countdown ("Next refresh in Ns" text) and suggested a
+progress bar instead — either standalone, or as the border of the
+Refresh now button itself. Went with the button-border version since it
+was the more specific/interesting of the two options offered, and keeps
+the control compact rather than adding a new UI element.
+
+Full detail in CHANGELOG.md's matching entry — summary here. Ring is a
+conic-gradient masked into the button's actual rounded-rect shape (the
+standard mask-composite:exclude gradient-border trick), driven by a
+--refresh-progress CSS variable ticked every 150ms in JS, replacing the
+old text-based countdown entirely. Same underlying scheduling state as
+before (nextRefreshAt/intervalMs), so manual refresh / turning
+auto-refresh off still work exactly as they did.
+
+Worth knowing for next time: hit a genuine z-index:-1 stacking-context
+bug while building this — without giving the button itself an explicit
+z-index:0, a child pseudo-element with z-index:-1 doesn't just go behind
+its own parent, it can escape behind the *page* background entirely if
+the parent hasn't established its own stacking context. Reproduced this
+in an isolated standalone HTML file before realizing the fix, rather
+than guessing at the real page. Worth remembering if any other
+z-index:-1 trick shows up as "just doesn't render" rather than an
+outright error — check whether the parent needs an explicit z-index too.
+
+Verified with a headless-browser walkthrough, including zoomed-in pixel
+checks of the actual rendered ring (not just reading back the JS state)
+at several points in a refresh cycle, after manual refresh, with
+auto-refresh off, and in dark mode. No backend changes, no external
+platform API involved.
+
+---
+
+## 2026-09-22: Upload page cleanup + publish History
 Removed the Connected Accounts and Publishing Tips panels from the Upload
 page sidebar (per project owner request — Connected Accounts duplicated
 the Platforms page). Added a third "History" tab next to Drafts/Templates
