@@ -2,10 +2,22 @@
     <div class="content-single">
       <div class="analytics-platform-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px;">
         <h1 style="margin:0;font-size:22px;">Analytics</h1>
-        <div id="analyticsPlatformRadios" style="display:flex;gap:22px;">
-          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="youtube" checked> YouTube</label>
-          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="facebook"> Facebook</label>
-          <label class="radio-opt"><input type="radio" name="analyticsPlatform" value="instagram"> Instagram</label>
+        <div id="analyticsPlatformPicks" class="platform-pick-row">
+          <div class="platform-pick selected" data-platform="youtube">
+            <div class="platform-icon pi-youtube"><svg width="34" height="34" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
+            <div class="platform-name">YouTube</div>
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+          </div>
+          <div class="platform-pick" data-platform="facebook">
+            <div class="platform-icon pi-facebook"><svg width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
+            <div class="platform-name">Facebook</div>
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+          </div>
+          <div class="platform-pick" data-platform="instagram">
+            <div class="platform-icon pi-instagram"><svg width="34" height="34" viewBox="0 0 24 24"><defs><linearGradient id="ig-analytics" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig-analytics)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.2" cy="7.8" r="1" fill="#fff"/></svg></div>
+            <div class="platform-name">Instagram</div>
+            <div class="platform-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+          </div>
         </div>
       </div>
       <div id="analyticsBody"><div class="empty-state">Loading…</div></div>

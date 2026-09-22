@@ -1938,9 +1938,12 @@
     }
   }
 
-  document.querySelectorAll('input[name=analyticsPlatform]').forEach(r=>{
-    r.addEventListener('change', ()=>{
-      currentAnalyticsPlatform = r.value;
+  document.querySelectorAll('.platform-pick').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      if(card.classList.contains('selected')) return;
+      document.querySelectorAll('.platform-pick').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      currentAnalyticsPlatform = card.dataset.platform;
       loadAnalytics(currentAnalyticsDays);
     });
   });
