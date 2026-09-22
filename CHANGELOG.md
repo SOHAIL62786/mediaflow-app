@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-09-21 (feature: Save as Draft / Save as Template on the Upload form)
+
+### Added
+- `app/db.py` — new `upload_presets` table (title, caption, tags,
+  platforms, privacy, made_for_kids, contains_synthetic_media, plus a
+  `kind` column: 'draft' or 'template', and a `name` required only for
+  templates) and its CRUD helpers. One table for both, since they're the
+  same shape of data with different lifecycles — see
+  docs/DECISIONS.md 013.
+- `app/routes/upload_presets.py` (new) — `GET/POST /api/upload-presets`,
+  `DELETE /api/upload-presets/{id}`, all account-scoped and
+  ownership-checked the same way as every other account-scoped route.
+- `app/routes/accounts.py` — deleting an account now also deletes its
+  saved presets, so it doesn't leave orphaned rows behind.
+- `frontend-src/pages/upload.html` — "💾 Save as Draft" / "⭐ Save as
+  Template" buttons under Video Details, and a new "Drafts & Templates"
+  card in the Upload page's sidebar with a tab switcher between the two.
+- `frontend-src/app.js` — save/list/apply/delete logic. Applying a
+  template populates the form's fields (title, caption, tags, privacy,
+  platform selection, checkboxes) without deleting it; resuming a draft
+  does the same but also deletes it afterward, since a draft is
+  considered used once you act on it. Template names are entered via a
+  `prompt()`, matching the existing rename-account pattern; deletes go
+  through the existing `confirm()` pattern too.
+
+### Note — video files are deliberately NOT part of this
+A draft/template saves the form's metadata, not a video file. See
+Decision 013 for the reasoning (avoids a much larger file-storage/
+cleanup feature, and "Resume"/"Apply" can stay a pure frontend action
+reusing the existing, already-tested `/api/publish` flow untouched).
+
+### Verification
+Backend verified directly against a running server (curl): full CRUD
+for both kinds, template-name-required validation, empty-title-and-
+caption rejection, cross-user ownership isolation (404, matching the
+existing pattern elsewhere), and that deleting an account cleans up its
+presets with zero orphaned rows left in the DB. Frontend verified with a
+headless-browser walkthrough on desktop and mobile: save draft, save
+template, tab switching, Apply vs. Resume behavior (including that
+Resume actually removes the draft afterward), no console errors, no
+horizontal overflow on mobile. `pyflakes` clean across `app/`.
+
+Modified By:
+Claude (via chat session)
+
+---
+
 ## 2026-09-20 (feature: live upload progress panel with cancel)
 
 ### Added

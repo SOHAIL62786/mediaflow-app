@@ -342,6 +342,144 @@
     }
   });
 
+  // ---- Drafts & Templates ----
+  // Both are just a saved snapshot of this form's metadata fields — no
+  // video file, no schedule time (see docs/DECISIONS.md 013). Drafts are
+  // unnamed and one-shot (resuming deletes them); templates are named and
+  // reused indefinitely (applying doesn't delete them).
+  let currentPresetKind = 'draft';
+  let presetsCache = [];
+
+  async function savePreset(kind){
+    const selectedCards = [...document.querySelectorAll('.platform-card.selected')];
+    const platforms = selectedCards.map(c => c.dataset.platform);
+    let name = '';
+    if(kind === 'template'){
+      name = prompt('Name this template (e.g. "Weekly Vlog"):', '');
+      if(name === null) return; // cancelled
+      if(!name.trim()){ showToast('Give the template a name.'); return; }
+    }
+    const title = titleInput.value || '';
+    const caption = captionInput.value || '';
+    if(!title.trim() && !caption.trim()){
+      showToast('Add a title or caption before saving.');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('kind', kind);
+    if(name) fd.append('name', name.trim());
+    fd.append('title', title);
+    fd.append('caption', caption);
+    fd.append('platforms', platforms.join(','));
+    fd.append('tags', document.getElementById('tagsInput').value || '');
+    fd.append('privacy', document.getElementById('privacySelect').value);
+    fd.append('made_for_kids', document.getElementById('madeForKidsInput').checked);
+    fd.append('contains_synthetic_media', document.getElementById('syntheticMediaInput').checked);
+    try{
+      const res = await fetch(withAccount(`${API}/api/upload-presets`), { method: 'POST', body: fd });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail:'Save failed.'}));
+        throw new Error(err.detail);
+      }
+      showToast(kind === 'draft' ? 'Draft saved.' : 'Template saved.');
+      if(currentPresetKind === kind) loadPresets(kind);
+    }catch(err){
+      showToast('Could not save: ' + err.message, 5000);
+    }
+  }
+  document.getElementById('saveDraftBtn').addEventListener('click', () => savePreset('draft'));
+  document.getElementById('saveTemplateBtn').addEventListener('click', () => savePreset('template'));
+
+  async function loadPresets(kind){
+    currentPresetKind = kind;
+    document.getElementById('presetTabDrafts').classList.toggle('active', kind === 'draft');
+    document.getElementById('presetTabTemplates').classList.toggle('active', kind === 'template');
+    const container = document.getElementById('presetList');
+    container.innerHTML = '<div class="empty-state">Loading…</div>';
+    try{
+      const res = await fetch(withAccount(`${API}/api/upload-presets?kind=${kind}`));
+      if(!res.ok) throw new Error();
+      presetsCache = await res.json();
+      renderPresetList();
+    }catch(err){
+      container.innerHTML = '<div class="empty-state">Could not load.</div>';
+    }
+  }
+
+  function renderPresetList(){
+    const container = document.getElementById('presetList');
+    if(!presetsCache.length){
+      container.innerHTML = `<div class="empty-state">${currentPresetKind === 'draft' ? 'No drafts saved yet.' : 'No templates saved yet.'}</div>`;
+      return;
+    }
+    container.innerHTML = presetsCache.map(p => {
+      const label = currentPresetKind === 'template' ? (p.name || 'Untitled') : (p.title || p.caption || 'Untitled draft');
+      const sub = currentPresetKind === 'template'
+        ? (p.title || 'No title set')
+        : new Date(p.created_at).toLocaleString();
+      const actionLabel = currentPresetKind === 'template' ? 'Apply' : 'Resume';
+      return `
+        <div class="preset-row" data-preset-id="${p.id}">
+          <div style="min-width:0;flex:1;">
+            <div class="n">${escapeHtml(label)}</div>
+            <div class="d">${escapeHtml(sub)}</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="acc-btn" data-preset-action="apply">${actionLabel}</button>
+            <button class="acc-btn danger" data-preset-action="delete">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('presetTabDrafts').addEventListener('click', () => loadPresets('draft'));
+  document.getElementById('presetTabTemplates').addEventListener('click', () => loadPresets('template'));
+
+  function applyPresetToForm(preset){
+    titleInput.value = preset.title || '';
+    captionInput.value = preset.caption || '';
+    charCount.textContent = captionInput.value.length;
+    document.getElementById('tagsInput').value = preset.tags || '';
+    document.getElementById('privacySelect').value = preset.privacy || 'private';
+    document.getElementById('madeForKidsInput').checked = !!preset.made_for_kids;
+    document.getElementById('syntheticMediaInput').checked = !!preset.contains_synthetic_media;
+    const platforms = (preset.platforms || '').split(',').map(p=>p.trim()).filter(Boolean);
+    document.querySelectorAll('.platform-card').forEach(card=>{
+      const shouldSelect = platforms.includes(card.dataset.platform) && card.dataset.connected === 'true';
+      card.classList.toggle('selected', shouldSelect);
+    });
+  }
+
+  document.getElementById('presetList').addEventListener('click', async (e) => {
+    const row = e.target.closest('[data-preset-id]');
+    if(!row) return;
+    const id = parseInt(row.dataset.presetId, 10);
+    const preset = presetsCache.find(p => p.id === id);
+    if(!preset) return;
+    const action = e.target.closest('[data-preset-action]');
+    if(!action) return;
+
+    if(action.dataset.presetAction === 'apply'){
+      applyPresetToForm(preset);
+      if(currentPresetKind === 'draft'){
+        // Drafts are one-shot — resuming one consumes it.
+        try{ await fetch(withAccount(`${API}/api/upload-presets/${id}`), { method: 'DELETE' }); }catch(err){}
+        loadPresets('draft');
+      }
+      showToast(currentPresetKind === 'draft' ? 'Draft loaded into the form.' : 'Template applied.');
+    } else if(action.dataset.presetAction === 'delete'){
+      const ok = confirm(`Delete this ${currentPresetKind}? This can't be undone.`);
+      if(!ok) return;
+      try{
+        const res = await fetch(withAccount(`${API}/api/upload-presets/${id}`), { method: 'DELETE' });
+        if(!res.ok) throw new Error();
+        loadPresets(currentPresetKind);
+      }catch(err){
+        showToast('Could not delete.', 4000);
+      }
+    }
+  });
+
   // Radio label + datetime picker toggle
   const scheduleDatetimeWrap = document.getElementById('scheduleDatetime');
   const scheduleDatetimeInput = document.getElementById('scheduleDatetimeInput');
@@ -396,6 +534,7 @@
     if(name === 'published') loadLibrary('published');
     if(name === 'analytics') loadAnalytics();
     if(name === 'settings') loadSettingsPage();
+    if(name === 'upload') loadPresets(currentPresetKind);
   }
 
   document.querySelectorAll('#navList li[data-page]').forEach(li=>{

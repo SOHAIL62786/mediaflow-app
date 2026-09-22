@@ -700,3 +700,71 @@ Status:
 Accepted. Not yet confirmed against a real Instagram account/video on
 the live VM — TODO.md tracks this, same caveat as other Meta-API-facing
 changes in this environment.
+
+---
+
+## Decision 013
+
+Date: 2026-09-21
+
+Decision:
+Add "Save as Draft" and "Save as Template" to the Upload form, backed by
+one new table (`upload_presets`) rather than two. A draft and a template
+turned out to be the same shape of data (title, caption, tags,
+platforms, privacy, made-for-kids/synthetic-media checkboxes) with two
+different lifecycles, not two different schemas — giving them separate
+tables would have meant duplicating the same columns, CRUD functions,
+and API routes twice for no real benefit. A `kind` column ('draft' |
+'template') plus a nullable `name` (required for templates, always null
+for drafts, since drafts are identified by their own title/timestamp
+instead of a user-given label) covers both:
+- **Drafts**: unnamed, one-shot. "Resume" on the frontend loads the
+  saved fields into the form AND deletes the draft — it's consumed once
+  you act on it, same mental model as a real draft.
+- **Templates**: user-named, reused indefinitely. "Apply" loads the
+  fields into the form but does NOT delete the template.
+
+Both are scoped to a workspace-account (like uploads/credentials), not
+to the logged-in user, via the same `get_account_or_404(account_id,
+user_id)` ownership check used everywhere else — consistent with
+Decision 003/006's account-vs-user split.
+
+Deliberately NOT included: a video file. A draft/template is metadata
+you come back to and attach a (possibly different, possibly
+not-yet-chosen) file to — not a half-uploaded video sitting in storage.
+This was the main open question noted when this item first went into
+TODO.md, and keeping files out of scope was chosen because:
+1. It avoids a much larger feature (storing, and safely cleaning up,
+   arbitrary video files indefinitely for drafts that might never be
+   resumed) that TODO.md already flags as a general risk area (orphaned
+   temp-file cleanup).
+2. "Resume"/"Apply" can then be a pure frontend action (populate form
+   fields) with no new publish/schedule code path needed — reusing the
+   existing, already-tested `/api/publish` flow untouched.
+3. It matches how most people actually think of a "draft" for something
+   like this: the tedious-to-retype details (title, tags, per-platform
+   settings), not necessarily the file itself.
+
+Alternatives Considered:
+- Two separate tables (`drafts`, `templates`) matching the original
+  phrasing in TODO.md — rejected once it became clear the schemas
+  would be identical; a `kind` flag on one table does the same job with
+  less duplication.
+- Storing the video file with a draft (so "Resume" could publish
+  directly without re-selecting a file) — rejected for now, see above.
+  Could revisit later as a distinct, explicitly-scoped feature if
+  needed.
+- Scoping presets per-user instead of per-account — rejected for
+  consistency with how every other piece of upload-related data
+  (uploads, credentials) is already account-scoped, not user-scoped.
+
+Status:
+Accepted. Backend verified directly (curl): full CRUD for both kinds,
+template-name-required validation, empty-title-and-caption rejection,
+cross-user ownership isolation (404, matching the existing pattern), and
+that deleting an account cleans up its presets (no orphaned rows).
+Frontend verified with a headless-browser walkthrough on desktop and
+mobile: save draft, save template (name prompt), tab switching, Apply
+populating the form without deleting the template, Resume populating
+the form AND deleting the draft, no console errors, no horizontal
+overflow on mobile. `pyflakes` clean across `app/`.

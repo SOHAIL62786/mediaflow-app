@@ -1,21 +1,6 @@
 # TODO
 
 ## High Priority
-- [ ] **Save as Draft / Save as Template for the upload form.** Requested
-      by project owner (2026-09-20): if the upload form is filled out but
-      the user isn't ready to publish or schedule yet, let them save it
-      instead — as a **Draft** (resume and finish later, one-off) or as a
-      **Template** (reusable starting point for future uploads — likely
-      title/caption/tags/platform-selection/settings but *not* the video
-      file itself or a schedule time). Needs: new DB table (or a
-      `status='draft'` row in the existing `uploads` table plus a
-      separate `templates` table since drafts and templates have
-      different lifecycles — a draft is consumed/deleted once published,
-      a template is reused indefinitely), a way to list/load/delete
-      saved drafts and templates from the Upload page, and a decision on
-      whether an in-progress video file upload for a draft is kept on
-      disk (counts against the orphaned-file cleanup item below) or the
-      user has to re-attach the file when they resume.
 - [ ] **Pull the live VM's nginx config back into this repo.** After the
       2026-09-20 HTTPS outage (docs/DECISIONS.md 011), certbot re-added
       its `listen 443 ssl` block directly on the VM — that block still
@@ -109,6 +94,16 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Save as Draft / Save as Template for the Upload form (2026-09-21).
+      New `upload_presets` table (one table, `kind` column, rather than
+      two — see Decision 013), full CRUD via `/api/upload-presets`,
+      account-scoped like everything else. Drafts are unnamed/one-shot
+      (Resume populates the form then deletes the draft); templates are
+      named/reusable (Apply populates the form, doesn't delete).
+      Deliberately doesn't store a video file — see Decision 013 for why.
+      Backend verified via curl (CRUD, validation, cross-user isolation,
+      account-delete cleanup); frontend verified with a headless-browser
+      walkthrough on desktop + mobile.
 - [x] Live upload progress panel with cancel — Publish Now opens a
       slide-in panel with a step per selected platform
       (pending → active → done/failed, real per-platform error shown

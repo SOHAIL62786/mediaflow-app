@@ -41,6 +41,7 @@ from app.routes import (
     library,
     media,
     status_publish,
+    upload_presets,
     youtube_oauth,
 )
 from app.scheduler import _scheduler_loop
@@ -70,6 +71,7 @@ app.include_router(youtube_oauth.router)
 app.include_router(facebook_connect.router)
 app.include_router(media.router)
 app.include_router(auth_pages.router)
+app.include_router(upload_presets.router)
 
 
 @app.on_event("startup")

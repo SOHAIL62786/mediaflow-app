@@ -120,6 +120,33 @@ def init_db():
             """
         )
 
+        # ---- Upload drafts + templates (see docs/DECISIONS.md 013) ----
+        # Both are just a saved snapshot of the Upload form's metadata
+        # fields (title/caption/tags/platforms/privacy/checkboxes) — no
+        # video file, no schedule time. A 'draft' is unnamed and one-shot
+        # (resuming it deletes it); a 'template' is user-named and reused
+        # indefinitely. Sharing one table avoids duplicating two otherwise
+        # identical schemas/CRUD paths for what's really one concept with
+        # a lifecycle flag.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS upload_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                name TEXT,
+                title TEXT,
+                caption TEXT,
+                platforms TEXT,
+                privacy TEXT,
+                tags TEXT,
+                made_for_kids INTEGER NOT NULL DEFAULT 0,
+                contains_synthetic_media INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
 
 def backfill_account_ownership():
     """One-time migration step (see docs/DECISIONS.md 006): assign any
@@ -228,4 +255,52 @@ def row_to_dict(row: sqlite3.Row) -> dict:
     d["made_for_kids"] = bool(d["made_for_kids"])
     d["contains_synthetic_media"] = bool(d["contains_synthetic_media"])
     d["results"] = json.loads(d["results"])
+    return d
+
+
+# ---------- Upload drafts + templates ----------
+# See the upload_presets table comment in init_db() above and
+# docs/DECISIONS.md 013 for what these are and why they share a table.
+
+def create_upload_preset(*, account_id: int, kind: str, name, title, caption,
+                          platforms, privacy, tags, made_for_kids,
+                          contains_synthetic_media) -> int:
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO upload_presets
+                (account_id, kind, name, title, caption, platforms, privacy,
+                 tags, made_for_kids, contains_synthetic_media, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                account_id, kind, name, title, caption, platforms, privacy, tags,
+                int(made_for_kids), int(contains_synthetic_media),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        return cur.lastrowid
+
+
+def list_upload_presets(account_id: int, kind: str) -> list:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM upload_presets WHERE account_id = ? AND kind = ? ORDER BY id DESC",
+            (account_id, kind),
+        ).fetchall()
+        return [preset_row_to_dict(r) for r in rows]
+
+
+def delete_upload_preset(preset_id: int, account_id: int) -> bool:
+    with get_db() as conn:
+        cur = conn.execute(
+            "DELETE FROM upload_presets WHERE id = ? AND account_id = ?", (preset_id, account_id)
+        )
+        return cur.rowcount > 0
+
+
+def preset_row_to_dict(row: sqlite3.Row) -> dict:
+    d = dict(row)
+    d["made_for_kids"] = bool(d["made_for_kids"])
+    d["contains_synthetic_media"] = bool(d["contains_synthetic_media"])
     return d

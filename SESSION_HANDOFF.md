@@ -1,11 +1,58 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-20 (even later still — four dated sections below cover one day:
-an outage, then an Instagram diagnosis, then a fix built on that
-diagnosis, then this feature)
+2026-09-21
 
-## 2026-09-20 (latest): Live upload progress panel with cancel
+## 2026-09-21 (latest): Save as Draft / Save as Template
+
+Worked from TODO.md's own High Priority #1 (written 2026-09-20). Full
+detail in CHANGELOG.md's matching entry and docs/DECISIONS.md 013 —
+summary here.
+
+New `upload_presets` table backs both drafts and templates — one table
+with a `kind` column ('draft'/'template') rather than two, since they
+turned out to be the same shape of data (title/caption/tags/platforms/
+privacy/checkboxes) with different lifecycles, not different schemas.
+New `app/routes/upload_presets.py` (list/create/delete), account-scoped
+and ownership-checked the same way as every other account-scoped route.
+Account deletion now also cleans up its presets.
+
+Frontend: Upload page gets "Save as Draft"/"Save as Template" buttons
+under Video Details, and a new "Drafts & Templates" card in the sidebar
+with a tab switcher. Applying a template populates the form without
+deleting it; resuming a draft populates the form AND deletes it
+afterward (drafts are one-shot, consumed once acted on). Template names
+go through a `prompt()`, matching the existing rename-account pattern.
+
+Deliberately does NOT store a video file with a draft/template — see
+Decision 013 for the full reasoning (avoids a much bigger file-storage/
+cleanup feature; keeps Resume/Apply a pure frontend action that reuses
+the existing `/api/publish` flow untouched). This was the one open
+design question the TODO item itself flagged, so it's worth a second
+look if "resume with the file already attached" turns out to matter in
+practice.
+
+Verified: full CRUD lifecycle, template-name-required validation,
+empty-title-and-caption rejection, and cross-user ownership isolation
+(404, matching the existing pattern) via curl against a running server;
+confirmed zero orphaned `upload_presets` rows after deleting an account
+that had some. Frontend verified with a headless-browser walkthrough on
+both desktop and mobile viewports — save/apply/resume/delete all
+behaving correctly, no console errors, no horizontal overflow. No
+external platform API involved in this feature at all, so (unlike most
+recent sessions' changes) there's no "unverified against a real
+connected account" caveat here — this one doesn't depend on YouTube/
+Facebook/Instagram credentials to work correctly.
+
+Not done: nothing else from the requested item was left out. The
+account_id/session flow, DB writes, and frontend state all match the
+same conventions used elsewhere in this codebase (checked against
+accounts.py and library.py before writing anything new).
+
+---
+
+## 2026-09-20: Live upload progress panel with cancel
+
 Worked from TODO.md's own High Priority #1, written by an earlier session
 today. Full detail in CHANGELOG.md's matching entry and TODO.md's
 Completed section — summary here.

@@ -81,10 +81,12 @@ def delete_account(account_id: int, user: dict = Depends(require_login)):
             (account_id,),
         ).fetchall()
         # Deleting an account removes its independent workspace entirely:
-        # its scheduled/published post history and its stored platform
-        # credentials. This mirrors how account data is fully siloed per
-        # account elsewhere (see docs/DECISIONS.md 003).
+        # its scheduled/published post history, its stored platform
+        # credentials, and any saved drafts/templates. This mirrors how
+        # account data is fully siloed per account elsewhere (see
+        # docs/DECISIONS.md 003).
         conn.execute("DELETE FROM uploads WHERE account_id = ?", (account_id,))
+        conn.execute("DELETE FROM upload_presets WHERE account_id = ?", (account_id,))
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
     cred_dir = account_cred_dir(account_id)
     if cred_dir.exists():
