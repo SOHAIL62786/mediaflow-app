@@ -348,8 +348,14 @@ def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: d
     # Try the broadest metric set first, then fall back to smaller sets —
     # which metrics are valid depends on media_product_type (REELS vs FEED
     # vs STORY), and Instagram rejects the whole call if even one metric in
-    # the list doesn't apply to this media type.
+    # the list doesn't apply to this media type. The Reels-only metrics
+    # (ig_reels_avg_watch_time, reels_skip_rate) and reposts were added
+    # 2026-09-22 — field names verified against Meta's own Instagram
+    # Platform docs (developers.facebook.com/documentation/
+    # instagram-platform/reference/instagram-media/insights), not guessed.
     metric_attempts = [
+        "views,reach,saved,shares,total_interactions,reposts,ig_reels_avg_watch_time,reels_skip_rate",
+        "views,reach,saved,shares,total_interactions,reposts",
         "views,reach,saved,shares,total_interactions",
         "reach,saved,shares,total_interactions",
         "reach,saved",
@@ -366,6 +372,21 @@ def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: d
         except HTTPException:
             continue  # this metric combination isn't valid for this media type — try a smaller one
 
+    reach = insight_values.get("reach", 0) or 0
+    likes = media.get("like_count", 0) or 0
+    comments = media.get("comments_count", 0) or 0
+    saved = insight_values.get("saved", 0) or 0
+    shares = insight_values.get("shares", 0) or 0
+    reposts = insight_values.get("reposts", 0) or 0
+
+    def _rate(count):
+        # Instagram's own app computes these rates as count/reach, not
+        # count/views — matches what's shown in the app's "What impacts
+        # your views" panel, which is what this is meant to mirror.
+        return round(count / reach * 100, 1) if reach > 0 else None
+
+    avg_watch_time_ms = insight_values.get("ig_reels_avg_watch_time")
+
     return {
         "media_id": media_id,
         "title": (media.get("caption") or "Untitled post")[:200],
@@ -373,15 +394,26 @@ def analytics_instagram_video_detail(media_id: str, account_id: int = 1, user: d
         "published_at": media.get("timestamp"),
         "media_type": media.get("media_product_type") or media.get("media_type"),
         "url": media.get("permalink"),
-        "likes": media.get("like_count", 0),
-        "comments": media.get("comments_count", 0),
+        "likes": likes,
+        "comments": comments,
         "metrics": {
             "views": insight_values.get("views", 0),
-            "reach": insight_values.get("reach", 0),
-            "saved": insight_values.get("saved", 0),
-            "shares": insight_values.get("shares", 0),
+            "reach": reach,
+            "saved": saved,
+            "shares": shares,
             "total_interactions": insight_values.get("total_interactions", 0),
+            "reposts": reposts,
+            # Reels-only — None (not 0) when absent, so the frontend can
+            # tell "not a Reel" apart from "genuinely zero" and hide the
+            # row instead of showing a misleading 0.
+            "avg_watch_time_seconds": round(avg_watch_time_ms / 1000, 1) if avg_watch_time_ms is not None else None,
+            "skip_rate": insight_values.get("reels_skip_rate"),
+            "like_rate": _rate(likes),
+            "save_rate": _rate(saved),
+            "share_rate": _rate(shares),
+            "comment_rate": _rate(comments),
+            "repost_rate": _rate(reposts),
         },
-        "note": "Instagram's API doesn't expose a retention curve like YouTube's, and which metrics "
-                "are available depends on the post type (Reels vs. regular posts vs. Stories).",
+        "note": "Instagram's API doesn't expose a retention curve or an hour-by-hour views timeline like YouTube's, "
+                "and which metrics are available depends on the post type (Reels vs. regular posts vs. Stories).",
     }

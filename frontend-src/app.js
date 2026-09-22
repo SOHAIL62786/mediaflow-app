@@ -1730,6 +1730,19 @@
 
   function renderInstagramVideoModal(v){
     const m = v.metrics;
+    const isReel = v.media_type === 'REELS';
+    const pct = (n) => (n === null || n === undefined) ? '—' : `${n}%`;
+
+    // Reposts (like reach/saved/shares) apply to Feed posts and Stories
+    // too, not just Reels, so it always gets a card. Avg. watch time and
+    // skip rate are genuinely Reels-only per Instagram's API — shown only
+    // for Reels rather than as a misleading 0%/0s on a photo post.
+    const reelsOnlyCards = isReel ? `
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="stat-card"><div class="stat-label">Avg. Watch Time</div><div class="stat-value">${m.avg_watch_time_seconds === null ? '—' : m.avg_watch_time_seconds + 's'}</div></div>
+        <div class="stat-card"><div class="stat-label">Skip Rate</div><div class="stat-value">${pct(m.skip_rate)}</div></div>
+      </div>` : '';
+
     return `
       <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
         <img src="${v.thumbnail || ''}" style="width:120px;height:90px;border-radius:10px;object-fit:cover;background:#f1f2f6;" onerror="this.style.visibility='hidden'">
@@ -1747,6 +1760,20 @@
         <div class="stat-card"><div class="stat-label">Likes</div><div class="stat-value">${fmtNum(v.likes)}</div></div>
         <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(v.comments)}</div></div>
         <div class="stat-card"><div class="stat-label">Shares</div><div class="stat-value">${fmtNum(m.shares)}</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(1,1fr);">
+        <div class="stat-card"><div class="stat-label">Reposts</div><div class="stat-value">${fmtNum(m.reposts)}</div></div>
+      </div>
+      ${reelsOnlyCards}
+      <div class="sub" style="margin:12px 0 6px;">What impacts your reach</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-label">Like Rate</div><div class="stat-value">${pct(m.like_rate)}</div></div>
+        <div class="stat-card"><div class="stat-label">Save Rate</div><div class="stat-value">${pct(m.save_rate)}</div></div>
+        <div class="stat-card"><div class="stat-label">Share Rate</div><div class="stat-value">${pct(m.share_rate)}</div></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="stat-card"><div class="stat-label">Comment Rate</div><div class="stat-value">${pct(m.comment_rate)}</div></div>
+        <div class="stat-card"><div class="stat-label">Repost Rate</div><div class="stat-value">${pct(m.repost_rate)}</div></div>
       </div>
       <div class="modal-note">${escapeHtml(v.note)}</div>
     `;
