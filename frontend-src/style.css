@@ -483,6 +483,28 @@
   .acc-btn.disabled{border-color:var(--border);color:var(--text-light);cursor:not-allowed;background:var(--page-bg);}
   .acc-btn.disabled:hover{background:var(--page-bg);}
 
+  /* Auto-refresh progress ring around the "Refresh now" button, replacing
+     a "Next refresh in Ns" countdown. The ring sits behind the button
+     (z-index:-1) so if a browser doesn't support mask-composite, it just
+     never appears (hidden behind the button's own opaque background)
+     instead of showing as a broken solid block. */
+  .refresh-ring-btn{position:relative;z-index:0;}
+  .refresh-ring-btn::before{
+    content:'';
+    position:absolute;
+    inset:-3px;
+    z-index:-1;
+    border-radius:11px;
+    padding:3px;
+    background:conic-gradient(var(--indigo) calc(var(--refresh-progress, 0) * 1%), var(--border) 0);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask-composite:exclude;
+    opacity:0;
+    transition:opacity .2s;
+  }
+  .refresh-ring-btn.refresh-ring-active::before{opacity:1;}
+
   /* Upload form: Save as Draft / Save as Template */
   .preset-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);}
   .preset-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}

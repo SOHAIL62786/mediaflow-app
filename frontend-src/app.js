@@ -1778,29 +1778,38 @@
     return `
       <div class="modal-refresh-bar">
         <select class="sort-select" id="modalRefreshSelect">${opts}</select>
-        <button class="acc-btn" id="modalRefreshNow" type="button">↻ Refresh now</button>
+        <button class="acc-btn refresh-ring-btn" id="modalRefreshNow" type="button">↻ Refresh now</button>
         <span class="modal-refresh-status" id="modalRefreshStatus">
           <span class="mini-spinner" id="modalMiniSpinner" style="display:none;"></span>
-          <span id="modalRefreshText"></span><span id="modalCountdownText"></span>
+          <span id="modalRefreshText"></span>
         </span>
       </div>`;
   }
 
-  function updateCountdownDisplay(){
-    const el = document.getElementById('modalCountdownText');
-    if(!el) return;
-    if(!videoModalState.nextRefreshAt){
-      el.textContent = '';
+  // Fills in as a ring around the "Refresh now" button itself, instead of a
+  // "Next refresh in Ns" countdown — same information, no text to re-read
+  // every second. Ticks often enough (150ms) to look smooth without a
+  // dedicated CSS animation, which would need @property to interpolate a
+  // conic-gradient() smoothly and isn't reliably supported everywhere yet.
+  function updateRefreshRing(){
+    const btn = document.getElementById('modalRefreshNow');
+    if(!btn) return;
+    if(!videoModalState.nextRefreshAt || videoModalState.intervalMs <= 0){
+      btn.classList.remove('refresh-ring-active');
+      btn.style.removeProperty('--refresh-progress');
       return;
     }
-    const remaining = Math.max(0, Math.round((videoModalState.nextRefreshAt - Date.now()) / 1000));
-    el.textContent = remaining > 0 ? ` · Next refresh in ${remaining}s` : ' · Refreshing…';
+    const total = videoModalState.intervalMs;
+    const remaining = videoModalState.nextRefreshAt - Date.now();
+    const pct = Math.min(100, Math.max(0, ((total - remaining) / total) * 100));
+    btn.classList.add('refresh-ring-active');
+    btn.style.setProperty('--refresh-progress', pct.toFixed(1));
   }
 
   // Self-scheduling: each auto-refresh, once it finishes, schedules the next
-  // one — so the visible countdown and the actual fetch can never drift
-  // apart, and a manual "Refresh now" naturally restarts the countdown too
-  // (since it clears+reschedules the pending timeout).
+  // one — so the visible progress ring and the actual fetch can never drift
+  // apart, and a manual "Refresh now" naturally resets the ring too (since
+  // it clears+reschedules the pending timeout).
   function scheduleNextAutoRefresh(){
     if(videoModalState.refreshTimeoutId){
       clearTimeout(videoModalState.refreshTimeoutId);
@@ -1810,7 +1819,7 @@
       videoModalState.nextRefreshAt = Date.now() + videoModalState.intervalMs;
       videoModalState.refreshTimeoutId = setTimeout(() => fetchVideoMetrics(), videoModalState.intervalMs);
       if(!videoModalState.countdownTickId){
-        videoModalState.countdownTickId = setInterval(updateCountdownDisplay, 1000);
+        videoModalState.countdownTickId = setInterval(updateRefreshRing, 150);
       }
     } else {
       videoModalState.nextRefreshAt = null;
@@ -1819,7 +1828,7 @@
         videoModalState.countdownTickId = null;
       }
     }
-    updateCountdownDisplay();
+    updateRefreshRing();
   }
 
   function wireModalRefreshControls(){
