@@ -1138,3 +1138,51 @@ Pushed to `main`, triggering the GitHub Actions auto-deploy.
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-22 (Upload page: remove two panels, add publish History)
+
+### Added
+- Upload page: new "History" tab alongside Drafts/Templates. Every form
+  submitted to `/api/publish` is auto-saved (regardless of outcome) and
+  capped at 50 entries per account. Clicking a history row opens a popup
+  showing the full submitted form (title, caption, tags, platforms,
+  privacy, made-for-kids/synthetic-media flags) with Use and Delete
+  buttons, plus a close button.
+- `app/db.py`: `prune_upload_history()`.
+- `frontend-src/layout.html`: new `#historyModalOverlay` (reuses the
+  existing video-detail modal's CSS classes).
+
+### Changed
+- `app/routes/upload_presets.py`: `VALID_KINDS` now includes `history`
+  for listing; a new `VALID_CREATE_KINDS` (draft/template only) keeps
+  history creation exclusive to `/api/publish` — not user-POSTable.
+- `app/routes/status_publish.py`: `publish()` now saves a history entry
+  right after form validation, before the scheduled/immediate branch.
+
+### Removed
+- Upload page: "Connected Accounts" panel (redundant with the Platforms
+  page) and "Publishing Tips" panel.
+
+Reason:
+Requested UI cleanup plus a way to review/reuse/discard past publish
+attempts without remembering to save a draft first. See docs/DECISIONS.md
+014 for full reasoning and alternatives.
+
+Verified:
+- Functional TestClient run: publish → history auto-saves correctly →
+  manual kind=history creation correctly rejected (400) → delete works →
+  list reflects it
+- Pruning verified directly (10 inserts + keep=3 → exactly the 3 most
+  recent survive)
+- `python3 -m py_compile` on every changed backend file
+- `node --check` on the rebuilt static/index.html's JS
+- Duplicate-ID sweep — no real duplicates (only pre-existing JS
+  template-literal false positives)
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy.
+
+Modified By:
+Claude (via chat session)

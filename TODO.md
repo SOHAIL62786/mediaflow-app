@@ -244,3 +244,6 @@
       for that video couldn't be recovered since the temp file is deleted
       right after each publish attempt; next failure will show the real
       reason now (2026-09-20)
+- [x] Upload page: removed Connected Accounts and Publishing Tips panels;
+      added a History tab (auto-logs every submitted publish form, popup
+      with Use/Delete). See docs/DECISIONS.md 014 (2026-09-22)

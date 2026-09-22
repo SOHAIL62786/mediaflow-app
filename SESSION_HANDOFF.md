@@ -1,7 +1,22 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-21
+2026-09-22
+
+## 2026-09-22 (latest): Upload page cleanup + publish History
+Removed the Connected Accounts and Publishing Tips panels from the Upload
+page sidebar (per project owner request — Connected Accounts duplicated
+the Platforms page). Added a third "History" tab next to Drafts/Templates
+that auto-saves every form submitted to /api/publish (any outcome), capped
+at 50 entries/account, with a popup (Use/Delete) instead of inline row
+buttons. Full detail in CHANGELOG.md's 2026-09-22 entry and
+docs/DECISIONS.md 014.
+
+Note: used the existing pill-button tab style for History rather than a
+literal `<input type="radio">`, matching Drafts/Templates — project owner
+asked for "one more radio button" but the existing UI convention here is
+pill-tabs, not native radios; flagged this substitution to them, no
+pushback received yet.
 
 ## 2026-09-21 (latest): Save as Draft / Save as Template
 

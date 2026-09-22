@@ -13,6 +13,10 @@ half-finished upload with a file already in flight.
 deletes it via DELETE, same as consuming it.
 'template' (kind='template'): user-named (see the "name" field), reused
 indefinitely — applying one on the frontend does NOT delete it.
+'history' (kind='history'): auto-saved by /api/publish itself (see
+app/routes/status_publish.py) every time the form is actually submitted —
+not user-created via this router's POST endpoint, listing/deleting only.
+Capped per account (see db.prune_upload_history) so it can't grow forever.
 """
 
 from typing import Optional
@@ -25,7 +29,8 @@ from app.db import create_upload_preset, delete_upload_preset, list_upload_prese
 
 router = APIRouter()
 
-VALID_KINDS = {"draft", "template"}
+VALID_KINDS = {"draft", "template", "history"}
+VALID_CREATE_KINDS = {"draft", "template"}  # history is only ever created by /api/publish itself
 
 
 @router.get("/api/upload-presets")
@@ -51,8 +56,8 @@ def create_preset(
     user: dict = Depends(require_login),
 ):
     get_account_or_404(account_id, user["id"])
-    if kind not in VALID_KINDS:
-        raise HTTPException(status_code=400, detail=f"kind must be one of {sorted(VALID_KINDS)}")
+    if kind not in VALID_CREATE_KINDS:
+        raise HTTPException(status_code=400, detail=f"kind must be one of {sorted(VALID_CREATE_KINDS)}")
 
     clean_name = (name or "").strip()
     if kind == "template" and not clean_name:

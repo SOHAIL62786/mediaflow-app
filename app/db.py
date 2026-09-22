@@ -299,6 +299,25 @@ def delete_upload_preset(preset_id: int, account_id: int) -> bool:
         return cur.rowcount > 0
 
 
+def prune_upload_history(account_id: int, keep: int = 50):
+    """History grows on every publish attempt (unlike drafts/templates,
+    which only exist when a user explicitly saves one) — cap it so it
+    doesn't grow unbounded. Keeps the `keep` most recent entries for this
+    account, deletes the rest."""
+    with get_db() as conn:
+        conn.execute(
+            """
+            DELETE FROM upload_presets
+            WHERE account_id = ? AND kind = 'history' AND id NOT IN (
+                SELECT id FROM upload_presets
+                WHERE account_id = ? AND kind = 'history'
+                ORDER BY id DESC LIMIT ?
+            )
+            """,
+            (account_id, account_id, keep),
+        )
+
+
 def preset_row_to_dict(row: sqlite3.Row) -> dict:
     d = dict(row)
     d["made_for_kids"] = bool(d["made_for_kids"])

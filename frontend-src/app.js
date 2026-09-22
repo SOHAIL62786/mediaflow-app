@@ -394,6 +394,7 @@
     currentPresetKind = kind;
     document.getElementById('presetTabDrafts').classList.toggle('active', kind === 'draft');
     document.getElementById('presetTabTemplates').classList.toggle('active', kind === 'template');
+    document.getElementById('presetTabHistory').classList.toggle('active', kind === 'history');
     const container = document.getElementById('presetList');
     container.innerHTML = '<div class="empty-state">Loading…</div>';
     try{
@@ -409,7 +410,24 @@
   function renderPresetList(){
     const container = document.getElementById('presetList');
     if(!presetsCache.length){
-      container.innerHTML = `<div class="empty-state">${currentPresetKind === 'draft' ? 'No drafts saved yet.' : 'No templates saved yet.'}</div>`;
+      const emptyMsg = currentPresetKind === 'draft' ? 'No drafts saved yet.'
+        : currentPresetKind === 'template' ? 'No templates saved yet.'
+        : 'No publish history yet — it fills in as you publish videos.';
+      container.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
+      return;
+    }
+    if(currentPresetKind === 'history'){
+      container.innerHTML = presetsCache.map(p => {
+        const label = p.title || p.caption || 'Untitled';
+        const sub = new Date(p.created_at).toLocaleString();
+        return `
+          <div class="preset-row" data-preset-id="${p.id}" data-preset-open-history style="cursor:pointer;">
+            <div style="min-width:0;flex:1;">
+              <div class="n">${escapeHtml(label)}</div>
+              <div class="d">${escapeHtml(sub)}</div>
+            </div>
+          </div>`;
+      }).join('');
       return;
     }
     container.innerHTML = presetsCache.map(p => {
@@ -434,6 +452,7 @@
 
   document.getElementById('presetTabDrafts').addEventListener('click', () => loadPresets('draft'));
   document.getElementById('presetTabTemplates').addEventListener('click', () => loadPresets('template'));
+  document.getElementById('presetTabHistory').addEventListener('click', () => loadPresets('history'));
 
   function applyPresetToForm(preset){
     titleInput.value = preset.title || '';
@@ -451,6 +470,14 @@
   }
 
   document.getElementById('presetList').addEventListener('click', async (e) => {
+    const historyRow = e.target.closest('[data-preset-open-history]');
+    if(historyRow){
+      const id = parseInt(historyRow.dataset.presetId, 10);
+      const preset = presetsCache.find(p => p.id === id);
+      if(preset) openHistoryModal(preset);
+      return;
+    }
+
     const row = e.target.closest('[data-preset-id]');
     if(!row) return;
     const id = parseInt(row.dataset.presetId, 10);
@@ -478,6 +505,72 @@
         showToast('Could not delete.', 4000);
       }
     }
+  });
+
+  // ---- History detail popup ----
+  // Unlike drafts/templates (inline Apply/Delete in the list row), history
+  // rows open a popup showing the full submitted form before deciding
+  // whether to reuse or discard it — there's more to review (every field,
+  // not just a title), so a quick inline button isn't enough context.
+  function historyPlatformBadges(platformsStr){
+    const list = (platformsStr || '').split(',').map(p => p.trim()).filter(Boolean);
+    if(!list.length) return '<span style="color:var(--text-mid)">None selected</span>';
+    return list.map(p => `<span class="pub-pill" style="background:var(--hover-bg);color:var(--text-dark);text-transform:capitalize;">${escapeHtml(p)}</span>`).join(' ');
+  }
+
+  function openHistoryModal(preset){
+    const body = document.getElementById('historyModalBody');
+    const flags = [];
+    if(preset.made_for_kids) flags.push('Made for kids');
+    if(preset.contains_synthetic_media) flags.push('Contains AI-generated/altered media');
+    body.innerHTML = `
+      <h2 style="margin-bottom:4px;">${escapeHtml(preset.title || 'Untitled')}</h2>
+      <div style="font-size:12px;color:var(--text-mid);margin-bottom:18px;">Submitted ${escapeHtml(new Date(preset.created_at).toLocaleString())}</div>
+
+      <div class="field"><label>Caption</label>
+        <div style="white-space:pre-wrap;font-size:14px;color:var(--text-dark);">${escapeHtml(preset.caption || '—')}</div>
+      </div>
+      <div class="field"><label>Tags</label>
+        <div style="font-size:14px;color:var(--text-dark);">${escapeHtml(preset.tags || '—')}</div>
+      </div>
+      <div class="field"><label>Platforms</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${historyPlatformBadges(preset.platforms)}</div>
+      </div>
+      <div class="field"><label>Privacy (YouTube)</label>
+        <div style="font-size:14px;color:var(--text-dark);text-transform:capitalize;">${escapeHtml(preset.privacy || 'private')}</div>
+      </div>
+      ${flags.length ? `<div class="modal-note">${flags.map(escapeHtml).join(' · ')}</div>` : ''}
+
+      <div class="preset-row-actions" style="margin-top:20px;">
+        <button class="acc-btn" id="historyUseBtn">Use</button>
+        <button class="acc-btn danger" id="historyDeleteBtn">Delete</button>
+      </div>
+    `;
+    document.getElementById('historyUseBtn').addEventListener('click', () => {
+      applyPresetToForm(preset);
+      closeHistoryModal();
+      showToast('Loaded into the form.');
+    });
+    document.getElementById('historyDeleteBtn').addEventListener('click', async () => {
+      const ok = confirm('Delete this history entry? This can\'t be undone.');
+      if(!ok) return;
+      try{
+        const res = await fetch(withAccount(`${API}/api/upload-presets/${preset.id}`), { method: 'DELETE' });
+        if(!res.ok) throw new Error();
+        closeHistoryModal();
+        loadPresets('history');
+      }catch(err){
+        showToast('Could not delete.', 4000);
+      }
+    });
+    document.getElementById('historyModalOverlay').classList.add('show');
+  }
+  function closeHistoryModal(){
+    document.getElementById('historyModalOverlay').classList.remove('show');
+  }
+  document.getElementById('historyModalClose').addEventListener('click', closeHistoryModal);
+  document.getElementById('historyModalOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'historyModalOverlay') closeHistoryModal();
   });
 
   // Radio label + datetime picker toggle

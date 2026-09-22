@@ -20,7 +20,7 @@ from googleapiclient.errors import HttpError
 from app.auth import require_login
 from app.config import GRAPH_BASE, UPLOAD_DIR
 from app.credentials import get_account_or_404, get_facebook_credentials, get_youtube_credentials
-from app.db import record_queued_upload, record_upload
+from app.db import create_upload_preset, prune_upload_history, record_queued_upload, record_upload
 from app.publish_jobs import create_job, finish_job, get_job, is_cancel_requested, request_cancel, set_step_status
 from app.uploaders import _upload_to_facebook, _upload_to_instagram, _upload_to_youtube
 
@@ -163,6 +163,24 @@ async def publish(
         publish_at = parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+
+    # ---- Auto-save this submission to History (see docs/DECISIONS.md 013
+    # and app/routes/upload_presets.py) — every form actually used to
+    # attempt a publish, regardless of outcome, so it can be reviewed or
+    # reused later without a user having to remember to save it themselves.
+    create_upload_preset(
+        account_id=account_id,
+        kind="history",
+        name=None,
+        title=title,
+        caption=caption,
+        platforms=",".join(selected),
+        privacy=privacy,
+        tags=tags,
+        made_for_kids=made_for_kids,
+        contains_synthetic_media=contains_synthetic_media,
+    )
+    prune_upload_history(account_id)
 
     # ---- Scheduled: queue locally, publish nothing yet ----
     # We deliberately don't use each platform's own native scheduling

@@ -768,3 +768,58 @@ mobile: save draft, save template (name prompt), tab switching, Apply
 populating the form without deleting the template, Resume populating
 the form AND deleting the draft, no console errors, no horizontal
 overflow on mobile. `pyflakes` clean across `app/`.
+
+---
+
+## Decision 014
+
+Date: 2026-09-22
+
+Decision:
+Remove the Connected Accounts and Publishing Tips panels from the Upload
+page's sidebar. Add a third "History" tab alongside Drafts/Templates that
+auto-logs every form actually submitted to /api/publish (regardless of
+outcome), opening a popup with the full submitted fields plus Use/Delete
+buttons, rather than the inline Apply/Delete buttons Drafts/Templates use.
+
+Implementation:
+- `upload_presets` table/CRUD (Decision 013) reused as-is for the new
+  kind='history' — no schema change needed, `kind` was already a free
+  TEXT column. `VALID_KINDS` (list/delete) now includes 'history';
+  `VALID_CREATE_KINDS` (the public POST endpoint) deliberately does NOT —
+  history can only be created by /api/publish itself, not user-POSTed,
+  so it stays a genuine log rather than something fakeable.
+- `create_upload_preset(kind="history", ...)` called from inside
+  `publish()` right after form validation, before the scheduled/immediate
+  branch — so it captures what was submitted regardless of whether the
+  publish succeeds, partially fails, fully fails, or gets scheduled.
+- New `prune_upload_history(account_id, keep=50)`, called right after
+  each save, keeps history from growing unbounded (drafts/templates don't
+  need this — they only exist when a user explicitly saves one).
+- Frontend: History rows render without inline action buttons — clicking
+  anywhere on the row opens a popup (reusing the existing `.modal-overlay`
+  pattern from the Analytics video-detail modal) showing every submitted
+  field, with Use (loads into the form) and Delete inside the popup.
+- Used the existing pill-button tab style (matching Drafts/Templates)
+  rather than a literal `<input type="radio">`, for visual consistency —
+  same single-select behavior either way.
+
+Reason:
+Project owner wanted the Upload page's sidebar decluttered (Connected
+Accounts already lives on its own Platforms page; Publishing Tips wasn't
+providing enough value to keep) and a way to review/reuse/discard past
+publish attempts without having to remember to save a draft first.
+
+Verified:
+- Functional test via FastAPI TestClient: publish → history auto-saves
+  with correct fields → manual POST with kind=history correctly rejected
+  (400) → delete removes it → list reflects the deletion
+- Pruning verified directly: 10 inserts + prune(keep=3) leaves exactly the
+  3 most recent, oldest-first-out
+- `python3 -m py_compile` on every changed backend file
+- `node --check` on the rebuilt static/index.html's JS
+- Duplicate-ID sweep on the rebuilt static/index.html — only pre-existing
+  JS template-literal false positives (`${a.id}` etc.), no real duplicates
+
+Status:
+Accepted.

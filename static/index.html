@@ -1028,56 +1028,9 @@
         <div class="day-toggle" style="margin-bottom:12px;">
           <button class="pill-btn active" id="presetTabDrafts" data-preset-kind="draft">Drafts</button>
           <button class="pill-btn" id="presetTabTemplates" data-preset-kind="template">Templates</button>
+          <button class="pill-btn" id="presetTabHistory" data-preset-kind="history">History</button>
         </div>
         <div id="presetList"><div class="empty-state">Loading…</div></div>
-      </div>
-
-      <div class="card">
-        <h2>Connected Accounts</h2>
-        <div class="sub">Manage your connected social media accounts</div>
-        <div class="accounts-list">
-          <div class="account-row" id="acc-youtube">
-            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg></div>
-            <div class="acc-info"><div class="n">YouTube</div><div class="h" data-handle>Checking...</div></div>
-            <div class="connected-pill" data-pill>...</div>
-          </div>
-          <div class="account-row" id="acc-facebook">
-            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg></div>
-            <div class="acc-info"><div class="n">Facebook</div><div class="h" data-handle>Not connected</div></div>
-            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
-          </div>
-          <div class="account-row" id="acc-instagram">
-            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><defs><linearGradient id="ig2" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#ig2)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.2" cy="7.8" r="1" fill="#fff"/></svg></div>
-            <div class="acc-info"><div class="n">Instagram</div><div class="h" data-handle>Not connected</div></div>
-            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
-          </div>
-          <div class="account-row" id="acc-tiktok">
-            <div class="acc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg></div>
-            <div class="acc-info"><div class="n">TikTok</div><div class="h" data-handle>Not connected</div></div>
-            <div class="connected-pill" data-pill style="background:#f1f2f6;color:var(--text-mid)">Not set up</div>
-          </div>
-        </div>
-        <button class="manage-btn" data-goto="platforms">⚙ Manage Platforms</button>
-      </div>
-
-      <div class="card">
-        <h2>Publishing Tips</h2>
-        <div class="tip-row">
-          <div class="tip-icon blue">📐</div>
-          <div><div class="tip-title">Optimal Video Size</div><div class="tip-desc">Use 1080x1920 for best results on all platforms.</div></div>
-        </div>
-        <div class="tip-row">
-          <div class="tip-icon green">⏱️</div>
-          <div><div class="tip-title">Shorter Videos</div><div class="tip-desc">Keep videos under 60 seconds for better engagement.</div></div>
-        </div>
-        <div class="tip-row">
-          <div class="tip-icon yellow">💬</div>
-          <div><div class="tip-title">Captions Matter</div><div class="tip-desc">Add captions to increase reach and engagement.</div></div>
-        </div>
-        <div class="tip-row">
-          <div class="tip-icon purple">📱</div>
-          <div><div class="tip-title">Vertical Videos</div><div class="tip-desc">Perfect for Reels, Shorts and TikTok.</div></div>
-        </div>
       </div>
 
       <div class="card">
@@ -1099,6 +1052,13 @@
   <div class="modal-card">
     <button class="modal-close" id="videoModalClose" aria-label="Close">&times;</button>
     <div id="videoModalBody"><div class="empty-state">Loading…</div></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="historyModalOverlay">
+  <div class="modal-card">
+    <button class="modal-close" id="historyModalClose" aria-label="Close">&times;</button>
+    <div id="historyModalBody"><div class="empty-state">Loading…</div></div>
   </div>
 </div>
 
@@ -1499,6 +1459,7 @@
     currentPresetKind = kind;
     document.getElementById('presetTabDrafts').classList.toggle('active', kind === 'draft');
     document.getElementById('presetTabTemplates').classList.toggle('active', kind === 'template');
+    document.getElementById('presetTabHistory').classList.toggle('active', kind === 'history');
     const container = document.getElementById('presetList');
     container.innerHTML = '<div class="empty-state">Loading…</div>';
     try{
@@ -1514,7 +1475,24 @@
   function renderPresetList(){
     const container = document.getElementById('presetList');
     if(!presetsCache.length){
-      container.innerHTML = `<div class="empty-state">${currentPresetKind === 'draft' ? 'No drafts saved yet.' : 'No templates saved yet.'}</div>`;
+      const emptyMsg = currentPresetKind === 'draft' ? 'No drafts saved yet.'
+        : currentPresetKind === 'template' ? 'No templates saved yet.'
+        : 'No publish history yet — it fills in as you publish videos.';
+      container.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
+      return;
+    }
+    if(currentPresetKind === 'history'){
+      container.innerHTML = presetsCache.map(p => {
+        const label = p.title || p.caption || 'Untitled';
+        const sub = new Date(p.created_at).toLocaleString();
+        return `
+          <div class="preset-row" data-preset-id="${p.id}" data-preset-open-history style="cursor:pointer;">
+            <div style="min-width:0;flex:1;">
+              <div class="n">${escapeHtml(label)}</div>
+              <div class="d">${escapeHtml(sub)}</div>
+            </div>
+          </div>`;
+      }).join('');
       return;
     }
     container.innerHTML = presetsCache.map(p => {
@@ -1539,6 +1517,7 @@
 
   document.getElementById('presetTabDrafts').addEventListener('click', () => loadPresets('draft'));
   document.getElementById('presetTabTemplates').addEventListener('click', () => loadPresets('template'));
+  document.getElementById('presetTabHistory').addEventListener('click', () => loadPresets('history'));
 
   function applyPresetToForm(preset){
     titleInput.value = preset.title || '';
@@ -1556,6 +1535,14 @@
   }
 
   document.getElementById('presetList').addEventListener('click', async (e) => {
+    const historyRow = e.target.closest('[data-preset-open-history]');
+    if(historyRow){
+      const id = parseInt(historyRow.dataset.presetId, 10);
+      const preset = presetsCache.find(p => p.id === id);
+      if(preset) openHistoryModal(preset);
+      return;
+    }
+
     const row = e.target.closest('[data-preset-id]');
     if(!row) return;
     const id = parseInt(row.dataset.presetId, 10);
@@ -1583,6 +1570,72 @@
         showToast('Could not delete.', 4000);
       }
     }
+  });
+
+  // ---- History detail popup ----
+  // Unlike drafts/templates (inline Apply/Delete in the list row), history
+  // rows open a popup showing the full submitted form before deciding
+  // whether to reuse or discard it — there's more to review (every field,
+  // not just a title), so a quick inline button isn't enough context.
+  function historyPlatformBadges(platformsStr){
+    const list = (platformsStr || '').split(',').map(p => p.trim()).filter(Boolean);
+    if(!list.length) return '<span style="color:var(--text-mid)">None selected</span>';
+    return list.map(p => `<span class="pub-pill" style="background:var(--hover-bg);color:var(--text-dark);text-transform:capitalize;">${escapeHtml(p)}</span>`).join(' ');
+  }
+
+  function openHistoryModal(preset){
+    const body = document.getElementById('historyModalBody');
+    const flags = [];
+    if(preset.made_for_kids) flags.push('Made for kids');
+    if(preset.contains_synthetic_media) flags.push('Contains AI-generated/altered media');
+    body.innerHTML = `
+      <h2 style="margin-bottom:4px;">${escapeHtml(preset.title || 'Untitled')}</h2>
+      <div style="font-size:12px;color:var(--text-mid);margin-bottom:18px;">Submitted ${escapeHtml(new Date(preset.created_at).toLocaleString())}</div>
+
+      <div class="field"><label>Caption</label>
+        <div style="white-space:pre-wrap;font-size:14px;color:var(--text-dark);">${escapeHtml(preset.caption || '—')}</div>
+      </div>
+      <div class="field"><label>Tags</label>
+        <div style="font-size:14px;color:var(--text-dark);">${escapeHtml(preset.tags || '—')}</div>
+      </div>
+      <div class="field"><label>Platforms</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${historyPlatformBadges(preset.platforms)}</div>
+      </div>
+      <div class="field"><label>Privacy (YouTube)</label>
+        <div style="font-size:14px;color:var(--text-dark);text-transform:capitalize;">${escapeHtml(preset.privacy || 'private')}</div>
+      </div>
+      ${flags.length ? `<div class="modal-note">${flags.map(escapeHtml).join(' · ')}</div>` : ''}
+
+      <div class="preset-row-actions" style="margin-top:20px;">
+        <button class="acc-btn" id="historyUseBtn">Use</button>
+        <button class="acc-btn danger" id="historyDeleteBtn">Delete</button>
+      </div>
+    `;
+    document.getElementById('historyUseBtn').addEventListener('click', () => {
+      applyPresetToForm(preset);
+      closeHistoryModal();
+      showToast('Loaded into the form.');
+    });
+    document.getElementById('historyDeleteBtn').addEventListener('click', async () => {
+      const ok = confirm('Delete this history entry? This can\'t be undone.');
+      if(!ok) return;
+      try{
+        const res = await fetch(withAccount(`${API}/api/upload-presets/${preset.id}`), { method: 'DELETE' });
+        if(!res.ok) throw new Error();
+        closeHistoryModal();
+        loadPresets('history');
+      }catch(err){
+        showToast('Could not delete.', 4000);
+      }
+    });
+    document.getElementById('historyModalOverlay').classList.add('show');
+  }
+  function closeHistoryModal(){
+    document.getElementById('historyModalOverlay').classList.remove('show');
+  }
+  document.getElementById('historyModalClose').addEventListener('click', closeHistoryModal);
+  document.getElementById('historyModalOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'historyModalOverlay') closeHistoryModal();
   });
 
   // Radio label + datetime picker toggle
