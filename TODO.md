@@ -36,6 +36,20 @@
       could support real interruption; Facebook/Instagram's Graph API
       publish calls are likely all-or-nothing once started — worth
       confirming before promising more than "abandon the local wait."
+- [ ] Add proper empty states to Scheduled, Published, Analytics (no data
+      yet), and Upload History — currently just show a plain "No data" /
+      blank list. From a 2026-09-23 outside design review of the repo;
+      cheap to do, no architecture change needed, and reads as more
+      finished than a blank page.
+- [ ] Extend the existing skeleton-loading pattern (already used for
+      dashboard platform counts) to a few more high-traffic spots:
+      Analytics graphs, video/post lists, account cards, notifications.
+      Same review as above — reuses a pattern that's already proven out,
+      not a new thing to build.
+- [ ] Make the dashboard's "Failed" stat card actionable instead of just
+      a number — e.g. "2 Failed — 1 Instagram · 1 YouTube — Review →"
+      linking straight to those items. Same review; small, sharp change
+      rather than a redesign.
 - [ ] Lock down CORS (`allow_origins=["*"]`) to the actual frontend origin
       before any public-VM deployment
 - [ ] Add cleanup sweep on startup for orphaned files in the temp media dir
@@ -100,6 +114,16 @@
       (e.g. periodic snapshotting + diffing) if this is wanted later.
 
 ## Completed
+- [x] Investigated whether a poll or quiz sticker can be added to an
+      Instagram Reel via the API (project owner's request). Confirmed
+      not possible for organic/scheduled content — Meta's own docs are
+      explicit: "Publishing stickers (i.e., link, poll, location) is not
+      supported" on the Content Publishing API this app uses, for Reels,
+      Stories, or regular posts alike. The one exception is poll stickers
+      on paid Instagram *ads*, via a completely separate system (Marketing
+      API, ad creatives, ad accounts) — not applicable to what MediaFlow
+      does. No code change; documenting so this doesn't get re-investigated
+      later (2026-09-23)
 - [x] Save as Draft / Save as Template for the Upload form (2026-09-21).
       New `upload_presets` table (one table, `kind` column, rather than
       two — see Decision 013), full CRUD via `/api/upload-presets`,
