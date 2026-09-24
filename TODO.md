@@ -253,3 +253,6 @@
 - [x] Upload page: removed Connected Accounts and Publishing Tips panels;
       added a History tab (auto-logs every submitted publish form, popup
       with Use/Delete). See docs/DECISIONS.md 014 (2026-09-22)
+- [x] Analytics page: added a Dashboard/Table view toggle — Table view is
+      a sortable spreadsheet grid of every video's metrics for easier
+      side-by-side comparison. See docs/DECISIONS.md 015 (2026-09-23)

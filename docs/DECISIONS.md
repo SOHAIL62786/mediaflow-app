@@ -823,3 +823,52 @@ Verified:
 
 Status:
 Accepted.
+
+---
+
+## Decision 015
+
+Date: 2026-09-23
+
+Decision:
+Add a Dashboard / Table view toggle to the Analytics page. Table view
+renders every video/post for the current platform as a sortable
+spreadsheet-style grid (one row per video, one column per metric) instead
+of the card-list + charts Dashboard view.
+
+Implementation:
+- No backend/API changes — Table view renders from the exact same
+  `/api/analytics/summary` (and facebook/instagram equivalents) response
+  already being fetched for Dashboard view, cached client-side
+  (`lastAnalyticsData`) so toggling between the two views is instant, no
+  refetch, no loading flicker.
+- Columns are exactly the fields the summary endpoint already returns per
+  video — no extra per-row detail fetches: YouTube gets period views,
+  lifetime views, watch time, avg. retention, likes, comments; Facebook
+  and Instagram get their narrower existing field sets (their summary
+  endpoints return less per-video detail than YouTube's does).
+- Click a column header to sort by it, click again to flip ascending/
+  descending. Click a row to open the same metrics popup Dashboard view's
+  "Metrics" button uses.
+- The existing Top 5/10/25/All limiter carries over into Table view; the
+  sort-by dropdown doesn't (superseded by clickable column headers there).
+
+Reason:
+Project owner wanted an easier way to compare videos side by side than
+scrolling a card list one at a time.
+
+Verified:
+- `node --check` on the rebuilt static/index.html's JS
+- CSS brace-balance check across the full stylesheet (a mid-edit mistake
+  — a new CSS block landed inside an existing rule instead of after it —
+  was caught this way before it shipped, then fixed properly)
+- Duplicate-ID sweep on the rebuilt output — confirmed the new table's
+  reused `#videoFilterBarContainer` id follows the same safe pattern
+  already established elsewhere on this page (only one live instance in
+  the DOM at any given time, since Dashboard/Table fully replace the
+  page body rather than coexisting)
+- Manual trace of state flow: platform switch, day-range change, and
+  sort/limit changes all behave correctly whichever view is active
+
+Status:
+Accepted.

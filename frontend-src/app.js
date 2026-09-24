@@ -1369,6 +1369,8 @@
   // ================= Analytics =================
   let currentAnalyticsDays = 28;
   let currentAnalyticsPlatform = 'youtube';
+  let currentAnalyticsView = 'dashboard';  // 'dashboard' or 'table'
+  let lastAnalyticsData = null;  // cached so toggling view doesn't refetch
 
   function fmtNum(n){ return Number(n || 0).toLocaleString(); }
   function fmtHours(minutes){ return (Number(minutes || 0) / 60).toFixed(1) + 'h'; }
@@ -1591,6 +1593,87 @@
 
   let currentVideoList = [];
   let videoFilterState = { sortBy: 'views', limit: 5 };
+  let tableSortState = { field: 'views', dir: 'desc' };
+
+  // ---- Analytics: Table view (excel-style comparison grid) ----
+  // Columns are exactly what the summary endpoint already returns per
+  // video/post — no extra per-row fetches, so switching to Table view (or
+  // sorting/re-sorting it) is instant.
+  const TABLE_COLUMNS = {
+    youtube: [
+      {field: 'title', label: 'Title', type: 'title'},
+      {field: 'views', label: 'Views (period)', type: 'num'},
+      {field: 'lifetime_views', label: 'Lifetime Views', type: 'num'},
+      {field: 'watch_time_minutes', label: 'Watch Time', type: 'num', fmt: v => fmtHours(v)},
+      {field: 'avg_view_percentage', label: 'Avg. Retention', type: 'num', fmt: v => `${v}%`},
+      {field: 'likes', label: 'Likes', type: 'num'},
+      {field: 'comments', label: 'Comments', type: 'num'},
+    ],
+    facebook: [
+      {field: 'title', label: 'Title', type: 'title'},
+      {field: 'views', label: 'Views', type: 'num'},
+      {field: 'likes', label: 'Likes', type: 'num'},
+      {field: 'comments', label: 'Comments', type: 'num'},
+    ],
+    instagram: [
+      {field: 'title', label: 'Title', type: 'title'},
+      {field: 'views', label: 'Views', type: 'num'},
+      {field: 'engagement', label: 'Engagement', type: 'num'},
+      {field: 'likes', label: 'Likes', type: 'num'},
+      {field: 'comments', label: 'Comments', type: 'num'},
+    ],
+  };
+
+  function renderAnalyticsTable(platformKey, videos){
+    const cols = TABLE_COLUMNS[platformKey];
+    const sorted = [...videos].sort((a, b) => {
+      const av = a[tableSortState.field], bv = b[tableSortState.field];
+      let cmp;
+      if(typeof av === 'string' || typeof bv === 'string'){
+        cmp = String(av ?? '').localeCompare(String(bv ?? ''));
+      } else {
+        cmp = (Number(av) || 0) - (Number(bv) || 0);
+      }
+      return tableSortState.dir === 'asc' ? cmp : -cmp;
+    });
+    const limited = videoFilterState.limit >= 999 ? sorted : sorted.slice(0, videoFilterState.limit);
+
+    const headHtml = cols.map(c => {
+      const active = c.field === tableSortState.field;
+      const arrow = active ? (tableSortState.dir === 'asc' ? '▲' : '▼') : '';
+      return `<th data-sort-field="${c.field}" ${active ? 'data-sort-active' : ''}>${escapeHtml(c.label)}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ''}</th>`;
+    }).join('');
+
+    const rowsHtml = limited.map(v => {
+      const cells = cols.map(c => {
+        if(c.type === 'title'){
+          return `<td><img class="table-thumb" src="${v.thumbnail || ''}" alt="" onerror="this.style.visibility='hidden'"><span class="table-title" title="${escapeHtml(v.title || '')}">${escapeHtml(v.title || 'Untitled')}</span></td>`;
+        }
+        const raw = v[c.field];
+        const display = c.fmt ? c.fmt(raw ?? 0) : fmtNum(raw ?? 0);
+        return `<td class="num">${display}</td>`;
+      }).join('');
+      const idField = platformKey === 'instagram' ? v.media_id : v.video_id;
+      return `<tr data-video-id="${idField}" data-platform="${platformKey}" style="cursor:pointer;">${cells}</tr>`;
+    }).join('');
+
+    return `
+      <div class="card">
+        <div class="recent-header">
+          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Table</h2>
+          <span class="sub">Click a column to sort, click a row for full metrics.</span>
+        </div>
+        <div id="videoFilterBarContainer"></div>
+        <div class="analytics-table-wrap">
+          <table class="analytics-table">
+            <thead><tr>${headHtml}</tr></thead>
+            <tbody>${rowsHtml || `<tr><td colspan="${cols.length}"><div class="empty-state">Nothing to show for this period.</div></td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
 
   function videoFilterBarHtml(platformKey, state){
     const limitPills = VIDEO_LIMIT_OPTIONS.map(n => {
@@ -1942,6 +2025,66 @@
     if(e.key === 'Escape') closeVideoModal();
   });
 
+  function videoLimitBarHtml(state){
+    const limitPills = VIDEO_LIMIT_OPTIONS.map(n => {
+      const label = n === 999 ? 'All' : `Top ${n}`;
+      return `<button class="pill-btn ${state.limit === n ? 'active' : ''}" data-video-limit="${n}">${label}</button>`;
+    }).join('');
+    return `<div class="video-filters"><div class="day-toggle">${limitPills}</div></div>`;
+  }
+
+  function renderAnalyticsBody(){
+    const body = document.getElementById('analyticsBody');
+    if(!lastAnalyticsData) return;
+    const platformKey = currentAnalyticsPlatform;
+    const cfg = analyticsConfig[platformKey];
+
+    if(currentAnalyticsView === 'table'){
+      currentVideoList = lastAnalyticsData.top_videos || [];
+      body.innerHTML = renderAnalyticsTable(platformKey, currentVideoList);
+
+      const barContainer = document.getElementById('videoFilterBarContainer');
+      barContainer.innerHTML = videoLimitBarHtml(videoFilterState);
+      barContainer.querySelectorAll('[data-video-limit]').forEach(btn=>{
+        btn.addEventListener('click', () => {
+          videoFilterState.limit = parseInt(btn.dataset.videoLimit, 10);
+          renderAnalyticsBody();
+        });
+      });
+      body.querySelectorAll('[data-sort-field]').forEach(th=>{
+        th.addEventListener('click', () => {
+          const field = th.dataset.sortField;
+          if(tableSortState.field === field){
+            tableSortState.dir = tableSortState.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            tableSortState = { field, dir: 'desc' };
+          }
+          renderAnalyticsBody();
+        });
+      });
+      body.querySelectorAll('tr[data-video-id]').forEach(tr=>{
+        tr.addEventListener('click', () => openVideoMetrics(tr.dataset.platform, tr.dataset.videoId));
+      });
+      return;
+    }
+
+    body.innerHTML = cfg.render(lastAnalyticsData, currentAnalyticsDays);
+    body.querySelectorAll('[data-days]').forEach(btn=>{
+      btn.addEventListener('click', () => loadAnalytics(parseInt(btn.dataset.days, 10)));
+    });
+    currentVideoList = lastAnalyticsData.top_videos || [];
+    renderVideoSection();
+  }
+
+  document.getElementById('analyticsViewToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-analytics-view]');
+    if(!btn || btn.classList.contains('active')) return;
+    document.querySelectorAll('#analyticsViewToggle [data-analytics-view]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentAnalyticsView = btn.dataset.analyticsView;
+    renderAnalyticsBody();
+  });
+
   async function loadAnalytics(days){
     currentAnalyticsDays = days || currentAnalyticsDays;
     const cfg = analyticsConfig[currentAnalyticsPlatform];
@@ -1960,15 +2103,10 @@
         wireGotoButtons(body);
         return;
       }
-      const data = await res.json();
-      body.innerHTML = cfg.render(data, currentAnalyticsDays);
-      body.querySelectorAll('[data-days]').forEach(btn=>{
-        btn.addEventListener('click', () => loadAnalytics(parseInt(btn.dataset.days, 10)));
-      });
-
-      currentVideoList = data.top_videos || [];
+      lastAnalyticsData = await res.json();
       videoFilterState = { sortBy: VIDEO_SORT_OPTIONS[currentAnalyticsPlatform][0].value, limit: 5 };
-      renderVideoSection();
+      tableSortState = { field: 'views', dir: 'desc' };
+      renderAnalyticsBody();
     }catch(err){
       body.innerHTML = '<div class="card"><div class="empty-state">Could not reach the server.</div></div>';
     }

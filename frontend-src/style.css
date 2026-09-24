@@ -471,6 +471,27 @@
   .pub-pill.fail{background:#fde8e8;color:#dc2626;}
   .refresh-link{font-size:13px;color:var(--indigo);font-weight:600;cursor:pointer;}
 
+  /* Analytics: Table view (excel-style comparison grid) */
+  .analytics-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+  .analytics-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;}
+  .analytics-table thead th{
+    position:sticky;top:0;background:var(--hover-bg);color:var(--text-mid);
+    font-weight:600;text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);
+    cursor:pointer;user-select:none;
+  }
+  .analytics-table thead th:hover{color:var(--text-dark);}
+  .analytics-table thead th[data-sort-active]{color:var(--indigo);}
+  .analytics-table thead th .sort-arrow{margin-left:4px;font-size:10px;opacity:.7;}
+  .analytics-table tbody td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text-dark);}
+  .analytics-table tbody tr:last-child td{border-bottom:none;}
+  .analytics-table tbody tr:hover td{background:var(--hover-bg);}
+  .analytics-table td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .analytics-table .table-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;background:var(--hover-bg);vertical-align:middle;margin-right:10px;}
+  .analytics-table .table-title{
+    display:inline-flex;align-items:center;max-width:340px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-weight:500;
+  }
+
   /* Accounts page action buttons */
   .acc-btn{
     border:1px solid var(--indigo);color:var(--indigo);background:var(--card-bg);

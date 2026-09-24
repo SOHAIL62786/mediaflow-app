@@ -1,7 +1,17 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-22
+2026-09-23
+
+## 2026-09-23 (latest): Analytics Dashboard/Table toggle
+Added a Dashboard/Table view toggle to the Analytics page (project owner
+request). Table view is a sortable spreadsheet grid of every video's
+metrics, reusing already-fetched data client-side — no backend changes.
+Full detail in CHANGELOG.md's 2026-09-23 entry and docs/DECISIONS.md 015.
+
+Caught my own mistake mid-edit: a CSS insertion briefly landed inside an
+existing rule instead of after it. Found it with a brace-balance check
+before it shipped, fixed properly rather than patching around it.
 
 ## 2026-09-22 (latest): Progress ring on the metrics-modal Refresh button
 

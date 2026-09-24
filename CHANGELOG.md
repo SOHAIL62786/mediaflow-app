@@ -1220,3 +1220,37 @@ Pushed to `main`, triggering the GitHub Actions auto-deploy.
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-23 (Analytics: Dashboard/Table view toggle)
+
+### Added
+- Analytics page: new Dashboard/Table toggle next to the platform picker.
+  Table view shows every video/post as a sortable spreadsheet grid (one
+  row per video, one column per metric) — click a header to sort, click
+  again to flip direction, click a row for the full metrics popup.
+- `frontend-src/app.js`: `TABLE_COLUMNS`, `renderAnalyticsTable()`,
+  `renderAnalyticsBody()` (new dashboard/table render dispatcher),
+  `videoLimitBarHtml()`.
+- `frontend-src/style.css`: `.analytics-table*` rules (dark-mode-safe,
+  uses existing CSS variables throughout).
+
+Reason:
+Requested an easier way to compare videos side by side than a one-at-a-
+time card list. See docs/DECISIONS.md 015.
+
+Verified:
+- `node --check` on the rebuilt static/index.html's JS
+- CSS brace-balance check (caught and fixed a mid-edit mistake before it
+  shipped — a new rule briefly landed inside an existing one)
+- Duplicate-ID sweep — confirmed safe (same reused-id-but-never-
+  simultaneous pattern already used elsewhere on this page)
+- No backend changes; Table view reuses the same already-fetched
+  analytics data as Dashboard view, cached client-side
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy.
+
+Modified By:
+Claude (via chat session)
