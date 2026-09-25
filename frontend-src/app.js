@@ -725,7 +725,13 @@
 
   function renderNotifications(){
     const body = document.getElementById('notifDrawerBody');
-    if(!body || !lastDashboardData) return;
+    if(!body) return;
+    if(!lastDashboardData){
+      // Nothing fetched yet (or the fetch failed) — show that, not "No notifications".
+      if(notifLoadFailed) body.innerHTML = '<div class="empty-state">Could not load notifications.</div>';
+      else showSkeleton(body, skeletonNotifHtml());
+      return;
+    }
     const items = [];
     if(lastDashboardData.failed_count > 0){
       items.push({
@@ -769,6 +775,9 @@
   function openNotifDrawer(){
     notifDrawer.classList.add('open');
     notifBackdrop.classList.add('open');
+    // Notifications come from the dashboard-summary fetch, which otherwise only
+    // runs when the Dashboard page opens — kick it off if nothing has loaded it.
+    if(!lastDashboardData && !dashboardInFlight){ notifLoadFailed = false; loadDashboard(); }
     renderNotifications();
   }
   function closeNotifDrawer(){
@@ -880,6 +889,65 @@
     instagram: {bg:'linear-gradient(135deg,#FEDA75,#D62976,#962FBF,#4F5BD5)', icon:'<svg width="15" height="15" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.8"/></svg>'},
     tiktok:    {bg:'#000', icon:'<svg width="14" height="14" viewBox="0 0 24 24"><path d="M15.5 5c.3 1.6 1.3 2.7 3 2.9v2.1c-1.1 0-2.1-.3-3-.9v4.6c0 2.4-1.9 4.2-4.2 4.2-2.4 0-4.2-1.9-4.2-4.2 0-2.3 1.8-4.2 4.1-4.2.2 0 .5 0 .7.1v2.2c-.2-.1-.4-.1-.7-.1-1.1 0-2 .9-2 2s.9 2 2 2 2.1-.9 2.1-2.1V5h2.2z" fill="#fff"/></svg>'},
   };
+  // ---- Skeleton placeholders (loading states) ----
+  // Only the *first* paint of a loading state uses these; showSkeleton() is
+  // idempotent so re-priming an already-shimmering container doesn't restart
+  // the animation.
+  function skelGroup(inner){
+    return `<div class="skel-group" role="status" aria-busy="true" aria-label="Loading">${inner}</div>`;
+  }
+  function showSkeleton(el, html){
+    if(!el) return;
+    if(!el.querySelector(':scope > .skel-group')) el.innerHTML = html;
+  }
+  function skeletonLibRowsHtml(n = 3){
+    const widths = [['58%','36%'], ['46%','30%'], ['64%','40%']];
+    let rows = '';
+    for(let i = 0; i < n; i++){
+      const [w1, w2] = widths[i % widths.length];
+      rows += `
+        <div class="lib-row">
+          <div class="skel skel-thumb"></div>
+          <div class="lib-info">
+            <div class="skel skel-line" style="width:${w1};"></div>
+            <div class="skel skel-line sm" style="width:${w2};margin-top:8px;"></div>
+          </div>
+          <div class="skel skel-pill"></div>
+        </div>`;
+    }
+    return skelGroup(rows);
+  }
+  function skeletonAnalyticsHtml(){
+    const statCard = `
+      <div class="stat-card">
+        <div class="skel skel-line sm" style="width:50%;margin-bottom:12px;"></div>
+        <div class="skel" style="width:70%;height:28px;"></div>
+      </div>`;
+    return skelGroup(`
+      <div class="stat-grid">${statCard.repeat(4)}</div>
+      <div class="card">
+        <div class="skel skel-line" style="width:140px;margin-bottom:8px;"></div>
+        <div class="skel skel-line sm" style="width:90px;margin-bottom:16px;"></div>
+        <div class="skel skel-chart"></div>
+      </div>`);
+  }
+  // Analytics keeps its existing indeterminate progress bar on top; the
+  // skeleton replaces only the old plain "Loading…" text below it.
+  function analyticsLoadingHtml(){
+    return '<div class="analytics-progress-track"><div class="analytics-progress-fill"></div></div>' + skeletonAnalyticsHtml();
+  }
+  function skeletonNotifHtml(n = 4){
+    const item = `
+      <div class="notif-item">
+        <div class="skel" style="width:20px;height:20px;border-radius:50%;flex-shrink:0;"></div>
+        <div class="notif-text" style="flex:1;">
+          <div class="skel skel-line" style="width:70%;"></div>
+          <div class="skel skel-line sm" style="width:45%;margin-top:8px;"></div>
+        </div>
+      </div>`;
+    return skelGroup(item.repeat(n));
+  }
+
   function thumbHtml(platformsStr){
     const first = (platformsStr.split(',')[0] || '').trim().toLowerCase();
     const cfg = PLATFORM_THUMB[first] || {bg:'var(--text-light)', icon:''};
@@ -907,13 +975,23 @@
   }
 
   let lastDashboardData = null;
+  let dashboardInFlight = false;
+  let dashRecentAccountId = null;  // account whose data the Recent Activity list currently shows
+  let notifLoadFailed = false;
 
   async function loadDashboard(){
+    dashboardInFlight = true;
+    // Skeleton only on a first load or after switching accounts — not on the
+    // in-place refresh after a publish, where the existing rows should stay put.
+    if(dashRecentAccountId !== currentAccountId){
+      showSkeleton(document.getElementById('dashRecentList'), skeletonLibRowsHtml());
+    }
     try{
       const res = await fetch(withAccount(`${API}/api/dashboard/summary`));
       if(!res.ok) throw new Error();
       const data = await res.json();
       lastDashboardData = data;
+      notifLoadFailed = false;
       renderNotifications();
       document.getElementById('statScheduled').textContent = data.scheduled_count;
       document.getElementById('statPublished').textContent = data.published_count;
@@ -925,6 +1003,7 @@
       list.innerHTML = data.recent.length
         ? data.recent.map(libraryRowHtml).join('')
         : '<div class="empty-state">No uploads yet — head to New Upload to publish your first video.</div>';
+      dashRecentAccountId = currentAccountId;
 
       const sidebarBox = document.getElementById('sidebarRecentUpload');
       if(sidebarBox){
@@ -934,6 +1013,10 @@
       }
     }catch(err){
       document.getElementById('dashRecentList').innerHTML = '<div class="empty-state">Could not load dashboard data.</div>';
+      // Notifications drawer is derived from this same fetch — don't leave its skeleton shimmering.
+      if(!lastDashboardData){ notifLoadFailed = true; renderNotifications(); }
+    }finally{
+      dashboardInFlight = false;
     }
     loadDashboardPlatforms();
   }
@@ -1201,7 +1284,22 @@
   });
 
   // ================= Platforms page =================
+  let platformsLoadedAccountId = null;  // account whose status the Platforms cards currently show
+
+  // Swap the "Checking..." text for a skeleton and dim the action buttons until
+  // /api/status answers. Skipped when the cards already show this account's
+  // status (e.g. the in-place refresh right after a disconnect).
+  function markPlatformsLoading(){
+    if(platformsLoadedAccountId === currentAccountId) return;
+    ['page-acc-youtube','page-acc-facebook','page-acc-instagram'].forEach(id => {
+      const h = document.querySelector(`#${id} [data-handle]`);
+      if(h && !h.querySelector('.skel')) h.innerHTML = '<span class="skel skel-line sm" style="width:110px;margin-top:4px;"></span>';
+    });
+    document.getElementById('platformsPageList').classList.add('is-loading');
+  }
+
   async function loadPlatformsPage(){
+    markPlatformsLoading();
     const nameEl = document.getElementById('platformsPageAccountName');
     if(nameEl) nameEl.textContent = currentAccountName();
     const ytRow = document.getElementById('page-acc-youtube');
@@ -1264,9 +1362,13 @@
         igPill.style.background = '#f1f2f6';
         igPill.style.color = 'var(--text-mid)';
       }
+      platformsLoadedAccountId = currentAccountId;
     }catch(err){
       ytHandle.textContent = 'Could not reach the server';
       fbHandle.textContent = 'Could not reach the server';
+      igHandle.textContent = 'Could not reach the server';
+    }finally{
+      document.getElementById('platformsPageList').classList.remove('is-loading');
     }
   }
 
@@ -1349,7 +1451,7 @@
   async function loadLibrary(status){
     const containerId = status === 'scheduled' ? 'scheduledList' : 'publishedList';
     const container = document.getElementById(containerId);
-    container.innerHTML = '<div class="empty-state">Loading…</div>';
+    showSkeleton(container, skeletonLibRowsHtml());
     try{
       const res = await fetch(withAccount(`${API}/api/library?status=${status}`));
       if(!res.ok) throw new Error();
@@ -2089,7 +2191,7 @@
     currentAnalyticsDays = days || currentAnalyticsDays;
     const cfg = analyticsConfig[currentAnalyticsPlatform];
     const body = document.getElementById('analyticsBody');
-    body.innerHTML = '<div class="analytics-progress-track"><div class="analytics-progress-fill"></div></div><div class="empty-state">Loading…</div>';
+    showSkeleton(body, analyticsLoadingHtml());
     try{
       const res = await fetch(withAccount(`${API}${cfg.endpoint}?days=${currentAnalyticsDays}`));
       if(res.status === 401){
@@ -2163,4 +2265,11 @@
     return 'dashboard';
   }
   const initialPage = initialPageFromLocation();
+  // Prime the loading placeholders now, so the static "Loading…" / "Checking..."
+  // text never flashes while /api/accounts resolves before the first page load.
+  showSkeleton(document.getElementById('dashRecentList'), skeletonLibRowsHtml());
+  showSkeleton(document.getElementById('scheduledList'), skeletonLibRowsHtml());
+  showSkeleton(document.getElementById('publishedList'), skeletonLibRowsHtml());
+  showSkeleton(document.getElementById('analyticsBody'), analyticsLoadingHtml());
+  markPlatformsLoading();
   accountsReady.then(() => showPage(initialPage));

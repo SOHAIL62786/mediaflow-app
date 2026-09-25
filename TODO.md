@@ -41,11 +41,17 @@
       blank list. From a 2026-09-23 outside design review of the repo;
       cheap to do, no architecture change needed, and reads as more
       finished than a blank page.
-- [ ] Extend the existing skeleton-loading pattern (already used for
+- [x] Extend the existing skeleton-loading pattern (already used for
       dashboard platform counts) to a few more high-traffic spots:
       Analytics graphs, video/post lists, account cards, notifications.
-      Same review as above — reuses a pattern that's already proven out,
-      not a new thing to build.
+      Done 2026-09-26: Scheduled/Published lists, Analytics (stat cards +
+      chart, on top of the existing progress bar), Platforms page connect
+      status, dashboard Recent Activity, and the notifications drawer all
+      now show shimmering placeholders instead of "Loading…" text while
+      their fetch is in flight. Account cards on the Accounts page were
+      left alone — they render instantly from the already-loaded
+      `accountsCache`, so there's no loading gap to cover. See
+      CHANGELOG.md's matching entry.
 - [ ] Make the dashboard's "Failed" stat card actionable instead of just
       a number — e.g. "2 Failed — 1 Instagram · 1 YouTube — Review →"
       linking straight to those items. Same review; small, sharp change
@@ -56,6 +62,20 @@
       (in case a crash happens between publish and delete)
 - [ ] Add retry/backoff for transient platform API failures during
       scheduled publish, instead of failing permanently on first error
+- [ ] **Bug found while browser-testing skeletons (2026-09-26):** visiting
+      Analytics for a platform that isn't connected silently bounces to
+      Dashboard instead of showing the intended "Connect it from
+      Platforms first" message. `/api/analytics/summary` uses HTTP 401
+      to mean "platform not connected" (`app/routes/analytics_youtube.py`),
+      but the global session-guard in `app.js` (top of the file) treats
+      *any* 401 anywhere as "session expired" and redirects to `/login`
+      — which then redirects back to `/` since the session is actually
+      still valid, landing on Dashboard. `loadAnalytics()`'s own
+      `res.status === 401` branch (meant to render the connect-prompt
+      card) never gets to stay on screen. Not touched this session —
+      needs a real decision (e.g. a different status code for
+      "not connected", or excluding known app-level 401 endpoints from
+      the global guard) rather than a quick patch.
 
 ## Low Priority
 - [ ] The new Instagram video-metrics additions (2026-09-22: reposts,

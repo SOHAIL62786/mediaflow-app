@@ -448,6 +448,27 @@
   }
   @keyframes count-skeleton-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
   @media (prefers-reduced-motion:reduce){.count-skeleton{animation:none;}}
+
+  /* Generic skeleton placeholders for list/card loading states. Same shimmer
+     as .count-skeleton (reuses its keyframes); JS builders live in app.js
+     (skeletonLibRowsHtml, skeletonAnalyticsHtml, skeletonNotifHtml). */
+  .skel{
+    display:block;border-radius:6px;
+    background:linear-gradient(90deg,var(--hover-bg) 25%,var(--border) 50%,var(--hover-bg) 75%);
+    background-size:200% 100%;
+    animation:count-skeleton-shimmer 1.3s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion:reduce){.skel{animation:none;}}
+  .skel-line{height:12px;}
+  .skel-line.sm{height:10px;}
+  .skel-thumb{width:40px;height:40px;border-radius:10px;flex-shrink:0;}
+  .skel-pill{width:64px;height:22px;border-radius:20px;flex-shrink:0;}
+  .skel-chart{height:140px;border-radius:8px;}
+  .skel-group .notif-item{cursor:default;pointer-events:none;}
+  .skel-group .notif-item:hover{background:transparent;}
+  /* Platforms page: while status is loading, keep the (stale/default) action
+     buttons from being clicked mid-load */
+  .accounts-list.is-loading .acc-btn,.accounts-list.is-loading .connected-pill{opacity:.35;pointer-events:none;}
   .dash-platform-tile .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-light);margin-left:8px;flex-shrink:0;}
   .dash-platform-tile.connected .status-dot{background:var(--green);}
   .dash-platform-tile:not(.connected){color:var(--text-mid);}

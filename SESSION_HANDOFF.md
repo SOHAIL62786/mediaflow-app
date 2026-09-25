@@ -1,9 +1,60 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-23
+2026-09-26
 
-## 2026-09-23 (latest): Analytics Dashboard/Table toggle
+## 2026-09-26 (latest): Skeleton loaders for Scheduled/Published, Analytics, Platforms, dashboard Recent Activity, notifications
+
+Worked from TODO.md's Medium Priority skeleton-loading item (from the
+2026-09-23 design review). Full detail in CHANGELOG.md's matching entry
+— summary here.
+
+Extended the one skeleton that already existed (dashboard platform
+counts) to every other spot that showed plain "Loading…" text while a
+fetch was in flight: Scheduled/Published lists, Analytics (stat cards +
+chart, layered under the existing progress bar), Platforms page connect
+status, dashboard Recent Activity, and the notifications drawer.
+Reused the existing shimmer keyframes and theme tokens rather than
+inventing a new visual language. Deliberately skipped the Accounts page
+— its cards render instantly from an already-loaded cache, no fetch gap
+to cover.
+
+Two behaviors worth knowing about if touched again: (1) the dashboard
+recent-list and Platforms-page skeletons are account-scoped — they only
+show on a first load or after switching accounts, not on an in-place
+refresh of the same account (e.g. right after a publish), so real rows
+don't flash away and get replaced by placeholders; (2) opening the
+notifications drawer before Dashboard has ever loaded now kicks off the
+same dashboard-summary fetch itself, since the drawer's content depends
+on data it doesn't otherwise have a reason to fetch.
+
+Verified with a full headless-browser (Playwright) pass — routed each
+relevant endpoint through an artificial delay to hold every loading
+state open long enough to screenshot and assert on, covering: correct
+skeleton shape per spot, no leftover "Loading…" text, correct handoff to
+real content, the failure path (confirmed no skeleton left shimmering
+forever — the original bug this pattern already had once), dark mode,
+a 390px mobile viewport, `prefers-reduced-motion`, same-account revisit
+vs. account-switch, and zero new console errors. No backend touched, so
+none of this depends on real platform credentials.
+
+Not done / discovered along the way: found (didn't fix) a pre-existing
+bug where visiting Analytics for a not-yet-connected platform silently
+bounces to Dashboard instead of showing its intended connect-prompt
+message — a global 401-means-relogin guard in `app.js` collides with
+`/api/analytics/summary` using 401 to mean "not connected." Logged as a
+new Medium Priority TODO item; needs a real decision (different status
+code vs. an exception in the guard), not a quick patch.
+
+Recommended next: either the "Failed" stat-card-actionable TODO item or
+the empty-states TODO item — both are from the same 2026-09-23 design
+review, cheap, and no architecture change needed, similar in spirit to
+this session's work. The newly-logged 401/redirect bug is also worth a
+look whenever Analytics next comes up.
+
+---
+
+## 2026-09-23: Analytics Dashboard/Table toggle
 Added a Dashboard/Table view toggle to the Analytics page (project owner
 request). Table view is a sortable spreadsheet grid of every video's
 metrics, reusing already-fetched data client-side — no backend changes.

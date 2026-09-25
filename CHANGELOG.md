@@ -1254,3 +1254,91 @@ Pushed to `main`, triggering the GitHub Actions auto-deploy.
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-26 (feature: skeleton loaders for Scheduled/Published, Analytics, Platforms, dashboard Recent Activity, and notifications)
+
+### Added
+- Extended the existing shimmer-skeleton pattern (previously only on the
+  dashboard's platform subscriber/follower counts) to every other
+  high-traffic loading spot in the app, replacing plain "Loading…" /
+  "Checking..." text:
+  - Scheduled and Published lists (`loadLibrary()`)
+  - dashboard Recent Activity (`loadDashboard()`) — skipped on an
+    in-place refresh of the *same* account (e.g. right after a publish)
+    so existing rows don't flash away; still shown on first load and on
+    switching accounts
+  - Analytics (`loadAnalytics()`) — stat-card and chart-shaped
+    placeholders now sit under the existing indeterminate progress bar
+  - Platforms page connect-status rows (`loadPlatformsPage()`) — handle
+    text becomes a skeleton line and the row's buttons are dimmed/
+    disabled (`.is-loading`) until `/api/status` answers, so a click
+    can't race a still-loading Connect/Disconnect button; skipped on a
+    same-account revisit for the same reason as the dashboard
+  - Notifications drawer (`renderNotifications()`) — shows a skeleton
+    instead of "No notifications right now" while the underlying
+    dashboard-summary fetch (which the drawer depends on but doesn't
+    always trigger itself) is still in flight; opening the bell before
+    Dashboard has ever loaded now also kicks off that fetch
+- `frontend-src/style.css`: generic `.skel` / `.skel-line` / `.skel-thumb`
+  / `.skel-pill` / `.skel-chart` building blocks reusing the existing
+  `count-skeleton-shimmer` keyframes and `--hover-bg`/`--border` tokens
+  (dark-mode-safe and `prefers-reduced-motion`-safe, same as the
+  original dashboard-count skeleton).
+- `frontend-src/app.js`: `showSkeleton()` (idempotent — won't restart an
+  already-shimmering container) plus builders `skeletonLibRowsHtml()`,
+  `skeletonAnalyticsHtml()` / `analyticsLoadingHtml()`,
+  `skeletonNotifHtml()`.
+- Initial page load now primes Dashboard/Scheduled/Published/Analytics/
+  Platforms with their skeletons immediately, so the old static
+  "Loading…" text baked into `frontend-src/pages/*.html` never has a
+  chance to flash before `/api/accounts` resolves.
+
+### Not changed
+- Accounts page (account management cards) — intentionally left alone.
+  It renders synchronously from the already-loaded `accountsCache`
+  (populated by `loadAccounts()` at boot), so there's no fetch-in-flight
+  gap for a skeleton to cover.
+
+### Discovered (not fixed this session)
+- While browser-testing the Analytics skeleton against a not-yet-
+  connected account, found that Analytics silently bounces to Dashboard
+  instead of ever showing its intended "Connect it from Platforms first"
+  message. Root cause: `/api/analytics/summary` uses HTTP 401 to mean
+  "platform not connected" (`app/routes/analytics_youtube.py`), but the
+  global session-guard at the top of `app.js` treats *any* 401,
+  anywhere, as "session expired" and redirects to `/login` — which then
+  immediately redirects back to `/` since the session is actually still
+  valid. `loadAnalytics()`'s own 401-handling branch does render the
+  connect-prompt card, but the navigation wipes it before it's ever
+  seen. Pre-existing behavior, unrelated to this session's changes —
+  logged as a new Medium Priority TODO item rather than patched here,
+  since a real fix means picking between a different not-connected
+  status code and carving an exception into the global guard.
+
+Verified:
+- Headless-browser walkthrough (Playwright/Chromium) of every changed
+  spot: intercepted each relevant fetch with an artificial delay to
+  force the loading state to hold, confirming (with screenshots) that
+  the skeleton appears with the right shape, contains no leftover
+  "Loading…" text, and is correctly replaced once the real request
+  resolves — for both a successful response and (separately) an
+  aborted/failed one, confirming no skeleton is left shimmering forever
+  on error (the dashboard-count skeleton's original known failure mode).
+  Also checked: dark mode (`.dark-theme`) contrast, a 390px mobile
+  viewport (no horizontal overflow), `prefers-reduced-motion: reduce`
+  (shimmer animation correctly disabled), revisiting a page for the
+  same account doesn't re-flash its skeleton, switching accounts does
+  re-show it, and no new console/page errors anywhere in the run.
+- `python3 -m py_compile` across `server.py` and `app/` (no backend
+  changes were made, but confirmed clean anyway since nothing else
+  touched those files this session)
+- `node --check` on the rebuilt `static/index.html`'s extracted JS
+- Duplicate-element-ID sweep on the rebuilt `static/index.html` — clean
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy.
+
+Modified By:
+Claude (via chat session)
