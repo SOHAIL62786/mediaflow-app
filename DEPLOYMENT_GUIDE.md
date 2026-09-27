@@ -108,6 +108,14 @@ Then lock that file down too, since it holds a password in plain text:
 chmod 600 mediaflow.env
 ```
 
+`mediaflow.env` is also where `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+go if you want the optional "Continue with Google" button on the Sign
+In / Sign Up pages — see README.md's "Sign in with Google" section for
+how to create that OAuth client (and an important note on using a
+separate Google Cloud project from the one your YouTube connection
+uses). Skip it for now if you just want username/password login working
+first; you can add it later without affecting anything else.
+
 ## 7. Test it manually before making it a service
 
 ```bash

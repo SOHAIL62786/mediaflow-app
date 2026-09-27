@@ -38,6 +38,7 @@ from app.routes import (
     analytics_youtube,
     auth_pages,
     facebook_connect,
+    google_auth,
     library,
     media,
     status_publish,
@@ -71,6 +72,7 @@ app.include_router(youtube_oauth.router)
 app.include_router(facebook_connect.router)
 app.include_router(media.router)
 app.include_router(auth_pages.router)
+app.include_router(google_auth.router)
 app.include_router(upload_presets.router)
 
 

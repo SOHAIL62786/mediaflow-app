@@ -66,6 +66,66 @@ def seed_legacy_user_if_none_exist():
         )
 
 
+def get_user_by_google_sub(google_sub: str):
+    """Returns the {id, username} row for a returning Google sign-in, or
+    None for a first-time one. Matched on google_sub (Google's own stable
+    per-person ID), never on email — someone can change their Google
+    account's email address without it changing which MediaFlow account
+    they land in. See docs/DECISIONS.md 016."""
+    with get_db() as conn:
+        return conn.execute(
+            "SELECT id, username FROM users WHERE google_sub = ?", (google_sub,)
+        ).fetchone()
+
+
+def _sanitize_username_candidate(raw: str) -> str:
+    # Same allowed charset as api_signup's username validation
+    # (app/routes/auth_pages.py) — letters, numbers, '_', '-', '.' — so a
+    # Google-derived username can't slip past a rule a manually-typed one
+    # can't. An email's local-part before '@' is usually clean already;
+    # this only matters for the unusual ones (e.g. a '+' alias).
+    cleaned = "".join(c if (c.isalnum() or c in "_-.") else "-" for c in raw).strip("-_.")
+    if len(cleaned) < 3:
+        cleaned = (cleaned + secrets.token_hex(3))[:32]
+    return cleaned[:32]
+
+
+def _unique_username_from_google(email: str, display_name: str) -> str:
+    local_part = email.split("@")[0] if email and "@" in email else (display_name or "user")
+    base = _sanitize_username_candidate(local_part) or "user"
+    with get_db() as conn:
+        candidate = base
+        suffix = 1
+        while conn.execute("SELECT 1 FROM users WHERE username = ?", (candidate,)).fetchone():
+            suffix += 1
+            candidate = f"{base}{suffix}"[:32]
+    return candidate
+
+
+def create_user_from_google(google_sub: str, email: str, display_name: str = "") -> tuple:
+    """Creates a brand-new user on a first-time Google sign-in. Returns
+    (user_id, username).
+
+    password_hash stays NOT NULL (no schema change to that constraint —
+    see the ALTER TABLE note in app/db.py) but gets a placeholder value in
+    a shape verify_password() already can't match: it splits the stored
+    hash on '$' expecting exactly 4 parts ("pbkdf2_sha256$<iters>$<salt>
+    $<hex>"), so a 3-part sentinel like this one always fails the unpack
+    and returns False — no separate "is this a Google account" check
+    needed anywhere a password gets verified. There's no "set a password"
+    flow yet for a Google-only account (see TODO.md); until then, Google
+    sign-in is the only way in for one."""
+    username = _unique_username_from_google(email, display_name)
+    placeholder_hash = f"google_oauth$no_password${secrets.token_hex(16)}"
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO users (username, password_hash, created_at, google_sub, email) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (username, placeholder_hash, datetime.now(timezone.utc).isoformat(), google_sub, email or None),
+        )
+        return cur.lastrowid, username
+
+
 def create_session(user_id: int) -> str:
     token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)

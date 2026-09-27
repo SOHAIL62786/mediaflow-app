@@ -27,6 +27,16 @@
       accounts each poll; untested at scale
 - [ ] Decide whether TikTok support is still a near-term goal; if so, scaffold
       OAuth connect route + DB fields now so UI/schema don't need retrofitting
+- [ ] **Create the Google Cloud OAuth client for "Sign in with Google"**
+      (docs/DECISIONS.md 016) — needs a human to do this in Google Cloud
+      Console, ideally in a **separate GCP project** from the existing
+      YouTube one (see README.md's "Sign in with Google" section for why:
+      the YouTube project needs to stay in "Testing" status, but a
+      shared project would then also cap public Google sign-up at 100
+      test users). Put the resulting `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
+      in `mediaflow.env`. Until this is done, the "Continue with Google"
+      button stays hidden on the Sign In / Sign Up pages (they look and
+      behave exactly as before) — nothing to undo once it is done.
 
 ## Medium Priority
 - [ ] True mid-upload cancel (2026-09-20 follow-up). The new publish
@@ -76,6 +86,16 @@
       needs a real decision (e.g. a different status code for
       "not connected", or excluding known app-level 401 endpoints from
       the global guard) rather than a quick patch.
+- [ ] **New (2026-09-26): "Sign in with Google" follow-ups** (docs/DECISIONS.md
+      016) — not built yet, none of it blocks the feature working:
+      - No way for a Google-only account (no password set) to add a
+        password later, or for a password account to link a Google
+        account to itself afterward — Google sign-in is currently an
+        all-or-nothing choice made once, at account creation.
+      - No "Disconnect Google" option once linked.
+      - Nothing in the UI (Settings, Accounts) shows whether a given
+        login is Google-based or password-based — currently only
+        discoverable by trying a password login and having it fail.
 
 ## Low Priority
 - [ ] The new Instagram video-metrics additions (2026-09-22: reposts,

@@ -109,6 +109,20 @@ def init_db():
         users_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
         if "is_admin" not in users_cols:
             conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        # Migration for "Sign in with Google" (docs/DECISIONS.md 016).
+        # google_sub is Google's own stable per-person ID (never reused,
+        # doesn't change if they change their email) — that's what a
+        # returning Google sign-in is matched against, not email. `email`
+        # is stored only for display purposes; a password-only account has
+        # NULL for both, so a plain (non-unique-constrained) nullable
+        # column is fine — SQLite's ALTER TABLE can't add a UNIQUE
+        # constraint directly, so google_sub's uniqueness comes from the
+        # separate index created below instead.
+        if "google_sub" not in users_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN google_sub TEXT")
+        if "email" not in users_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub)")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sessions (

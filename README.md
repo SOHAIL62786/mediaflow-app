@@ -133,6 +133,57 @@ have to re-upload it each time — drop a `client_secret.json` inside a
 specific account's own folder (`credentials/accounts/<id>/`) if that
 account needs its own separate Google Cloud project instead.
 
+## Sign in with Google (optional)
+
+Adds a "Continue with Google" button to the Sign In / Sign Up pages,
+alongside the existing username/password option — clicking it logs an
+existing person in, or creates a brand-new account on a first visit,
+the same way it works on most sites. This is a *different* Google OAuth
+client than the YouTube one two sections up: that one is a per-workspace-
+account connection to pull that account's own YouTube data; this one is a
+single app-wide client that only ever asks "who is this person" (their
+name/email), unrelated to workspace accounts entirely.
+
+**Setup:**
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   create an OAuth 2.0 Client ID of type **Web application**.
+2. Add an **Authorized redirect URI**: `https://your-domain/api/auth/google/callback`
+   (or `http://localhost:8000/api/auth/google/callback` while testing locally).
+3. Put the resulting Client ID and Client Secret in `mediaflow.env` as
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, then restart the app.
+   Leaving them blank just hides the Google button — nothing else changes.
+
+**Use a separate Google Cloud project from your YouTube connection.**
+This matters more than it might look: a GCP project's OAuth consent
+screen has one publishing status — "Testing" or "In production" — that
+applies to *every* OAuth client in that project. The YouTube connect flow
+above (Section 2) requests sensitive/restricted scopes (upload access),
+which Google requires a manual verification review to use in production —
+which is exactly why that section's note tells you to leave the project
+in "Testing" and add people as Test Users instead. But "Testing" mode
+caps you at 100 allow-listed test users total, and blocks everyone else
+with an "hasn't completed verification" error — completely defeating the
+point of letting the general public sign up via Google.
+
+Sign-in only asks for `openid`/email/profile, which Google classifies as
+non-sensitive — a project using *only* scopes in that tier can move its
+consent screen to "In production" without needing Google's review, and
+then anyone can use it. So: put this OAuth client in its own Google Cloud
+project (Google accounts can own several projects for free) and set
+*that* project's consent screen to "In production." Your existing YouTube
+project stays in Testing, completely unaffected, since consent-screen
+status is per-project. Reusing the same project as YouTube instead would
+force a choice between leaving Google sign-in capped at 100 testers, or
+publishing that project (which would then also expose the YouTube
+connect flow's unverified-app warning to the public, not just you).
+
+Signing in with Google respects the same `SIGNUP_CODE` invite-code gate
+as username/password signup (see docs/DECISIONS.md 009 and 016): if
+you've set `SIGNUP_CODE`, a first-time Google sign-in needs it too
+(there's a code field next to the Google button on the Sign Up page for
+that), but a *returning* Google user is never asked for it again — same
+as a returning password user isn't re-checked against it either.
+
 One real limitation that still applies regardless of scheduling: Instagram's
 publishing API requires a public URL to fetch the video from — it can't
 accept a direct upload. MediaFlow handles this by briefly serving the file at

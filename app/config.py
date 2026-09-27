@@ -52,6 +52,29 @@ APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 # exactly as before. See docs/DECISIONS.md 009.
 SIGNUP_CODE = os.environ.get("SIGNUP_CODE", "")
 
+# ---------- "Sign in with Google" (app-level login/signup) ----------
+# This is a *different* Google OAuth client than credentials/client_secret.json
+# (or a per-account credentials/accounts/<id>/client_secret.json) above —
+# those are each workspace-account's own connection to pull that account's
+# YouTube data, uploaded via the Accounts/Platforms UI. This one is how a
+# *person* gets a MediaFlow login in the first place, so it's a single
+# app-wide client configured here via env vars, same pattern as
+# APP_USERNAME/APP_PASSWORD/SIGNUP_CODE above. See docs/DECISIONS.md 016.
+# Leaving these unset simply hides the "Continue with Google" button —
+# username/password signup and login are unaffected either way.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+# Deliberately just enough to identify the person (name/email) — no
+# YouTube/Drive/etc. access requested here. These are Google's "non-
+# sensitive" scope tier, which matters for whether the OAuth consent
+# screen needs Google's manual verification to leave "Testing" status;
+# see docs/DECISIONS.md 016 and README.md for what that means in practice.
+GOOGLE_LOGIN_SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
+
 # ---------- Public base URL (needed by the background scheduler) ----------
 # Interactive requests can build a public URL from the incoming request
 # itself (request.base_url) — but the background scheduler that publishes

@@ -3,7 +3,58 @@
 ## Last Updated
 2026-09-26
 
-## 2026-09-26 (latest): Skeleton loaders for Scheduled/Published, Analytics, Platforms, dashboard Recent Activity, notifications
+## 2026-09-26 (latest): "Continue with Google" sign-in/signup
+
+Full detail in CHANGELOG.md and docs/DECISIONS.md 016 — summary here.
+
+Added a "Continue with Google" button to Sign In / Sign Up, alongside
+the existing username/password form: one unified flow that logs an
+existing person in or creates a new account on first use. This uses a
+*new, separate* Google OAuth client (`GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET` env vars) from the one already in use for the
+per-workspace-account YouTube connection — they're unrelated concepts
+that happen to both be Google OAuth. `users` gained nullable
+`google_sub`/`email` columns; a Google-only account gets an intentionally
+unusable placeholder `password_hash` rather than a schema change to make
+that column nullable. The existing `SIGNUP_CODE` invite gate now covers
+first-time Google signup too, the same way it already covered password
+signup. The button is hidden entirely (both pages look/behave exactly as
+before) unless the server actually has both env vars set.
+
+**Not yet usable in production** — the code is complete and tested, but
+needs a Google Cloud OAuth client actually created before the button
+does anything but stay hidden. New High Priority TODO item covers this;
+the important part to remember: **use a separate Google Cloud project**
+from the existing YouTube one, not the same one. The YouTube project is
+deliberately left in "Testing" publishing status (from the earlier
+access_denied issue), and that status is per-*project*, not per-OAuth-
+client — reusing it here would cap public Google sign-up at 100
+allow-listed testers, defeating the point. README.md's new "Sign in with
+Google" section has the full setup steps for whoever does this.
+
+Verified end-to-end without needing real Google credentials: DB-level
+checks (username generation/dedup, placeholder-hash unverifiability,
+`google_sub` uniqueness), then the full login/callback route flow via
+FastAPI's TestClient with Google's two network calls mocked (new user,
+returning user/no duplicate, unverified-email rejection, and all four
+`SIGNUP_CODE` cases), then a browser pass confirming both the visible
+button flow and the fully-hidden unconfigured state. No backend routes
+outside the two new auth ones were touched.
+
+Not built (logged in TODO.md, none of it blocks the feature): setting a
+password on a Google-only account or linking Google onto an existing
+password account after the fact, disconnecting a linked Google account,
+and any UI indicator of which login type a given account uses.
+
+Recommended next: create that Google Cloud OAuth client (the one
+remaining human step) so this can actually be tried live, or pick back
+up one of the still-open Medium Priority items (empty states, the
+actionable Failed stat card, or the pre-existing Analytics 401/redirect
+bug logged 2026-09-26 in the previous session).
+
+---
+
+## 2026-09-26: Skeleton loaders for Scheduled/Published, Analytics, Platforms, dashboard Recent Activity, notifications
 
 Worked from TODO.md's Medium Priority skeleton-loading item (from the
 2026-09-23 design review). Full detail in CHANGELOG.md's matching entry

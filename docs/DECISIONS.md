@@ -872,3 +872,137 @@ Verified:
 
 Status:
 Accepted.
+
+---
+
+## Decision 016
+
+Date: 2026-09-26
+
+Decision:
+Add "Continue with Google" as an alternative to username/password on the
+Sign In / Sign Up pages. Clicking it logs an existing person in, or
+creates a brand-new account on a first visit — one unified flow, not
+separate login-only vs. signup-only buttons.
+
+This is a *different* Google OAuth client than the one Decision 003 /
+`credentials/client_secret.json` already uses for YouTube: that one is a
+per-workspace-account connection to pull that account's own YouTube data
+(upload/readonly/analytics scopes), configured from the Accounts page and
+stored per-account. This one is a single app-wide client
+(`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` env vars, same pattern as
+`APP_USERNAME`/`APP_PASSWORD`/`SIGNUP_CODE`) that only ever asks "who is
+this person" — `openid`/email/profile scopes, nothing else — because it
+has to work before that person has any workspace account, or even a
+MediaFlow login, yet.
+
+Implementation:
+- `users` table gains two nullable columns via the existing ALTER-TABLE-
+  if-missing migration pattern: `google_sub` (Google's own stable
+  per-person ID — matched on this, never on email, so someone changing
+  their Google account's email doesn't land them in a different
+  MediaFlow account) and `email` (display-only). A separate
+  `CREATE UNIQUE INDEX IF NOT EXISTS` enforces `google_sub` uniqueness,
+  since SQLite's `ALTER TABLE ADD COLUMN` can't add a UNIQUE constraint
+  directly — same reason Decision 010's `is_admin` migration is a plain
+  ALTER TABLE, not a constraint.
+- `password_hash` stays `NOT NULL` (no schema change to that constraint).
+  A Google-only account gets a random placeholder value in a shape
+  `verify_password()` already can't match — it unpacks the stored hash
+  on `$` expecting exactly 4 parts (`pbkdf2_sha256$<iters>$<salt>$<hex>`),
+  so a 3-part sentinel (`google_oauth$no_password$<random>`) always fails
+  the unpack and returns `False`. No separate "is this a Google account"
+  branch needed anywhere a password gets checked. There's no "set a
+  password later" flow yet for a Google-only account — noted in
+  TODO.md — so right now Google sign-in is the only way into one.
+- New `app/routes/google_auth.py`: `GET /api/auth/google/login` (builds
+  the Google consent URL via `google_auth_oauthlib.flow.Flow`, using
+  `access_type=online` since this only needs to identify the person once,
+  not keep long-term API access the way the YouTube connect flow does)
+  and `GET /api/auth/google/callback` (verifies the returned ID token via
+  `google.oauth2.id_token.verify_oauth2_token`, rejects an unverified
+  email, then looks up-or-creates the user and starts a normal session —
+  from there it's the exact same `create_session`/`set_session_cookie`
+  path password login already uses). Neither route is behind
+  `require_login`, since logging in is exactly what they're for — mirrors
+  `youtube_oauth.py`'s already-established pattern of trusting the OAuth
+  `state` value instead of a session for its own callback.
+- A brand-new Google user gets a username auto-generated from their
+  email's local-part (sanitized to the same charset password signup
+  already enforces, deduped with a numeric suffix on collision) since
+  `username` stays the app's one identity field everywhere in the
+  frontend (account switcher, "X's account", etc.) — no UI needed to
+  change to accommodate Google users.
+- The existing `SIGNUP_CODE` invite-code gate (Decision 009) applies to a
+  first-time Google sign-in exactly as it does to password signup: it
+  only ever gates *account creation*, so a returning Google user is never
+  asked for it, matching a returning password user never being
+  re-checked against it either. The code travels from the Sign Up page's
+  existing (conditionally-shown) invite-code field to
+  `/api/auth/google/login` as a query param, then server-side inside the
+  short-lived pending-flow entry keyed by OAuth `state` — never inside
+  `state` itself, and never something Google's side ever sees.
+- `login.html` / `signup.html`: a "Continue with Google" button + divider
+  above the existing form. Google OAuth here is a full-page redirect, not
+  a fetch — so unlike the rest of these two pages' JS, an error comes
+  back as a `?error=` query param on redirect back to `/login` or
+  `/signup`, read once on page load and shown in the same error-banner
+  the password form already uses. New public `GET /api/auth/google-config`
+  (same shape/reasoning as the existing `/api/auth/signup-config`) reports
+  whether `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are actually set; both
+  pages hide the button and divider entirely if not, rather than showing
+  a button that would just 503 — an install that hasn't configured this
+  looks identical to before.
+
+Reason:
+Project owner wants the same "Continue with Google" convenience ChatGPT/
+Claude's own sign-up pages offer, instead of only username/password.
+
+Alternatives Considered:
+- Matching/linking a Google sign-in to an existing password account by
+  email address (rejected — moot given the current schema: usernames are
+  validated to a charset that excludes `@`, so no pre-existing
+  password-only account has ever had an email on file to match against;
+  revisit if a "link Google to my existing account" Settings feature
+  gets built later, but that's a distinct, bigger feature, not silently
+  bundled into this one)
+- Reusing the YouTube connect flow's existing per-account
+  `client_secret.json` for this too, instead of a new app-level env-var
+  client (rejected — a workspace-account-scoped file is the wrong shape
+  for something that has to work before any workspace account, or even a
+  user, exists yet; also see the Google Cloud project note below)
+- Requiring Google sign-in to also carry an OFFLINE refresh token
+  (rejected — nothing here needs standing API access after the person is
+  identified once, unlike the YouTube connection)
+
+Status:
+Accepted. Verified: username generation/dedup and the placeholder-hash's
+unverifiability directly against the DB; the full login/callback route
+flow end-to-end via FastAPI's TestClient with Google's own two network
+calls mocked (new-user creation, returning-user login with no duplicate
+row, unverified-email rejection, and all four `SIGNUP_CODE` cases — no
+code, wrong code, correct code, and a returning user never being asked
+again); the resulting session cookie authenticates subsequent requests
+and the new user owns a usable workspace account, same as password
+signup already guaranteed (Decision 006). Browser-screenshotted both
+pages (button rendering, the error-banner path, the invite-code field
+correctly reaching the redirect URL only when typed in, and — separately —
+both pages looking and behaving exactly as before, button and divider
+fully hidden, when GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET aren't set).
+`node --check` on both pages' extracted JS; `py_compile` clean.
+
+Not yet done / flagged for whoever sets this up: the project owner's
+existing Google Cloud project (used for the YouTube connection) is still
+in "Testing" publishing status, per the access_denied issue diagnosed
+earlier. Publishing status is per-*project*, not per-OAuth-client, so
+reusing that project for this feature would cap public Google sign-up at
+100 allow-listed test users too — defeating the point. README.md's new
+"Sign in with Google" section recommends a separate Google Cloud project
+for this client, published to "In production" (safe without Google's
+manual review, since login-only scopes are its non-sensitive tier) —
+left as a one-time setup step for the project owner, not something this
+change could do on its own. Also not built: any "set a password" or
+"disconnect Google" flow for a Google-only account, and no visible
+indicator anywhere in the UI that a given account is Google-only vs.
+password-based (currently only inferable by attempting a password login
+and having it fail) — noted in TODO.md.
