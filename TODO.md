@@ -98,6 +98,16 @@
         discoverable by trying a password login and having it fail.
 
 ## Low Priority
+- [ ] New Analytics "Histogram" tab (2026-09-23) — views bar chart,
+      oldest-to-newest, nested engagement bar. Nested-percentage math
+      verified by direct calculation and the backend date fields
+      (YouTube publishedAt, Facebook created_time, Instagram timestamp)
+      are newly added — never checked against a real account's actual
+      response shape. Check on the live VM: bars render left-to-right in
+      correct chronological order, dates parse correctly on all three
+      platforms, engagement bar looks right relative to the view bar
+      (not just mathematically, but visually — the translucent overlay
+      might be too subtle or too strong in practice).
 - [ ] The new Instagram video-metrics additions (2026-09-22: reposts,
       avg watch time, skip rate, computed engagement rates) — field
       names verified against Meta's docs and the fallback/rate/
