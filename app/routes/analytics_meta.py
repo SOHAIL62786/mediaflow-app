@@ -112,7 +112,7 @@ def analytics_facebook(days: int = 28, account_id: int = 1, user: dict = Depends
         videos = _graph_get(
             f"{page_id}/videos",
             {
-                "fields": "id,title,permalink_url,picture,likes.summary(true).limit(0),comments.summary(true).limit(0)",
+                "fields": "id,title,permalink_url,picture,created_time,likes.summary(true).limit(0),comments.summary(true).limit(0)",
                 "limit": 25,
                 "access_token": token,
             },
@@ -129,6 +129,7 @@ def analytics_facebook(days: int = 28, account_id: int = 1, user: dict = Depends
                 "video_id": v["id"],
                 "title": v.get("title") or "Untitled video",
                 "thumbnail": v.get("picture"),
+                "published_at": v.get("created_time"),
                 "views": views,
                 "likes": v.get("likes", {}).get("summary", {}).get("total_count", 0),
                 "comments": v.get("comments", {}).get("summary", {}).get("total_count", 0),
@@ -286,7 +287,7 @@ def analytics_instagram(days: int = 28, account_id: int = 1, user: dict = Depend
         media = _graph_get(
             ig_id + "/media",
             {
-                "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,like_count,comments_count",
+                "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
                 "limit": 25,
                 "access_token": token,
             },
@@ -306,6 +307,7 @@ def analytics_instagram(days: int = 28, account_id: int = 1, user: dict = Depend
                 "media_id": m["id"],
                 "title": caption,
                 "thumbnail": m.get("thumbnail_url") or m.get("media_url"),
+                "published_at": m.get("timestamp"),
                 "views": views,
                 "engagement": likes + comments,
                 "likes": likes,

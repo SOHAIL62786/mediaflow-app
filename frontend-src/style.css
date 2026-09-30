@@ -565,7 +565,13 @@
   .pill-btn.active{background:var(--card-bg);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
   .bar-chart{display:flex;align-items:flex-end;gap:4px;height:140px;padding-top:10px;}
   .bar-wrap{flex:1;display:flex;align-items:flex-end;height:100%;min-width:2px;}
-  .bar-wrap .bar{width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;min-height:2px;}
+  .bar-wrap .bar{
+    width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;
+    min-height:2px;display:flex;align-items:flex-end;position:relative;overflow:hidden;
+  }
+  .bar-inner-engagement{
+    width:100%;background:rgba(255,255,255,.55);border-radius:3px 3px 0 0;min-height:0;
+  }
   .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */

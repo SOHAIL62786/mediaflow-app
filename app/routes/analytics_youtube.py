@@ -134,7 +134,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: dict = Depends(
     top_rows = top_resp.get("rows") or []
     video_ids = [dict(zip(top_headers, row)).get("video") for row in top_rows]
 
-    titles, thumbs, lifetime_views = {}, {}, {}
+    titles, thumbs, lifetime_views, published = {}, {}, {}, {}
     if video_ids:
         try:
             # videos().list only accepts up to 50 ids per call, which matches our cap above
@@ -143,6 +143,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: dict = Depends(
                 titles[item["id"]] = item["snippet"]["title"]
                 thumbs[item["id"]] = item["snippet"]["thumbnails"].get("default", {}).get("url")
                 lifetime_views[item["id"]] = int(item["statistics"].get("viewCount", 0))
+                published[item["id"]] = item["snippet"].get("publishedAt")
         except HttpError:
             pass  # titles are a nice-to-have; fall back to raw IDs below
 
@@ -154,6 +155,7 @@ def analytics_summary(days: int = 28, account_id: int = 1, user: dict = Depends(
             "video_id": vid,
             "title": titles.get(vid, vid),
             "thumbnail": thumbs.get(vid),
+            "published_at": published.get(vid),
             "views": int(d.get("views", 0)),
             "lifetime_views": lifetime_views.get(vid, 0),
             "watch_time_minutes": round(float(d.get("estimatedMinutesWatched", 0))),

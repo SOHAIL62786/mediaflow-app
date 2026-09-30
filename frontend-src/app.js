@@ -1776,6 +1776,53 @@
     `;
   }
 
+  function videoEngagementValue(platformKey, v){
+    // Instagram's top_videos already computes a real "engagement" field
+    // (likes+comments, server-side). YouTube/Facebook don't have an
+    // equivalent field at all, so likes+comments is used as the same kind
+    // of proxy here too — keeps the histogram meaningful on every
+    // platform instead of being Instagram-only.
+    return v.engagement ?? ((v.likes || 0) + (v.comments || 0));
+  }
+
+  function renderVideoHistogram(platformKey, videos){
+    const dated = videos.filter(v => v.published_at);
+    const sorted = [...dated].sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
+    const maxViews = Math.max(1, ...sorted.map(v => v.views || 0));
+
+    const barsHtml = sorted.map(v => {
+      const views = v.views || 0;
+      const engagement = videoEngagementValue(platformKey, v);
+      const viewsPct = Math.max(Math.round((views / maxViews) * 100), 2);
+      // Engagement bar's height is a % of the OUTER bar's own height (not
+      // of the chart), so nesting two CSS percentage-heights multiplies
+      // out to the same max-views-based scale automatically:
+      // (views/maxViews) * (engagement/views) = engagement/maxViews.
+      // That's what makes it read as "a small bar inside the view bar"
+      // rather than a second, separately-scaled chart.
+      const engagementPct = views > 0 ? Math.min(Math.round((engagement / views) * 100), 100) : 0;
+      const dateLabel = new Date(v.published_at).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+      const idField = platformKey === 'instagram' ? v.media_id : v.video_id;
+      const tooltip = `${v.title || 'Untitled'} — ${dateLabel}: ${fmtNum(views)} views, ${fmtNum(engagement)} engagement`;
+      return `
+        <div class="bar-wrap" title="${escapeHtml(tooltip)}" data-video-id="${idField}" data-platform="${platformKey}" style="cursor:pointer;">
+          <div class="bar" style="height:${viewsPct}%">
+            <div class="bar-inner-engagement" style="height:${engagementPct}%"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="card">
+        <div class="recent-header">
+          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Histogram</h2>
+          <span class="sub">Oldest to newest, left to right. Bar height is views; the lighter inner bar is engagement. Hover a bar for detail.</span>
+        </div>
+        <div class="bar-chart" style="height:220px;">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+      </div>
+    `;
+  }
+
 
   function videoFilterBarHtml(platformKey, state){
     const limitPills = VIDEO_LIMIT_OPTIONS.map(n => {
@@ -2166,6 +2213,15 @@
       });
       body.querySelectorAll('tr[data-video-id]').forEach(tr=>{
         tr.addEventListener('click', () => openVideoMetrics(tr.dataset.platform, tr.dataset.videoId));
+      });
+      return;
+    }
+
+    if(currentAnalyticsView === 'histogram'){
+      currentVideoList = lastAnalyticsData.top_videos || [];
+      body.innerHTML = renderVideoHistogram(platformKey, currentVideoList);
+      body.querySelectorAll('[data-video-id]').forEach(el=>{
+        el.addEventListener('click', () => openVideoMetrics(el.dataset.platform, el.dataset.videoId));
       });
       return;
     }
