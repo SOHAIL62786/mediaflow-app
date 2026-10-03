@@ -1006,3 +1006,97 @@ change could do on its own. Also not built: any "set a password" or
 indicator anywhere in the UI that a given account is Google-only vs.
 password-based (currently only inferable by attempting a password login
 and having it fail) — noted in TODO.md.
+
+---
+
+## Decision 017
+
+Date: 2026-09-30
+
+Decision:
+Redesign the Analytics page's "Column Chart" view (`renderVideoHistogram`,
+added alongside Decision 015's Dashboard/Table toggle): left-align the
+columns instead of centering them, show the views and engagement numbers
+directly above each column instead of only in a hover tooltip, label the
+x-axis with each video's publish date as `dd/mm`, and add checkboxes in
+the chart's legend to choose which raw fields sum into the "engagement"
+number shown.
+
+Implementation:
+- `.video-hist-chart`/`.video-hist-col`/`.video-hist-bar` are new,
+  dedicated classes — NOT a rework of the existing `.bar-chart`/
+  `.bar-wrap`/`.bar` classes, which stay untouched because they're shared
+  with the plain daily-views trend charts elsewhere on this page (no
+  value/date labels, and the bar is assumed to fill its wrapper's full
+  height — a different box model than this chart now needs to reserve
+  label space above and below each column).
+- Both numbers float as one small stacked group anchored to the OUTER
+  bar's own top edge (`.hist-label-stack`), not independently — the
+  engagement number is NOT pinned to the inner engagement bar's own
+  (sometimes near-zero) height. Tried that first; it reads fine on a tall
+  column, but on a short one the views and engagement numbers land only
+  a couple of pixels apart and overlap into unreadable text, since a
+  short OUTER bar already puts both labels in roughly the same place
+  regardless of how they're anchored to each other. Stacking them as one
+  fixed-height two-line group guarantees they never collide, at every
+  bar height from the stress-tested extreme (a 50-view column sitting
+  right next to a 50,000-view one) down.
+- Checkboxes cover Likes and Comments only — every platform's
+  `/api/analytics/summary`'s (and the Facebook/Instagram equivalents')
+  `top_videos` actually returns only those two per-video engagement
+  fields today; nothing (shares, saves, reposts) exists at per-video
+  granularity on any of the three platforms to offer a checkbox for.
+  `videoEngagementValue()` now sums whichever of `ENGAGEMENT_COMPONENTS`
+  are checked directly from each video's raw fields, rather than
+  preferring Instagram's precomputed `engagement` field (which was
+  already just likes+comments server-side anyway — see
+  `app/routes/analytics_meta.py` — so this is a behavior-preserving
+  change when both are checked, and makes the checkboxes actually affect
+  Instagram's number too instead of silently ignoring them there).
+- Columns switched from `flex:1` (shrink-to-fit everything in view) to a
+  fixed width with `overflow-x:auto` on the chart — the new value/date
+  labels need a legible minimum column width that shrink-to-fit would
+  have broken once there are more than a handful of videos (this
+  endpoint can return up to 50).
+
+Reason:
+Project owner wanted the chart to read its key numbers at a glance
+without hovering each column, and wanted control over what counts as
+"engagement" instead of a fixed likes+comments formula.
+
+Alternatives Considered:
+- Positioning the engagement label flush above the inner engagement
+  bar's own top edge, exactly matching the request's literal wording
+  (rejected — see the short-column collision above; the stacked-group
+  approach still visually reads as "the engagement number, right next to
+  the views number, color-matched to the engagement bar" without the
+  legibility failure)
+- Adding shares/saves/reposts checkboxes too (rejected for now — no
+  backend field exists to back them at the per-video level on any
+  platform; would need new API work first, noted in TODO.md as a
+  possible follow-up rather than silently bundled into this change)
+- Reusing the existing `.bar-chart`/`.bar`/`.bar-wrap` classes directly
+  instead of new ones (rejected — they're shared with the unrelated
+  daily-views trend charts; changing their box model to fit this chart's
+  new label space would have changed those charts' layout too)
+
+Status:
+Accepted. Verified: a mocked-data browser pass (Playwright route
+interception standing in for real YouTube/Facebook/Instagram API
+responses, since this needs no backend change) confirming left alignment
+(first column sits at the chart's own padding, not centered), both
+labels present and correct per column, `dd/mm` x-axis labels, and the
+checkboxes correctly recomputing every column's engagement number live
+(both checked / Comments off / both off / restored) with no stale state;
+a deliberately extreme stress case (a 50-view column beside a
+50,000-view one) confirming the label-collision fix holds at the worst
+realistic ratio; dark mode; and a direct unit check that the new
+Instagram computation matches that platform's existing server-side
+likes+comments formula exactly when both boxes are checked. `node
+--check` on the rebuilt `static/index.html`'s JS; `python3 build.py` +
+duplicate-element-ID sweep (only the pre-existing, already-documented
+template-literal false positives, one of which — `${idField}` — now
+also appears in this function since it reuses the same literal pattern
+Decision 015's Table view already uses; the two render functions never
+coexist in the live DOM, same reasoning as that decision's own
+`#videoFilterBarContainer` note). No backend files touched.

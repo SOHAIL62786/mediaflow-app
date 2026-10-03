@@ -572,9 +572,49 @@
   .bar-inner-engagement{
     width:100%;background:var(--indigo);min-height:0;
   }
-  .bar-legend{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
+  .bar-legend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
   .bar-legend span{display:flex;align-items:center;gap:5px;}
   .bar-legend .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .engagement-legend-group{gap:12px !important;flex-wrap:wrap;}
+  .engagement-checkbox{
+    display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;
+    font-size:12px;color:var(--text-mid);
+  }
+  .engagement-checkbox input{cursor:pointer;margin:0;}
+
+  /* Videos — Column Chart (renderVideoHistogram). Deliberately its own set
+     of classes rather than reusing .bar-chart/.bar-wrap/.bar above — those
+     are shared with the plain daily-views trend charts, which have no
+     value/date labels and assume the bar fills the wrapper's full height;
+     this chart reserves space above/below each column for that text. */
+  .video-hist-chart{
+    display:flex;align-items:flex-end;justify-content:flex-start;gap:12px;
+    height:210px;padding:30px 4px 0;overflow-x:auto;
+  }
+  .video-hist-col{
+    display:flex;flex-direction:column;align-items:center;height:100%;
+    flex:0 0 auto;width:30px;cursor:pointer;
+  }
+  .video-hist-bar-area{flex:1;display:flex;align-items:flex-end;width:100%;min-width:2px;}
+  .video-hist-bar{
+    width:100%;background:#cfceff;border-radius:4px 4px 0 0;
+    min-height:2px;display:flex;align-items:flex-end;position:relative;cursor:pointer;
+  }
+  /* Both numbers stack together just above the bar's own top edge — kept
+     as one fixed-height group (not independently pinned to each bar's
+     actual height) so the two labels never collide on a short column,
+     where the views bar and its inner engagement sliver can end up only
+     a couple of pixels apart. */
+  .hist-label-stack{
+    position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;
+    margin-bottom:2px;pointer-events:none;
+  }
+  .hist-label{font-size:10px;line-height:1.35;white-space:nowrap;color:var(--text-mid);}
+  .hist-label-engagement{color:var(--indigo);font-weight:600;}
+  .hist-x-label{
+    font-size:10px;color:var(--text-light);margin-top:6px;white-space:nowrap;
+  }
   .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */

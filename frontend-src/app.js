@@ -1724,6 +1724,25 @@
   let videoFilterState = { sortBy: 'views', limit: 5 };
   let tableSortState = { field: 'views', dir: 'desc' };
 
+  // Which raw fields sum into the Column Chart's "engagement" number —
+  // toggled via checkboxes in that chart's legend (renderVideoHistogram).
+  // Likes/comments are the only per-video engagement fields every
+  // platform's /api/analytics/summary top_videos actually returns today;
+  // extend this list (and videoEngagementValue below) if a platform ever
+  // adds per-video shares/saves.
+  const ENGAGEMENT_COMPONENTS = [
+    { field: 'likes', label: 'Likes' },
+    { field: 'comments', label: 'Comments' },
+  ];
+  let engagementComponentState = { likes: true, comments: true };
+
+  function fmtDayMonth(dateStr){
+    const d = new Date(dateStr);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  }
+
   // ---- Analytics: Table view (excel-style comparison grid) ----
   // Columns are exactly what the summary endpoint already returns per
   // video/post — no extra per-row fetches, so switching to Table view (or
@@ -1804,12 +1823,17 @@
   }
 
   function videoEngagementValue(platformKey, v){
-    // Instagram's top_videos already computes a real "engagement" field
-    // (likes+comments, server-side). YouTube/Facebook don't have an
-    // equivalent field at all, so likes+comments is used as the same kind
-    // of proxy here too — keeps the histogram meaningful on every
-    // platform instead of being Instagram-only.
-    return v.engagement ?? ((v.likes || 0) + (v.comments || 0));
+    // Sum of whichever components are checked in the Column Chart's
+    // legend (ENGAGEMENT_COMPONENTS/engagementComponentState above).
+    // Instagram's top_videos also returns a precomputed "engagement"
+    // field, but it's just likes+comments server-side too (see
+    // app/routes/analytics_meta.py) — computing from the raw fields here
+    // instead keeps the checkboxes meaningful on every platform rather
+    // than Instagram silently ignoring them.
+    return ENGAGEMENT_COMPONENTS.reduce(
+      (sum, c) => sum + (engagementComponentState[c.field] ? (v[c.field] || 0) : 0),
+      0
+    );
   }
 
   function renderVideoHistogram(platformKey, videos){
@@ -1817,7 +1841,7 @@
     const sorted = [...dated].sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
     const maxViews = Math.max(1, ...sorted.map(v => v.views || 0));
 
-    const barsHtml = sorted.map(v => {
+    const colsHtml = sorted.map(v => {
       const views = v.views || 0;
       const engagement = videoEngagementValue(platformKey, v);
       const viewsPct = Math.max(Math.round((views / maxViews) * 100), 2);
@@ -1832,24 +1856,39 @@
       const idField = platformKey === 'instagram' ? v.media_id : v.video_id;
       const tooltip = `${v.title || 'Untitled'} — ${dateLabel}: ${fmtNum(views)} views, ${fmtNum(engagement)} engagement`;
       return `
-        <div class="bar-wrap" title="${escapeHtml(tooltip)}" data-video-id="${idField}" data-platform="${platformKey}" style="cursor:pointer;">
-          <div class="bar" style="height:${viewsPct}%">
-            <div class="bar-inner-engagement" style="height:${engagementPct}%"></div>
+        <div class="video-hist-col" title="${escapeHtml(tooltip)}" data-video-id="${idField}" data-platform="${platformKey}">
+          <div class="video-hist-bar-area">
+            <div class="video-hist-bar" style="height:${viewsPct}%">
+              <div class="hist-label-stack">
+                <span class="hist-label hist-label-engagement">${fmtNum(engagement)}</span>
+                <span class="hist-label hist-label-views">${fmtNum(views)}</span>
+              </div>
+              <div class="bar-inner-engagement" style="height:${engagementPct}%"></div>
+            </div>
           </div>
+          <div class="hist-x-label">${fmtDayMonth(v.published_at)}</div>
         </div>`;
     }).join('');
+
+    const checkboxesHtml = ENGAGEMENT_COMPONENTS.map(c => `
+      <label class="engagement-checkbox">
+        <input type="checkbox" data-engagement-component="${c.field}" ${engagementComponentState[c.field] ? 'checked' : ''}>
+        ${c.label}
+      </label>`).join('');
 
     return `
       <div class="card">
         <div class="recent-header">
           <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Column Chart</h2>
-          <span class="sub">Oldest to newest, left to right. Bar height is views; the darker inner bar is engagement. Hover a bar for detail.</span>
+          <span class="sub">Oldest to newest, left to right. Numbers above each column are views and engagement; hover a column for the full detail.</span>
         </div>
-        <div class="bar-chart">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        <div class="video-hist-chart">${colsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
         ${sorted.length ? `
         <div class="bar-legend">
           <span><span class="swatch" style="background:#cfceff;"></span>Views</span>
-          <span><span class="swatch" style="background:var(--indigo);"></span>Engagement</span>
+          <span class="engagement-legend-group">
+            <span class="swatch" style="background:var(--indigo);"></span>Engagement =${checkboxesHtml}
+          </span>
         </div>` : ''}
       </div>
     `;
@@ -2254,6 +2293,12 @@
       body.innerHTML = renderVideoHistogram(platformKey, currentVideoList);
       body.querySelectorAll('[data-video-id]').forEach(el=>{
         el.addEventListener('click', () => openVideoMetrics(el.dataset.platform, el.dataset.videoId));
+      });
+      body.querySelectorAll('[data-engagement-component]').forEach(cb=>{
+        cb.addEventListener('change', () => {
+          engagementComponentState[cb.dataset.engagementComponent] = cb.checked;
+          renderAnalyticsBody();
+        });
       });
       return;
     }

@@ -1439,3 +1439,71 @@ Console) setup step.
 
 Modified By:
 Claude (via chat session)
+
+---
+
+## 2026-09-30 (Analytics: Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes)
+
+### Changed
+- `frontend-src/app.js` (`renderVideoHistogram`): the Analytics page's
+  "Column Chart" view now:
+  - left-aligns its columns (was centered — looked off-center with
+    fewer than a chart's-width of videos)
+  - shows the views number and the engagement number directly above
+    each column (previously visible only in the hover tooltip)
+  - labels the x-axis with each video's publish date as `dd/mm`
+  - adds Likes/Comments checkboxes to the chart's legend — unchecking
+    one live-recomputes every column's "engagement" number and the
+    inner bar's height to match
+- `videoEngagementValue()` now sums whichever checkboxes are checked
+  directly from each video's raw `likes`/`comments` fields, instead of
+  preferring Instagram's precomputed `engagement` field. That field was
+  already just likes+comments computed server-side (see
+  `app/routes/analytics_meta.py`), so this doesn't change Instagram's
+  number when both boxes are checked — it just makes the checkboxes
+  actually affect Instagram's chart too, instead of silently having no
+  effect there.
+- `frontend-src/style.css`: new `.video-hist-*`/`.hist-*` classes,
+  dedicated to this chart — the existing `.bar-chart`/`.bar-wrap`/`.bar`
+  classes are untouched, since the plain daily-views trend charts
+  elsewhere on the page share them and have a different box model (no
+  label space reserved, bar fills its wrapper's full height).
+
+### Fixed (caught during this session's own testing, not a reported bug)
+- First implementation pinned the engagement number directly above the
+  inner engagement bar's own top edge, matching the literal request —
+  but on a short column (low views relative to the tallest one) that
+  put it only a couple of pixels from the views number above it,
+  overlapping into unreadable text. Both numbers now float together as
+  one small fixed-height stacked group anchored to the column's own top,
+  which stays legible at every bar height — stress-tested with a 50-view
+  column sitting right next to a 50,000-view one.
+
+Verified:
+- Mocked-data browser pass (Playwright route interception, since this
+  needed no backend change): left alignment, both labels correct per
+  column, `dd/mm` dates, and the checkboxes correctly live-recomputing
+  every column (both checked / Comments unchecked / both unchecked /
+  restored) with no stale state.
+- The label-collision fix specifically, stress-tested with an extreme
+  low-vs-high view-count pair.
+- Dark mode.
+- Direct unit check that the new Instagram engagement computation
+  matches that platform's existing server-side likes+comments formula
+  exactly when both checkboxes are checked.
+- `node --check` on the rebuilt `static/index.html`'s JS; `python3
+  build.py` + duplicate-element-ID sweep (clean — only the known
+  pre-existing template-literal false positives, see docs/DECISIONS.md
+  017 for the one new match's explanation). No backend files touched,
+  so no `py_compile` changes to verify there either (ran it anyway,
+  clean).
+
+Not built (see TODO.md): Shares/saves/reposts checkboxes — no platform's
+`top_videos` response currently returns those fields at the per-video
+level, so there's nothing for a checkbox to sum yet.
+
+Deployed:
+Pushed to `main`, triggering the GitHub Actions auto-deploy.
+
+Modified By:
+Claude (via chat session)

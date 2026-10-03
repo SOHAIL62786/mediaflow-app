@@ -1,9 +1,63 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-26
+2026-09-30
 
-## 2026-09-26 (latest): "Continue with Google" sign-in/signup
+## 2026-09-30 (latest): Analytics Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes
+
+Full detail in CHANGELOG.md and docs/DECISIONS.md 017 — summary here.
+
+Reworked the Analytics page's "Column Chart" view (`renderVideoHistogram`
+in `frontend-src/app.js`, one of the three views alongside Dashboard/
+Table from Decision 015): columns now left-align instead of centering;
+the views number and engagement number show directly above each column
+instead of only in a hover tooltip; the x-axis shows each video's publish
+date as `dd/mm`; and Likes/Comments checkboxes in the chart's legend let
+you choose what counts toward "engagement," live-recomputing every
+column when toggled.
+
+Used new, dedicated `.video-hist-*`/`.hist-*` CSS classes rather than
+touching the existing `.bar-chart`/`.bar-wrap`/`.bar` classes, since
+those are shared with the plain daily-views trend charts elsewhere on
+this page, which have a different box model (no label space, bar fills
+its wrapper's full height) — reworking them would have changed those
+charts too.
+
+**Caught and fixed during this session's own testing, not reported:**
+the first pass pinned the engagement number directly above the inner
+engagement bar's own edge (the literal reading of the request), but on a
+short column that put it only a couple of pixels from the views number,
+overlapping into unreadable text. Fixed by floating both numbers as one
+small stacked group anchored to the column's own top instead — stays
+legible at every bar height, stress-tested with a 50-view column right
+next to a 50,000-view one.
+
+The checkboxes only offer Likes/Comments, not Shares/Saves — worth
+remembering if asked to add more later: no platform's `top_videos`
+response returns anything else at the per-video level today (shares
+exist only as a YouTube period-total, saves/reposts only as an Instagram
+account-level figure). Would need backend work first; logged as a new
+Medium Priority TODO item rather than silently expanding this session's
+scope.
+
+Verified entirely via mocked-data browser testing (Playwright route
+interception standing in for real platform API responses, since none of
+this touched the backend): left alignment, label correctness, `dd/mm`
+dates, live checkbox recomputation with no stale state, the label-
+collision fix under an extreme stress case, dark mode, and a direct unit
+check that the new Instagram computation matches that platform's
+existing server-side likes+comments formula exactly. No backend files
+touched this session.
+
+Recommended next: the backend work to expose per-video shares/saves (if
+that engagement-checkbox breadth is wanted), or pick back up one of the
+still-open Medium Priority items (empty states, the actionable Failed
+stat card, the Analytics 401/redirect bug, or the Google Sign-In
+follow-ups below) — nothing here depends on any of them.
+
+---
+
+## 2026-09-26: "Continue with Google" sign-in/signup
 
 Full detail in CHANGELOG.md and docs/DECISIONS.md 016 — summary here.
 

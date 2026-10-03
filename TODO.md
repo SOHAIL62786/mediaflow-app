@@ -96,6 +96,15 @@
       - Nothing in the UI (Settings, Accounts) shows whether a given
         login is Google-based or password-based — currently only
         discoverable by trying a password login and having it fail.
+- [ ] **New (2026-09-30): Column Chart engagement checkboxes only offer**
+      **Likes/Comments** (docs/DECISIONS.md 017) — those are the only
+      per-video engagement fields any platform's `top_videos` response
+      returns today. Shares exist at the period-total level for YouTube
+      and account-level for Instagram (reposts/saves), but not per-video
+      for any of the three platforms. Would need backend work (API calls
+      + response fields) on `app/routes/analytics_youtube.py` and
+      `app/routes/analytics_meta.py` before a Shares/Saves checkbox could
+      mean anything on the frontend.
 
 ## Low Priority
 - [ ] New Analytics "Histogram" tab (2026-09-23) — views bar chart,

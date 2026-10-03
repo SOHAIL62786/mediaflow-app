@@ -593,9 +593,49 @@
   .bar-inner-engagement{
     width:100%;background:var(--indigo);min-height:0;
   }
-  .bar-legend{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
+  .bar-legend{display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
   .bar-legend span{display:flex;align-items:center;gap:5px;}
   .bar-legend .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .engagement-legend-group{gap:12px !important;flex-wrap:wrap;}
+  .engagement-checkbox{
+    display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;
+    font-size:12px;color:var(--text-mid);
+  }
+  .engagement-checkbox input{cursor:pointer;margin:0;}
+
+  /* Videos — Column Chart (renderVideoHistogram). Deliberately its own set
+     of classes rather than reusing .bar-chart/.bar-wrap/.bar above — those
+     are shared with the plain daily-views trend charts, which have no
+     value/date labels and assume the bar fills the wrapper's full height;
+     this chart reserves space above/below each column for that text. */
+  .video-hist-chart{
+    display:flex;align-items:flex-end;justify-content:flex-start;gap:12px;
+    height:210px;padding:30px 4px 0;overflow-x:auto;
+  }
+  .video-hist-col{
+    display:flex;flex-direction:column;align-items:center;height:100%;
+    flex:0 0 auto;width:30px;cursor:pointer;
+  }
+  .video-hist-bar-area{flex:1;display:flex;align-items:flex-end;width:100%;min-width:2px;}
+  .video-hist-bar{
+    width:100%;background:#cfceff;border-radius:4px 4px 0 0;
+    min-height:2px;display:flex;align-items:flex-end;position:relative;cursor:pointer;
+  }
+  /* Both numbers stack together just above the bar's own top edge — kept
+     as one fixed-height group (not independently pinned to each bar's
+     actual height) so the two labels never collide on a short column,
+     where the views bar and its inner engagement sliver can end up only
+     a couple of pixels apart. */
+  .hist-label-stack{
+    position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;
+    margin-bottom:2px;pointer-events:none;
+  }
+  .hist-label{font-size:10px;line-height:1.35;white-space:nowrap;color:var(--text-mid);}
+  .hist-label-engagement{color:var(--indigo);font-weight:600;}
+  .hist-x-label{
+    font-size:10px;color:var(--text-light);margin-top:6px;white-space:nowrap;
+  }
   .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */
@@ -2901,6 +2941,25 @@
   let videoFilterState = { sortBy: 'views', limit: 5 };
   let tableSortState = { field: 'views', dir: 'desc' };
 
+  // Which raw fields sum into the Column Chart's "engagement" number —
+  // toggled via checkboxes in that chart's legend (renderVideoHistogram).
+  // Likes/comments are the only per-video engagement fields every
+  // platform's /api/analytics/summary top_videos actually returns today;
+  // extend this list (and videoEngagementValue below) if a platform ever
+  // adds per-video shares/saves.
+  const ENGAGEMENT_COMPONENTS = [
+    { field: 'likes', label: 'Likes' },
+    { field: 'comments', label: 'Comments' },
+  ];
+  let engagementComponentState = { likes: true, comments: true };
+
+  function fmtDayMonth(dateStr){
+    const d = new Date(dateStr);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  }
+
   // ---- Analytics: Table view (excel-style comparison grid) ----
   // Columns are exactly what the summary endpoint already returns per
   // video/post — no extra per-row fetches, so switching to Table view (or
@@ -2981,12 +3040,17 @@
   }
 
   function videoEngagementValue(platformKey, v){
-    // Instagram's top_videos already computes a real "engagement" field
-    // (likes+comments, server-side). YouTube/Facebook don't have an
-    // equivalent field at all, so likes+comments is used as the same kind
-    // of proxy here too — keeps the histogram meaningful on every
-    // platform instead of being Instagram-only.
-    return v.engagement ?? ((v.likes || 0) + (v.comments || 0));
+    // Sum of whichever components are checked in the Column Chart's
+    // legend (ENGAGEMENT_COMPONENTS/engagementComponentState above).
+    // Instagram's top_videos also returns a precomputed "engagement"
+    // field, but it's just likes+comments server-side too (see
+    // app/routes/analytics_meta.py) — computing from the raw fields here
+    // instead keeps the checkboxes meaningful on every platform rather
+    // than Instagram silently ignoring them.
+    return ENGAGEMENT_COMPONENTS.reduce(
+      (sum, c) => sum + (engagementComponentState[c.field] ? (v[c.field] || 0) : 0),
+      0
+    );
   }
 
   function renderVideoHistogram(platformKey, videos){
@@ -2994,7 +3058,7 @@
     const sorted = [...dated].sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
     const maxViews = Math.max(1, ...sorted.map(v => v.views || 0));
 
-    const barsHtml = sorted.map(v => {
+    const colsHtml = sorted.map(v => {
       const views = v.views || 0;
       const engagement = videoEngagementValue(platformKey, v);
       const viewsPct = Math.max(Math.round((views / maxViews) * 100), 2);
@@ -3009,24 +3073,39 @@
       const idField = platformKey === 'instagram' ? v.media_id : v.video_id;
       const tooltip = `${v.title || 'Untitled'} — ${dateLabel}: ${fmtNum(views)} views, ${fmtNum(engagement)} engagement`;
       return `
-        <div class="bar-wrap" title="${escapeHtml(tooltip)}" data-video-id="${idField}" data-platform="${platformKey}" style="cursor:pointer;">
-          <div class="bar" style="height:${viewsPct}%">
-            <div class="bar-inner-engagement" style="height:${engagementPct}%"></div>
+        <div class="video-hist-col" title="${escapeHtml(tooltip)}" data-video-id="${idField}" data-platform="${platformKey}">
+          <div class="video-hist-bar-area">
+            <div class="video-hist-bar" style="height:${viewsPct}%">
+              <div class="hist-label-stack">
+                <span class="hist-label hist-label-engagement">${fmtNum(engagement)}</span>
+                <span class="hist-label hist-label-views">${fmtNum(views)}</span>
+              </div>
+              <div class="bar-inner-engagement" style="height:${engagementPct}%"></div>
+            </div>
           </div>
+          <div class="hist-x-label">${fmtDayMonth(v.published_at)}</div>
         </div>`;
     }).join('');
+
+    const checkboxesHtml = ENGAGEMENT_COMPONENTS.map(c => `
+      <label class="engagement-checkbox">
+        <input type="checkbox" data-engagement-component="${c.field}" ${engagementComponentState[c.field] ? 'checked' : ''}>
+        ${c.label}
+      </label>`).join('');
 
     return `
       <div class="card">
         <div class="recent-header">
           <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Column Chart</h2>
-          <span class="sub">Oldest to newest, left to right. Bar height is views; the darker inner bar is engagement. Hover a bar for detail.</span>
+          <span class="sub">Oldest to newest, left to right. Numbers above each column are views and engagement; hover a column for the full detail.</span>
         </div>
-        <div class="bar-chart">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        <div class="video-hist-chart">${colsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
         ${sorted.length ? `
         <div class="bar-legend">
           <span><span class="swatch" style="background:#cfceff;"></span>Views</span>
-          <span><span class="swatch" style="background:var(--indigo);"></span>Engagement</span>
+          <span class="engagement-legend-group">
+            <span class="swatch" style="background:var(--indigo);"></span>Engagement =${checkboxesHtml}
+          </span>
         </div>` : ''}
       </div>
     `;
@@ -3431,6 +3510,12 @@
       body.innerHTML = renderVideoHistogram(platformKey, currentVideoList);
       body.querySelectorAll('[data-video-id]').forEach(el=>{
         el.addEventListener('click', () => openVideoMetrics(el.dataset.platform, el.dataset.videoId));
+      });
+      body.querySelectorAll('[data-engagement-component]').forEach(cb=>{
+        cb.addEventListener('change', () => {
+          engagementComponentState[cb.dataset.engagementComponent] = cb.checked;
+          renderAnalyticsBody();
+        });
       });
       return;
     }
