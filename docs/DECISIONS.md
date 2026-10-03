@@ -1100,3 +1100,20 @@ also appears in this function since it reuses the same literal pattern
 Decision 015's Table view already uses; the two render functions never
 coexist in the live DOM, same reasoning as that decision's own
 `#videoFilterBarContainer` note). No backend files touched.
+
+## 018 — Analytics Dashboard: client-side derived metrics (2026-10-04)
+
+**Decision:** The Content Performance Dashboard computes engagement rate,
+top-post share, concentration and median reach in the browser from the
+existing `top_videos` list, rather than adding backend endpoints.
+
+**Reason:** Keeps the change frontend-only and instant when switching views.
+
+**Open risk:** YouTube's developer policies restrict creating derived metrics
+from API data unless the use case is approved, and require calculated values
+to be clearly labelled (policy revision of 2026-06-01). Not yet labelled in
+the UI. Status: open — decide whether to label them as "calculated" or apply
+for the exception.
+
+**Alternatives considered:** server-side aggregation (more code, no benefit
+for the current post counts).

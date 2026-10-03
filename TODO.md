@@ -1,6 +1,11 @@
 # TODO
 
 ## High Priority
+- [ ] **Browser-check the new Analytics Dashboard view** on all three platforms with
+      live data (2026-10-04 change, only smoke-tested in Node so far), and decide
+      whether to relabel/replace the three "Add next" insight rows.
+- [ ] Label the dashboard's calculated metrics (ER, shares of views) as
+      calculated, or apply for YouTube's derived-metrics exception (DECISIONS 018).
 - [ ] **Pull the live VM's nginx config back into this repo.** After the
       2026-09-20 HTTPS outage (docs/DECISIONS.md 011), certbot re-added
       its `listen 443 ssl` block directly on the VM — that block still

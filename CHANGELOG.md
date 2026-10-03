@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-04 (Analytics: Content Performance Dashboard replaces the Dashboard view layout)
+
+### Changed
+- `frontend-src/app.js`, `frontend-src/style.css` (+ rebuilt `static/index.html`) —
+  the Analytics page's **Dashboard** view now uses the "Content Performance
+  Dashboard" design: title/subtitle, six KPI cards (total views, total
+  engagement, total likes, engagement rate, top-post views, top-post share),
+  a post-performance ranking, a reach-vs-engagement scatter (log-scale views,
+  bubble size = views), a Top 5 detail table, and an insights panel.
+- Everything from the old Dashboard is kept, in the same order around the new
+  panels: channel header + Today/7d/28d/90d toggle, each platform's own stat
+  cards (YouTube watch time / avg. duration / net subs / shares, etc.), the
+  Daily Views chart, and the Videos/Posts list with sort + limit + Metrics modal.
+- Ranking bars, scatter bubbles and Top 5 rows are clickable and open the same
+  per-video metrics modal. Works for YouTube, Facebook and Instagram via one
+  shared set of `cpd*` functions in `frontend-src/app.js`.
+- The new panels are computed client-side from `top_videos` (views, likes,
+  comments): engagement = likes + comments, ER = engagement / views.
+  No backend change.
+- Not touched: the Table and Column Chart views (`renderVideoHistogram`,
+  `videoEngagementValue`, ENGAGEMENT_COMPONENTS).
+
+### Notes
+- The insights panel still lists the three "Add next" placeholders from the
+  design (Shares + Saves, Watch time + Retention, Impressions + CTR).
+- YouTube's API policy restricts derived metrics (see docs/DECISIONS.md 018).
+
+### Verification
+Inline JS syntax-checked and the new functions smoke-tested in Node with
+sample, empty and zero-view data (no NaN/undefined output). Not yet checked
+in a real browser against live data.
+
 ## 2026-09-22 (UX: progress ring on the metrics-modal Refresh button)
 
 ### Changed

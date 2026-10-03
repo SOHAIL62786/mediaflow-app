@@ -1,7 +1,7 @@
 # Session Handoff
 
 ## Last Updated
-2026-10-03
+2026-10-04
 
 ## Process note (found while starting the 2026-10-03 session below)
 
@@ -22,7 +22,17 @@ for that period — worth mentioning to the project owner if it comes up,
 since the whole point of this workflow is these docs being trustworthy
 without needing to cross-check git history every time.
 
-## 2026-10-03 (latest): Analytics Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes
+## 2026-10-04 (latest): Analytics Dashboard view replaced with Content Performance Dashboard
+
+Full detail in CHANGELOG.md and docs/DECISIONS.md 018. The Dashboard view
+(`renderYouTubeAnalytics` / `renderFacebookAnalytics` / `renderInstagramAnalytics`
+in `frontend-src/app.js`) now injects the new `cpd*` panels around the old
+content; Table and Column Chart views are untouched. Committed locally on top of
+the 2026-10-03 Column Chart work; push status is noted in the commit log.
+Next step: check it in a browser with live data, then decide on the
+"Add next" placeholder rows and on labelling calculated metrics.
+
+## 2026-10-03: Analytics Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes
 
 Full detail in CHANGELOG.md and docs/DECISIONS.md 017 — summary here.
 

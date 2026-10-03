@@ -1519,6 +1519,149 @@
       </div>`;
   }
 
+  // ---- Content Performance Dashboard (Dashboard view) ----
+  // Every number below is computed client-side from the per-post list the
+  // summary endpoints already return (data.top_videos: views/likes/comments),
+  // so no backend change is needed. Engagement = likes + comments and
+  // ER = engagement / views, matching the original design's footnote.
+  function cpdPosts(platformKey, data){
+    return (data.top_videos || []).map(v => {
+      const views = Number(v.views || 0), likes = Number(v.likes || 0), comments = Number(v.comments || 0);
+      const eng = likes + comments;
+      return {
+        id: platformKey === 'instagram' ? v.media_id : v.video_id,
+        title: v.title || 'Untitled',
+        views, likes, comments, eng,
+        er: views > 0 ? (eng / views) * 100 : 0,
+      };
+    });
+  }
+  const cpdPct = (n, d) => `${Number(n).toFixed(d === undefined ? 2 : d)}%`;
+  const cpdIdAttrs = (platformKey, p) => `data-platform="${platformKey}" data-video-id="${escapeHtml(String(p.id))}"`;
+
+  function cpdTitleHtml(platformKey, data){
+    const n = cpdPosts(platformKey, data).length;
+    return `
+      <div class="cpd-title">
+        <h1>Content Performance Dashboard</h1>
+        <div class="sub">${n} posts • Snapshot of views, engagement, likes &amp; comments</div>
+      </div>`;
+  }
+
+  function cpdKpiHtml(platformKey, data){
+    const posts = cpdPosts(platformKey, data);
+    const totalViews = posts.reduce((a, p) => a + p.views, 0);
+    const totalEng = posts.reduce((a, p) => a + p.eng, 0);
+    const totalLikes = posts.reduce((a, p) => a + p.likes, 0);
+    const topViews = Math.max(0, ...posts.map(p => p.views));
+    const cards = [
+      ['Total Views', fmtNum(totalViews)],
+      ['Total Engagement', fmtNum(totalEng)],
+      ['Total Likes', fmtNum(totalLikes)],
+      ['Engagement Rate', totalViews ? cpdPct(totalEng / totalViews * 100) : '—'],
+      ['Top Post Views', fmtNum(topViews)],
+      ['Top Post Share', totalViews ? cpdPct(topViews / totalViews * 100, 1) : '—'],
+    ];
+    return `<div class="cpd-kpis">${cards.map(([l, v]) =>
+      `<div class="cpd-kpi"><div class="cpd-kpi-label">${l}</div><div class="cpd-kpi-value">${v}</div></div>`).join('')}</div>`;
+  }
+
+  function cpdRankingHtml(platformKey, posts){
+    const rank = [...posts].sort((a, b) => b.views - a.views).slice(0, 16);
+    const max = Math.max(1, ...rank.map(p => p.views));
+    const rows = rank.map(p => `
+      <button type="button" class="cpd-br cpd-clickable" ${cpdIdAttrs(platformKey, p)} title="${escapeHtml(p.title)}">
+        <span>${escapeHtml(p.title)}</span><b style="width:${Math.max((p.views / max) * 100, 0.3).toFixed(1)}%"></b><span>${fmtNum(p.views)}</span>
+      </button>`).join('');
+    return rank.length ? rows : '<div class="empty-state">No data for this period.</div>';
+  }
+
+  function cpdScatterHtml(platformKey, posts){
+    const pts = posts.filter(p => p.views > 0);
+    if(!pts.length) return '<div class="empty-state">No data for this period.</div>';
+    const L = 50, R = 545, T = 20, B = 300;
+    const maxV = Math.max(...pts.map(p => p.views)), minV = Math.min(...pts.map(p => p.views));
+    const lo = Math.floor(Math.log10(minV));
+    let hi = Math.ceil(Math.log10(maxV)); if(hi === lo) hi = lo + 1;
+    const xOf = v => L + ((Math.log10(v) - lo) / (hi - lo)) * (R - L);
+    const maxEr = Math.max(1, ...pts.map(p => p.er));
+    const step = maxEr <= 10 ? 2 : Math.ceil(maxEr / 5 / 2) * 2;
+    const yMax = Math.ceil(maxEr / step) * step;
+    const yOf = er => B - (er / yMax) * (B - T);
+
+    let grid = '';
+    for(let k = lo; k <= hi; k++){
+      const x = xOf(Math.pow(10, k)).toFixed(1);
+      grid += `<line class="g" x1="${x}" x2="${x}" y1="${T}" y2="${B}"/><text x="${x}" y="318" text-anchor="middle">10<tspan dy="-4" font-size="8">${k}</tspan></text>`;
+    }
+    for(let e = step; e <= yMax; e += step){
+      const y = yOf(e).toFixed(1);
+      grid += `<line class="g" x1="${L}" x2="${R}" y1="${y}" y2="${y}"/><text x="44" y="${(+y + 4).toFixed(1)}" text-anchor="end">${e}</text>`;
+    }
+
+    const labelSet = new Set([
+      pts.reduce((a, b) => (b.views > a.views ? b : a)),
+      ...[...pts].sort((a, b) => b.er - a.er).slice(0, 3),
+    ]);
+    const radius = p => 4 + 10 * Math.sqrt(p.views / maxV);
+    const dots = pts.map(p => {
+      const cx = xOf(p.views).toFixed(1), cy = yOf(p.er).toFixed(1);
+      return `<circle class="cpd-clickable" cx="${cx}" cy="${cy}" r="${radius(p).toFixed(1)}" ${cpdIdAttrs(platformKey, p)}><title>${escapeHtml(p.title)} — ${fmtNum(p.views)} views, ${cpdPct(p.er)} ER</title></circle>`;
+    }).join('');
+    const labels = [...labelSet].map(p => {
+      const x = xOf(p.views), y = yOf(p.er), r = radius(p);
+      const name = p.title.length > 18 ? p.title.slice(0, 18) + '…' : p.title;
+      const end = x > R - 100;
+      return `<text x="${(end ? x - r - 3 : x + r + 3).toFixed(1)}" y="${(y - r).toFixed(1)}" text-anchor="${end ? 'end' : 'start'}" style="font-size:10px">${escapeHtml(name)}</text>`;
+    }).join('');
+
+    return `<svg class="cpd-svg" viewBox="0 0 560 340" role="img" aria-label="Views (log scale) against engagement rate, one bubble per post">
+      ${grid}<text class="cap" x="${((L + R) / 2).toFixed(0)}" y="336" text-anchor="middle">Views (log scale)</text>${dots}${labels}</svg>`;
+  }
+
+  function cpdTop5Html(platformKey, posts){
+    const top = [...posts].sort((a, b) => b.views - a.views).slice(0, 5);
+    if(!top.length) return '<div class="empty-state">No data for this period.</div>';
+    return `<div class="cpd-table-wrap"><table class="cpd-table">
+      <tr><th>#</th><th>Post</th><th>Views</th><th>Eng.</th><th>Likes</th><th>Comments</th><th>ER</th></tr>
+      ${top.map((p, i) => `<tr ${cpdIdAttrs(platformKey, p)}><td>${i + 1}</td><td>${escapeHtml(p.title)}</td><td>${fmtNum(p.views)}</td><td>${fmtNum(p.eng)}</td><td>${fmtNum(p.likes)}</td><td>${fmtNum(p.comments)}</td><td>${cpdPct(p.er)}</td></tr>`).join('')}
+    </table></div>`;
+  }
+
+  function cpdInsightsHtml(posts){
+    const total = posts.reduce((a, p) => a + p.views, 0);
+    const sorted = [...posts].map(p => p.views).sort((a, b) => b - a);
+    const top1 = sorted[0] || 0;
+    const top3 = sorted.slice(0, 3).reduce((a, b) => a + b, 0);
+    const asc = [...sorted].reverse();
+    const n = asc.length;
+    const median = n ? (n % 2 ? asc[(n - 1) / 2] : (asc[n / 2 - 1] + asc[n / 2]) / 2) : 0;
+    const avgEr = n ? posts.reduce((a, p) => a + p.er, 0) / n : 0;
+    const rows = [
+      ['Views concentration', total ? `Top post = ${cpdPct(top1 / total * 100, 1)} of all views` : '—'],
+      ['Top-3 concentration', total ? `Top 3 = ${cpdPct(top3 / total * 100, 1)} of all views` : '—'],
+      ['Median reach', `${fmtNum(Math.round(median))} views/post`],
+      ['Average post ER', cpdPct(avgEr)],
+      ['Add next', 'Shares + Saves'],
+      ['Add next', 'Watch time + Retention'],
+      ['Add next', 'Impressions + CTR'],
+    ];
+    return rows.map(([k, v]) => `<div class="cpd-ins"><span>${k}</span><span>${v}</span></div>`).join('');
+  }
+
+  function cpdChartsHtml(platformKey, data){
+    const posts = cpdPosts(platformKey, data);
+    return `
+      <div class="cpd-two">
+        <div class="cpd-sec"><h2>Post performance ranking</h2><div class="cpd-panel">${cpdRankingHtml(platformKey, posts)}</div></div>
+        <div class="cpd-sec"><h2>Reach vs engagement quality</h2><div class="cpd-panel">${cpdScatterHtml(platformKey, posts)}</div></div>
+      </div>
+      <div class="cpd-two">
+        <div class="cpd-sec"><h2>Top 5 posts — detail</h2>${cpdTop5Html(platformKey, posts)}</div>
+        <div class="cpd-sec"><h2>What to add to the dashboard</h2>${cpdInsightsHtml(posts)}</div>
+      </div>`;
+  }
+
   function renderYouTubeAnalytics(data, days){
     const p = data.period_totals;
     const maxViews = Math.max(1, ...data.daily.map(d => d.views));
@@ -1533,6 +1676,7 @@
     ).join('');
 
     return `
+      ${cpdTitleHtml('youtube', data)}
       <div class="analytics-header">
         <div>
           <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
@@ -1540,6 +1684,8 @@
         </div>
         <div class="day-toggle">${dayOptions}</div>
       </div>
+
+      ${cpdKpiHtml('youtube', data)}
 
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
@@ -1552,6 +1698,8 @@
         <div class="stat-card"><div class="stat-label">Comments</div><div class="stat-value">${fmtNum(p.comments)}</div></div>
         <div class="stat-card"><div class="stat-label">Shares</div><div class="stat-value">${fmtNum(p.shares)}</div></div>
       </div>
+
+      ${cpdChartsHtml('youtube', data)}
 
       <div class="card">
         <h2>Daily Views</h2>
@@ -1588,6 +1736,7 @@
   function renderFacebookAnalytics(data, days){
     const p = data.period_totals;
     return `
+      ${cpdTitleHtml('facebook', data)}
       <div class="analytics-header">
         <div>
           <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
@@ -1596,11 +1745,15 @@
         <div class="day-toggle">${dayToggleHtml(days)}</div>
       </div>
 
+      ${cpdKpiHtml('facebook', data)}
+
       <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
         <div class="stat-card"><div class="stat-label">Page Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
         <div class="stat-card"><div class="stat-label">Video Views</div><div class="stat-value">${fmtNum(p.video_views)}</div></div>
         <div class="stat-card"><div class="stat-label">Post Engagements</div><div class="stat-value">${fmtNum(p.engagements)}</div></div>
       </div>
+
+      ${cpdChartsHtml('facebook', data)}
 
       <div class="card">
         <h2>Daily Page Views</h2>
@@ -1620,6 +1773,7 @@
   function renderInstagramAnalytics(data, days){
     const p = data.period_totals;
     return `
+      ${cpdTitleHtml('instagram', data)}
       <div class="analytics-header">
         <div>
           <h2 style="margin:0;">${escapeHtml(data.channel_title)}</h2>
@@ -1628,11 +1782,15 @@
         <div class="day-toggle">${dayToggleHtml(days)}</div>
       </div>
 
+      ${cpdKpiHtml('instagram', data)}
+
       <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
         <div class="stat-card"><div class="stat-label">Views</div><div class="stat-value">${fmtNum(p.views)}</div></div>
         <div class="stat-card"><div class="stat-label">Reach</div><div class="stat-value">${fmtNum(p.reach)}</div></div>
         <div class="stat-card"><div class="stat-label">Profile Views</div><div class="stat-value">${fmtNum(p.profile_views)}</div></div>
       </div>
+
+      ${cpdChartsHtml('instagram', data)}
 
       <div class="card">
         <h2>Daily Views</h2>
@@ -2306,6 +2464,9 @@
     body.innerHTML = cfg.render(lastAnalyticsData, currentAnalyticsDays);
     body.querySelectorAll('[data-days]').forEach(btn=>{
       btn.addEventListener('click', () => loadAnalytics(parseInt(btn.dataset.days, 10)));
+    });
+    body.querySelectorAll('.cpd-clickable[data-video-id], .cpd-table tr[data-video-id]').forEach(el=>{
+      el.addEventListener('click', () => openVideoMetrics(el.dataset.platform, el.dataset.videoId));
     });
     currentVideoList = lastAnalyticsData.top_videos || [];
     renderVideoSection();
