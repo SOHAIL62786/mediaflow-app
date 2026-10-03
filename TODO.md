@@ -96,7 +96,7 @@
       - Nothing in the UI (Settings, Accounts) shows whether a given
         login is Google-based or password-based — currently only
         discoverable by trying a password login and having it fail.
-- [ ] **New (2026-09-30): Column Chart engagement checkboxes only offer**
+- [ ] **New (2026-10-03): Column Chart engagement checkboxes only offer**
       **Likes/Comments** (docs/DECISIONS.md 017) — those are the only
       per-video engagement fields any platform's `top_videos` response
       returns today. Shares exist at the period-total level for YouTube
@@ -107,16 +107,21 @@
       mean anything on the frontend.
 
 ## Low Priority
-- [ ] New Analytics "Histogram" tab (2026-09-23) — views bar chart,
-      oldest-to-newest, nested engagement bar. Nested-percentage math
-      verified by direct calculation and the backend date fields
-      (YouTube publishedAt, Facebook created_time, Instagram timestamp)
-      are newly added — never checked against a real account's actual
-      response shape. Check on the live VM: bars render left-to-right in
-      correct chronological order, dates parse correctly on all three
-      platforms, engagement bar looks right relative to the view bar
-      (not just mathematically, but visually — the translucent overlay
-      might be too subtle or too strong in practice).
+- [ ] Analytics "Column Chart" tab (originally added 2026-09-23, visually
+      reworked twice since — a flat two-tone nested bar + legend on
+      2026-10-03, then left-aligned columns + above-column value labels +
+      dd/mm x-axis + Likes/Comments engagement checkboxes on 2026-10-03,
+      see docs/DECISIONS.md 017) — still never checked against a real
+      account's actual API response shape, across any of those versions.
+      Backend date fields (YouTube publishedAt, Facebook created_time,
+      Instagram timestamp) feed both the chronological ordering and the
+      new dd/mm labels — check on the live VM that they parse correctly
+      on all three platforms, that columns render oldest-to-newest
+      left-to-right against real multi-video data, and that the
+      engagement checkboxes' numbers look right against real likes/
+      comments counts (not just mathematically — this has only been
+      checked against mocked data in every session so far, never a real
+      response).
 - [ ] The new Instagram video-metrics additions (2026-09-22: reposts,
       avg watch time, skip rate, computed engagement rates) — field
       names verified against Meta's docs and the fallback/rate/

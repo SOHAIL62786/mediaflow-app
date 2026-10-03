@@ -1,9 +1,28 @@
 # Session Handoff
 
 ## Last Updated
-2026-09-30
+2026-10-03
 
-## 2026-09-30 (latest): Analytics Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes
+## Process note (found while starting the 2026-10-03 session below)
+
+Four commits exist between "Continue with Google" (036e168, 2026-09-26)
+and this session's work — `d7ba177`, `25f2332`, `e1bb6b1`, `c8e3990`,
+dated 2026-09-30 and 2026-10-03 — that added the Column Chart's original
+version and a Dashboard-tile routing change, under a different git
+author (`claude@anthropic.local` rather than this environment's
+`claude@mediaflow.local`, i.e. a different Claude surface/session
+working on this repo directly). None of them touched CHANGELOG.md,
+updated this file, or added a docs/DECISIONS.md entry — only one
+(`25f2332`) touched TODO.md at all. This session's own work was
+unaffected (built correctly against the real current code, read
+directly rather than assumed from these docs), but it means these docs
+had a real gap for that window. If something doesn't match what's
+written here, `git log` is more trustworthy than this file's narrative
+for that period — worth mentioning to the project owner if it comes up,
+since the whole point of this workflow is these docs being trustworthy
+without needing to cross-check git history every time.
+
+## 2026-10-03 (latest): Analytics Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes
 
 Full detail in CHANGELOG.md and docs/DECISIONS.md 017 — summary here.
 

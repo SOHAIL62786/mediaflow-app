@@ -1442,7 +1442,7 @@ Claude (via chat session)
 
 ---
 
-## 2026-09-30 (Analytics: Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes)
+## 2026-10-03 (Analytics: Column Chart redesign — left-aligned, value labels, dd/mm dates, engagement checkboxes)
 
 ### Changed
 - `frontend-src/app.js` (`renderVideoHistogram`): the Analytics page's

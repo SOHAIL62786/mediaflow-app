@@ -1011,7 +1011,7 @@ and having it fail) — noted in TODO.md.
 
 ## Decision 017
 
-Date: 2026-09-30
+Date: 2026-10-03
 
 Decision:
 Redesign the Analytics page's "Column Chart" view (`renderVideoHistogram`,
