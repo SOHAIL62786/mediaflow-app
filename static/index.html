@@ -584,15 +584,18 @@
     padding:6px 14px;border-radius:7px;cursor:pointer;
   }
   .pill-btn.active{background:var(--card-bg);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
-  .bar-chart{display:flex;align-items:flex-end;gap:4px;height:140px;padding-top:10px;}
-  .bar-wrap{flex:1;display:flex;align-items:flex-end;height:100%;min-width:2px;}
+  .bar-chart{display:flex;align-items:flex-end;justify-content:center;gap:5px;height:180px;padding-top:10px;}
+  .bar-wrap{flex:1;max-width:28px;display:flex;align-items:flex-end;height:100%;min-width:2px;}
   .bar-wrap .bar{
-    width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;
-    min-height:2px;display:flex;align-items:flex-end;position:relative;overflow:hidden;
+    width:100%;background:#cfceff;border-radius:4px 4px 0 0;
+    min-height:2px;display:flex;align-items:flex-end;position:relative;overflow:hidden;cursor:pointer;
   }
   .bar-inner-engagement{
-    width:100%;background:rgba(255,255,255,.55);border-radius:3px 3px 0 0;min-height:0;
+    width:100%;background:var(--indigo);min-height:0;
   }
+  .bar-legend{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
+  .bar-legend span{display:flex;align-items:center;gap:5px;}
+  .bar-legend .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
   .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */
@@ -938,7 +941,7 @@
         <div class="day-toggle" id="analyticsViewToggle">
           <button class="pill-btn active" data-analytics-view="dashboard">Dashboard</button>
           <button class="pill-btn" data-analytics-view="table">Table</button>
-          <button class="pill-btn" data-analytics-view="histogram">Histogram</button>
+          <button class="pill-btn" data-analytics-view="histogram">Column Chart</button>
         </div>
         <div id="analyticsPlatformPicks" class="platform-pick-row">
           <div class="platform-pick selected" data-platform="youtube">
@@ -3016,10 +3019,15 @@
     return `
       <div class="card">
         <div class="recent-header">
-          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Histogram</h2>
-          <span class="sub">Oldest to newest, left to right. Bar height is views; the lighter inner bar is engagement. Hover a bar for detail.</span>
+          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Column Chart</h2>
+          <span class="sub">Oldest to newest, left to right. Bar height is views; the darker inner bar is engagement. Hover a bar for detail.</span>
         </div>
-        <div class="bar-chart" style="height:220px;">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        <div class="bar-chart">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        ${sorted.length ? `
+        <div class="bar-legend">
+          <span><span class="swatch" style="background:#cfceff;"></span>Views</span>
+          <span><span class="swatch" style="background:var(--indigo);"></span>Engagement</span>
+        </div>` : ''}
       </div>
     `;
   }

@@ -1842,10 +1842,15 @@
     return `
       <div class="card">
         <div class="recent-header">
-          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Histogram</h2>
-          <span class="sub">Oldest to newest, left to right. Bar height is views; the lighter inner bar is engagement. Hover a bar for detail.</span>
+          <h2>${platformKey === 'instagram' ? 'Posts' : 'Videos'} — Column Chart</h2>
+          <span class="sub">Oldest to newest, left to right. Bar height is views; the darker inner bar is engagement. Hover a bar for detail.</span>
         </div>
-        <div class="bar-chart" style="height:220px;">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        <div class="bar-chart">${barsHtml || '<div class="empty-state">Nothing to show for this period.</div>'}</div>
+        ${sorted.length ? `
+        <div class="bar-legend">
+          <span><span class="swatch" style="background:#cfceff;"></span>Views</span>
+          <span><span class="swatch" style="background:var(--indigo);"></span>Engagement</span>
+        </div>` : ''}
       </div>
     `;
   }

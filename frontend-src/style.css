@@ -563,15 +563,18 @@
     padding:6px 14px;border-radius:7px;cursor:pointer;
   }
   .pill-btn.active{background:var(--card-bg);color:var(--indigo);box-shadow:0 1px 3px rgba(0,0,0,.1);}
-  .bar-chart{display:flex;align-items:flex-end;gap:4px;height:140px;padding-top:10px;}
-  .bar-wrap{flex:1;display:flex;align-items:flex-end;height:100%;min-width:2px;}
+  .bar-chart{display:flex;align-items:flex-end;justify-content:center;gap:5px;height:180px;padding-top:10px;}
+  .bar-wrap{flex:1;max-width:28px;display:flex;align-items:flex-end;height:100%;min-width:2px;}
   .bar-wrap .bar{
-    width:100%;background:linear-gradient(180deg,#8888f5,var(--indigo));border-radius:4px 4px 0 0;
-    min-height:2px;display:flex;align-items:flex-end;position:relative;overflow:hidden;
+    width:100%;background:#cfceff;border-radius:4px 4px 0 0;
+    min-height:2px;display:flex;align-items:flex-end;position:relative;overflow:hidden;cursor:pointer;
   }
   .bar-inner-engagement{
-    width:100%;background:rgba(255,255,255,.55);border-radius:3px 3px 0 0;min-height:0;
+    width:100%;background:var(--indigo);min-height:0;
   }
+  .bar-legend{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hover-bg);font-size:12px;color:var(--text-mid);}
+  .bar-legend span{display:flex;align-items:center;gap:5px;}
+  .bar-legend .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
   .vid-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;background:var(--hover-bg);flex-shrink:0;}
 
   /* Video/post list filter bar */
