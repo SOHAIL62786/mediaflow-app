@@ -1043,11 +1043,15 @@
         const info = data[p] || {};
         tile.classList.toggle('connected', !!info.connected);
         const count = p === 'youtube' ? info.subscribers : info.followers;
+        const countShown = info.connected && count !== undefined && count !== null;
         if(countEl){
-          countEl.textContent = (info.connected && count !== undefined && count !== null)
-            ? `${fmtCompact(count)} ${LABEL[p]}`
-            : '';
+          countEl.textContent = countShown ? `${fmtCompact(count)} ${LABEL[p]}` : '';
         }
+        // Count successfully shown -> clicking jumps straight to that
+        // platform's Analytics. Not connected, or connected but the count
+        // itself couldn't be fetched (API error upstream) -> Platforms,
+        // same as before, so the person lands somewhere they can act on it.
+        tile.dataset.target = countShown ? 'analytics' : 'platforms';
       });
     }catch(err){
       // Fetch failed — stop the skeletons from shimmering forever; leave
@@ -1055,9 +1059,32 @@
       ['youtube','facebook','instagram'].forEach(p=>{
         const countEl = document.getElementById(`dashPlatformCount-${p}`);
         if(countEl) countEl.textContent = '';
+        const tile = document.getElementById(`dashPlatform-${p}`);
+        if(tile) tile.dataset.target = 'platforms';
       });
     }
   }
+
+  // Pre-selects a platform's card in the Analytics page's platform-pick row
+  // (same single-select logic as clicking a card there directly) and opens
+  // Analytics already filtered to it.
+  function goToAnalyticsPlatform(platform){
+    currentAnalyticsPlatform = platform;
+    document.querySelectorAll('.platform-pick').forEach(c=>{
+      c.classList.toggle('selected', c.dataset.platform === platform);
+    });
+    showPage('analytics');
+  }
+
+  ['youtube','facebook','instagram'].forEach(p=>{
+    const tile = document.getElementById(`dashPlatform-${p}`);
+    if(!tile) return;
+    tile.addEventListener('click', ()=>{
+      if(tile.dataset.target === 'analytics') goToAnalyticsPlatform(p);
+      else showPage('platforms');
+      closeMobileSidebar();
+    });
+  });
 
   // ================= Accounts (management) page =================
   function renderAcctMgmtPage(){

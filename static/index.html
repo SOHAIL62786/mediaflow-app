@@ -824,15 +824,15 @@
       </div>
 
       <div class="dash-platforms" id="dashPlatforms">
-        <div class="dash-platform-tile" id="dashPlatform-youtube" data-goto="platforms">
+        <div class="dash-platform-tile" id="dashPlatform-youtube" data-platform="youtube" data-target="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/></svg>
           <span>YouTube</span><span class="dash-platform-count" id="dashPlatformCount-youtube"><span class="count-skeleton"></span></span><span class="status-dot"></span>
         </div>
-        <div class="dash-platform-tile" id="dashPlatform-facebook" data-goto="platforms">
+        <div class="dash-platform-tile" id="dashPlatform-facebook" data-platform="facebook" data-target="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M15.5 12.2h-2.1V19h-2.8v-6.8H9.1V9.9h1.5V8.4c0-1.5.8-3 3.2-3h2v2.3h-1.5c-.3 0-.7.2-.7.9v1.3h2.3l-.4 2.3z" fill="#fff"/></svg>
           <span>Facebook</span><span class="dash-platform-count" id="dashPlatformCount-facebook"><span class="count-skeleton"></span></span><span class="status-dot"></span>
         </div>
-        <div class="dash-platform-tile" id="dashPlatform-instagram" data-goto="platforms">
+        <div class="dash-platform-tile" id="dashPlatform-instagram" data-platform="instagram" data-target="platforms">
           <svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="igdash" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#FEDA75"/><stop offset="35%" stop-color="#D62976"/><stop offset="65%" stop-color="#962FBF"/><stop offset="100%" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igdash)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
           <span>Instagram</span><span class="dash-platform-count" id="dashPlatformCount-instagram"><span class="count-skeleton"></span></span><span class="status-dot"></span>
         </div>
@@ -2217,11 +2217,15 @@
         const info = data[p] || {};
         tile.classList.toggle('connected', !!info.connected);
         const count = p === 'youtube' ? info.subscribers : info.followers;
+        const countShown = info.connected && count !== undefined && count !== null;
         if(countEl){
-          countEl.textContent = (info.connected && count !== undefined && count !== null)
-            ? `${fmtCompact(count)} ${LABEL[p]}`
-            : '';
+          countEl.textContent = countShown ? `${fmtCompact(count)} ${LABEL[p]}` : '';
         }
+        // Count successfully shown -> clicking jumps straight to that
+        // platform's Analytics. Not connected, or connected but the count
+        // itself couldn't be fetched (API error upstream) -> Platforms,
+        // same as before, so the person lands somewhere they can act on it.
+        tile.dataset.target = countShown ? 'analytics' : 'platforms';
       });
     }catch(err){
       // Fetch failed — stop the skeletons from shimmering forever; leave
@@ -2229,9 +2233,32 @@
       ['youtube','facebook','instagram'].forEach(p=>{
         const countEl = document.getElementById(`dashPlatformCount-${p}`);
         if(countEl) countEl.textContent = '';
+        const tile = document.getElementById(`dashPlatform-${p}`);
+        if(tile) tile.dataset.target = 'platforms';
       });
     }
   }
+
+  // Pre-selects a platform's card in the Analytics page's platform-pick row
+  // (same single-select logic as clicking a card there directly) and opens
+  // Analytics already filtered to it.
+  function goToAnalyticsPlatform(platform){
+    currentAnalyticsPlatform = platform;
+    document.querySelectorAll('.platform-pick').forEach(c=>{
+      c.classList.toggle('selected', c.dataset.platform === platform);
+    });
+    showPage('analytics');
+  }
+
+  ['youtube','facebook','instagram'].forEach(p=>{
+    const tile = document.getElementById(`dashPlatform-${p}`);
+    if(!tile) return;
+    tile.addEventListener('click', ()=>{
+      if(tile.dataset.target === 'analytics') goToAnalyticsPlatform(p);
+      else showPage('platforms');
+      closeMobileSidebar();
+    });
+  });
 
   // ================= Accounts (management) page =================
   function renderAcctMgmtPage(){
